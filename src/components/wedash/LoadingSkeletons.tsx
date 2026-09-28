@@ -536,7 +536,7 @@ function FieldSkeleton() {
   );
 }
 
-/** Detalhe da loja: Funcionamento · Custos da operação · Turnos · Equipe. */
+/** Detalhe da loja: Funcionamento · Configuração da operação · Turnos · Equipe. */
 export function StoreDetailSkeleton({ showCosts = true }: { showCosts?: boolean }) {
   return (
     <Busy className="flex max-w-[720px] flex-col gap-5">
@@ -557,11 +557,16 @@ export function StoreDetailSkeleton({ showCosts = true }: { showCosts?: boolean 
       {showCosts && (
         <Card>
           <CardHead sub />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {Array.from({ length: 5 }, (_, i) => (
-              <FieldSkeleton key={i} />
-            ))}
-          </div>
+          {[2, 1, 3].map((n, g) => (
+            <div key={g} className={g > 0 ? "mt-5 border-t border-line pt-5" : undefined}>
+              <Skeleton className="mb-3 h-3.5 w-24" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {Array.from({ length: n }, (_, i) => (
+                  <FieldSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+          ))}
         </Card>
       )}
       <Card>

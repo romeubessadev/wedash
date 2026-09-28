@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Avatar,
@@ -127,7 +127,7 @@ function parseCosts(txt: Record<PctKey, string>, base: StoreCosts): StoreCosts |
   };
 }
 
-/** Configurações > Lojas > detalhe — funcionamento (fuso + horário) e custos da operação. Cada card salva no seu botão. */
+/** Configurações > Lojas > detalhe — funcionamento (fuso + horário) e configuração da operação. Cada card salva no seu botão. */
 export function StoreDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -262,14 +262,14 @@ function StoreDetailForm({
 
   const [savedCostsTxt, setSavedCostsTxt] = useState(() => custosParaTexto(store.custos ?? EMPTY_STORE_COSTS));
   const [custosTxt, setCustosTxt] = useState(savedCostsTxt);
-  const [savingCosts, setSavingCosts] = useState(false);
   const [costTables, setCostTables] = useState<CostTable[]>([]);
   const [savedCostTable, setSavedCostTable] = useState<number | null>(store.costTableId ?? null);
   const [costTable, setCostTable] = useState<number | null>(savedCostTable);
-  const [savingCostTable, setSavingCostTable] = useState(false);
+  const [savingOperation, setSavingOperation] = useState(false);
   const [syncingTables, setSyncingTables] = useState(false);
   const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt);
   const costTableDirty = costTable !== savedCostTable;
+  const operationDirty = costsDirty || costTableDirty;
 
   useEffect(() => {
     if (!showCosts) return;
@@ -455,24 +455,42 @@ function StoreDetailForm({
     changeHours(next);
   }
 
-  async function saveCosts() {
+  /** Percentuais + tabela de custo num botão só. Tabela nova busca os preços no ERP antes; falhou = nada é gravado. */
+  async function saveOperation() {
     const custos = parseCosts(custosTxt, store.custos ?? EMPTY_STORE_COSTS);
     if (!custos) {
-      show("Confira os custos: use percentuais entre 0 e 100 (ex.: 5 ou 2,5).", "danger");
+      show("Confira os percentuais: use valores entre 0 e 100 (ex.: 5 ou 2,5).", "danger");
       return;
     }
-    setSavingCosts(true);
-    const ok = await run(() => updateStoreCosts(store.id, custos));
-    setSavingCosts(false);
+    setSavingOperation(true);
+    if (costTableDirty && costTable != null) {
+      const prices = await syncProductsNow({ scope: "table", tableId: costTable });
+      if (!prices.ok) {
+        setSavingOperation(false);
+        show(prices.message, "danger");
+        return;
+      }
+    }
+    const ok = await run(async () => {
+      if (costsDirty) {
+        const r = await updateStoreCosts(store.id, custos);
+        if (!r.ok) return r;
+      }
+      if (costTableDirty) return updateStoreCostTable(store.id, costTable);
+      return { ok: true };
+    });
+    setSavingOperation(false);
     if (ok) {
       const txt = custosParaTexto(custos);
       setSavedCostsTxt(txt);
       setCustosTxt(txt);
+      setSavedCostTable(costTable);
     }
   }
 
-  function resetCosts() {
+  function resetOperation() {
     setCustosTxt(savedCostsTxt);
+    setCostTable(savedCostTable);
   }
 
   async function atualizarTabelas() {
@@ -485,21 +503,6 @@ function StoreDetailForm({
       return;
     }
     show("Tabelas de custo atualizadas.", "success");
-  }
-
-  async function saveCostTable() {
-    setSavingCostTable(true);
-    if (costTable != null) {
-      const prices = await syncProductsNow({ scope: "table", tableId: costTable });
-      if (!prices.ok) {
-        setSavingCostTable(false);
-        show(prices.message, "danger");
-        return;
-      }
-    }
-    const ok = await run(() => updateStoreCostTable(store.id, costTable));
-    setSavingCostTable(false);
-    if (ok) setSavedCostTable(costTable);
   }
 
   const copySource = DOWS.find((d) => hours[d] != null);
@@ -619,86 +622,79 @@ function StoreDetailForm({
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Custos da operação</CardTitle>
-              <CardSubtitle>Custos em % · entram no Financeiro</CardSubtitle>
+              <CardTitle>Configuração da operação</CardTitle>
+              <CardSubtitle>Parâmetros utilizados pelo WeDash para calcular custos, margens e resultados da operação.</CardSubtitle>
             </div>
           </CardHeader>
           <form
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
             onSubmit={(e) => {
               e.preventDefault();
-              void saveCosts();
+              void saveOperation();
             }}
           >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {pctField("royaltiesWepinkPct", "Royalties WEPINK")}
-              {pctField("marketingWepinkPct", "Taxa de marketing WEPINK")}
-              {store.temWpink && pctField("royaltiesWpinkPct", "Royalties WPINK")}
-              {store.temWpink && pctField("marketingWpinkPct", "Taxa de marketing WPINK")}
-              {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
-              {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
-              {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total (aluguel variável do shopping)")}
-            </div>
-            {canEdit && <FormActions dirty={costsDirty} saving={savingCosts} onReset={resetCosts} />}
-          </form>
-        </Card>
-        )}
+            <OperationSection title="Franquia">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {pctField("royaltiesWepinkPct", store.temWpink ? "Royalties WEPINK" : "Royalties")}
+                {pctField("marketingWepinkPct", store.temWpink ? "Taxa de marketing WEPINK" : "Taxa de marketing")}
+                {store.temWpink && pctField("royaltiesWpinkPct", "Royalties WPINK")}
+                {store.temWpink && pctField("marketingWpinkPct", "Taxa de marketing WPINK")}
+              </div>
+            </OperationSection>
 
-        {showCosts && (
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Custo dos produtos</CardTitle>
-              <CardSubtitle>Tabela de custo do Millennium · entra no CMV</CardSubtitle>
-            </div>
-            {canEdit && (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => void atualizarTabelas()}
-                disabled={syncingTables}
-                title="Busca no Millennium a lista de tabelas de custo"
-                icon={syncingTables ? undefined : <RefreshIcon />}
-              >
-                {syncingTables ? "Atualizando…" : "Atualizar"}
-              </Button>
-            )}
-          </CardHeader>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void saveCostTable();
-            }}
-          >
-            <FormField
-              label="Tabela de custo"
-              hint="Usada quando o Millennium traz um produto vendido sem custo. Escolhida automaticamente pela tabela mais próxima dos custos da loja."
+            <OperationSection title="Aluguel">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total")}
+              </div>
+            </OperationSection>
+
+            <OperationSection
+              title="Produtos e impostos"
+              action={
+                canEdit ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void atualizarTabelas()}
+                    disabled={syncingTables}
+                    title="Busca no Millennium a lista de tabelas de custo"
+                    icon={syncingTables ? undefined : <RefreshIcon />}
+                  >
+                    {syncingTables ? "Atualizando…" : "Atualizar tabelas"}
+                  </Button>
+                ) : undefined
+              }
             >
-              <Select
-                value={costTable == null ? "" : String(costTable)}
-                disabled={!canEdit || (costTables.length === 0 && costTable == null)}
-                onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
-                {costTable != null && !costTables.some((t) => t.id === costTable) && (
-                  <option value={String(costTable)}>Tabela {costTable}</option>
-                )}
-                {costTables.map((t) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {t.code} · {t.description}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-            {canEdit && (
-              <FormActions
-                dirty={costTableDirty}
-                saving={savingCostTable}
-                onReset={() => setCostTable(savedCostTable)}
-              />
-            )}
+              <div className="flex flex-col gap-4">
+                <FormField
+                  label="Tabela de custo dos produtos"
+                  hint="Usada quando o Millennium traz um produto vendido sem custo. Escolhida automaticamente pela tabela mais próxima dos custos da loja."
+                >
+                  <Select
+                    value={costTable == null ? "" : String(costTable)}
+                    disabled={!canEdit || (costTables.length === 0 && costTable == null)}
+                    onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
+                    {costTable != null && !costTables.some((t) => t.id === costTable) && (
+                      <option value={String(costTable)}>Tabela {costTable}</option>
+                    )}
+                    {costTables.map((t) => (
+                      <option key={t.id} value={String(t.id)}>
+                        {t.code} · {t.description}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
+                  {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
+                </div>
+              </div>
+            </OperationSection>
+
+            {canEdit && <FormActions dirty={operationDirty} saving={savingOperation} onReset={resetOperation} />}
           </form>
         </Card>
         )}
@@ -842,6 +838,19 @@ function StoreDetailForm({
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Grupo do card Configuração da operação: título + ação opcional, divisória entre grupos. */
+function OperationSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 border-t border-line pt-5 first:border-t-0 first:pt-0">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        <h3 className="text-[13px] font-bold text-t0">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
