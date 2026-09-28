@@ -11,19 +11,16 @@ export function lastUpdatedLabel(at: Date, now: Date = new Date()): string {
   return `Última atualização em ${dia(at)} às ${hora}`;
 }
 
-/** Linha abaixo dos filtros das telas: quando os dados do ERP foram atualizados pela última vez. */
+/** Linha abaixo dos filtros das telas: quando os dados do ERP foram atualizados pela última vez (sem sync ainda = nada). */
 export function LastUpdated() {
   const session = useActiveSession();
   const [at, setAt] = useState<Date | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setAt(await fetchSyncWatermark(session.tenantId));
     } catch (e) {
       console.warn("LastUpdated:", e);
-    } finally {
-      setLoaded(true);
     }
   }, [session.tenantId]);
 
@@ -34,8 +31,6 @@ export function LastUpdated() {
     return () => window.removeEventListener(SALES_SYNCED_EVENT, onSynced);
   }, [load]);
 
-  if (!loaded) return null;
-  return (
-    <span className="text-[11.5px] text-t2">{at ? lastUpdatedLabel(at) : "Aguardando a primeira sincronização"}</span>
-  );
+  if (!at) return null;
+  return <span className="text-[11.5px] text-t2">{lastUpdatedLabel(at)}</span>;
 }
