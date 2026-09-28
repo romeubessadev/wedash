@@ -178,7 +178,7 @@ export function separarNome(completo: string): Pick<DadosPessoais, "nome" | "sob
   return { nome, sobrenome: resto.join(" ") };
 }
 
-/** Nome · Sobrenome · Celular · E-mail (só leitura) — cadastro pessoal do primeiro acesso. */
+/** Nome · Sobrenome · Celular — cadastro pessoal do primeiro acesso (o e-mail/login vai no subtítulo da tela). */
 export function CamposPessoais({
   valor,
   onChange,
@@ -212,9 +212,8 @@ export function CamposPessoais({
           className={cn(erroTelefone && inputErro)}
         />
       </FormField>
-      <FormField label="E-mail" hint="É o seu login. Não pode ser alterado aqui.">
-        <Input value={email} readOnly disabled type="email" />
-      </FormField>
+      {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
+      <input type="email" name="username" autoComplete="username" value={email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
     </>
   );
 }

@@ -78,7 +78,9 @@ export function ChangePassword() {
 
         <div className="w-full max-w-[400px]">
           <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie seu acesso</h1>
-          <p className="mb-7 text-sm text-t2">Seus dados e uma senha só sua. Depois conectamos o Millennium e confirmamos suas lojas.</p>
+          <p className="mb-7 text-sm text-t2">
+            Seus dados e uma senha só sua. Seu login é <span className="font-bold text-t0">{session.email}</span>.
+          </p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
             <CamposPessoais valor={dados} onChange={(p) => setDados((d) => ({ ...d, ...p }))} email={session.email} autoFocus />
