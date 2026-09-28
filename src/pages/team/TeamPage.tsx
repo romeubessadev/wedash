@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { Button, Card, CardHeader, CardTitle, DateRangePicker, Dropdown, PageHeader, Pagination, StatCard, ThSort, type SortDir } from "@/components/ui";
+import { Button, Card, CardHeader, CardTitle, DateRangePicker, Dropdown, PageHeader, Pagination, StatCard, Tabs, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -23,6 +23,9 @@ import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { TeamSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
+import { BlocoRanking } from "@/pages/live/blocos";
+import type { RankingRow } from "@/data/wedash/live";
 import { MOBILE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 import { TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_MOBILE } from "@/lib/usePagedRows";
 import { brlCent, deIso, num, tipRelacao } from "@/lib/format";
@@ -283,6 +286,13 @@ export function TeamPage() {
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
   const rankPorKey = new Map(view.pessoas.map((p, i) => [p.key, i]));
+  const podio: RankingRow[] = view.pessoas.slice(0, 3).map((p, i) => ({
+    posicao: i + 1,
+    colaboradorId: p.key,
+    nome: p.nome,
+    vendas: p.vendas,
+    faturamento: p.faturamento,
+  }));
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -481,170 +491,221 @@ export function TeamPage() {
             </Card>
           </div>
 
-          {/* Desempenho da equipe — tabela + Total + cards mobile */}
-          <Card className="mt-4" padding="none">
-            <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Desempenho da equipe</CardTitle>
-                <TipHelp label={"Faturamento, vendas, ticket médio e P.A. de cada pessoa da equipe no período.\n\nVendas sem vendedor ou de gerência ficam fora do ranking."} />
-              </div>
-              {temVendasEquipe && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="search"
-                    placeholder="Buscar por nome…"
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    className={cn(filtroInputClass, "sm:w-56")}
-                  />
-                  <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
-                    Exportar CSV
-                  </Button>
-                </div>
-              )}
+          {/* Desempenho da equipe — abas Ranking · Desafios · Metas (mesmo card do Ao vivo) */}
+          <Card className="mt-4 min-w-0 overflow-hidden" padding="lg">
+            <div className="mb-4 flex items-center gap-1.5">
+              <CardTitle>Desempenho da equipe</CardTitle>
+              <TipHelp label={"Ranking, desafios e metas de cada pessoa da equipe no período.\n\nVendas sem vendedor ou de gerência ficam fora do ranking."} />
             </div>
-
-            {/* Desktop */}
-            <div className="hidden overflow-x-auto p-4 md:block">
-              {linhasTabela.length === 0 ? (
-                <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
-              ) : (
-                <table className="w-full min-w-[900px] border-collapse text-[13px]">
-                  <thead>
-                    <tr className="border-b-2 border-line">
-                      <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">#</th>
-                      <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
-                      <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">Turno</th>
-                      <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
-                      <ThSort label="Nº de vendas" active={sortKey === "vendas"} dir={sortDir} onClick={() => toggleSort("vendas")} />
-                      <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} />
-                      <ThSort label="P.A." active={sortKey === "pa"} dir={sortDir} onClick={() => toggleSort("pa")} />
-                      <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
-                      <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageRows.map((p) => {
-                      const rank = rankPorKey.get(p.key) ?? 0;
-                      const turno = partesTurno(p.turno);
-                      const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
-                      return (
-                        <tr key={p.key} className="border-b border-line hover:bg-bg-3">
-                          <td className="px-3 py-2.5 text-center text-[13px] font-extrabold text-t2">{rank + 1}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <AvatarIniciais nome={p.nome} idx={rank} />
-                              <div className="min-w-0">
-                                <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                                {loja &&
-                                  (p.lojas.length > 1 ? (
-                                    <Tooltip label={p.lojas.join(" · ")}>
-                                      <p className="truncate text-[11px] text-t2">{loja}</p>
-                                    </Tooltip>
-                                  ) : (
-                                    <p className="truncate text-[11px] text-t2">{loja}</p>
-                                  ))}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <p className={cn("text-[12.5px] font-semibold", p.turno ? "text-t1" : "text-t2")}>{turno.nome}</p>
-                            {turno.horario && <p className="text-[11px] text-t2">{turno.horario}</p>}
-                          </td>
-                          <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brlCent(p.faturamento)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.vendas)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brlCent(p.ticketMedio)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{paFmt(p.pa)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.participacaoPct)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums">
-                            <Tooltip label={tipVariacao}>
-                              <span>
-                                <Variacao v={p.variacaoPct} />
-                              </span>
-                            </Tooltip>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    <tr className="border-t-2 border-line bg-bg-inset">
-                      <td className="px-3 py-3" />
-                      <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0" colSpan={2}>
-                        <span className="inline-flex items-center gap-1">
-                          Total do filtro
-                          <TipHelp label="Soma todas as pessoas encontradas no filtro, inclusive as que não aparecem nesta página." />
-                        </span>
-                        <span className="mt-0.5 block text-[11px] font-semibold text-t2">
-                          {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
-                      <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.vendas)}</td>
-                      <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brlCent(totalTabela.ticketMedio)}</td>
-                      <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{paFmt(totalTabela.pa)}</td>
-                      <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{pctFmt(totalTabela.participacaoPct)}</td>
-                      <td className="px-3 py-3" />
-                    </tr>
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Mobile — card por pessoa */}
-            <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
-              {pageRows.length === 0 ? (
-                <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
-              ) : (
-                pageRows.map((p) => {
-                  const rank = rankPorKey.get(p.key) ?? 0;
-                  const turno = partesTurno(p.turno);
-                  const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
-                  return (
-                    <div key={p.key} className="rounded-xl border border-line bg-bg-inset p-3.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <AvatarIniciais nome={p.nome} idx={rank} />
-                          <div className="min-w-0">
-                            <p className="truncate text-[13.5px] font-bold text-t0">
-                              {rank + 1}. {p.nome}
-                            </p>
-                            <p className="mt-0.5 truncate text-[11px] font-semibold text-t2">
-                              {[loja, turno.horario ? `${turno.nome} · ${turno.horario}` : turno.nome].filter(Boolean).join(" · ")}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-xs">
-                          <Variacao v={p.variacaoPct} />
-                        </span>
-                      </div>
-                      <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
-                    </div>
-                  );
-                })
-              )}
-              {linhasTabela.length > 0 && (
-                <div className="rounded-xl border border-line bg-bg-3 p-3.5">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total do filtro</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-t2">
-                    {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
-                  </p>
-                  <GradeMetricas m={totalTabela} className="mt-2" destaque />
-                </div>
-              )}
-            </div>
-
-            {linhasTabela.length > 0 && totalPages > 1 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5">
-                <span className="text-[12.5px] text-t2">
-                  Mostrando {pageRows.length} de {num(linhasTabela.length)} pessoas
-                </span>
-                <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />
-              </div>
-            )}
+            <Tabs
+              variant="accent"
+              defaultKey="ranking"
+              items={[
+                {
+                  key: "ranking",
+                  label: "Ranking",
+                  icon: <TrophyIcon size={14} />,
+                  content: !temVendasEquipe ? <EmptyBlock /> : abaRanking(),
+                },
+                {
+                  key: "desafios",
+                  label: "Desafios",
+                  icon: <FlameIcon size={14} />,
+                  content: (
+                    <EmptyBlock
+                      icon="🔥"
+                      title="Desafio não configurado"
+                      description="Crie um desafio para engajar a equipe e acompanhar o progresso de cada pessoa."
+                      action={
+                        <Button size="sm" onClick={() => navigate(paths.settings.challenges)}>
+                          Criar desafio
+                        </Button>
+                      }
+                    />
+                  ),
+                },
+                {
+                  key: "metas",
+                  label: "Metas",
+                  icon: <TargetIcon size={14} />,
+                  content: (
+                    <EmptyBlock
+                      icon="🎯"
+                      title="Meta não configurada"
+                      description="Cadastre a meta do mês para acompanhar o atingimento de cada pessoa da equipe."
+                      action={
+                        <Button size="sm" onClick={() => navigate(paths.goals)}>
+                          Criar meta
+                        </Button>
+                      }
+                    />
+                  ),
+                },
+              ]}
+            />
           </Card>
         </>
       )}
     </div>
   );
+
+  function abaRanking() {
+    return (
+      <div className="flex flex-col">
+        <BlocoRanking ranking={podio} formatValor={brlCent} />
+
+        <div className="mt-6 flex flex-col gap-2 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-end">
+          <input
+            type="search"
+            placeholder="Buscar por nome…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className={cn(filtroInputClass, "sm:w-56")}
+          />
+          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
+            Exportar CSV
+          </Button>
+        </div>
+
+        {/* Desktop */}
+        <div className="mt-3 hidden overflow-x-auto md:block">
+          {linhasTabela.length === 0 ? (
+            <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
+          ) : (
+            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b-2 border-line">
+                  <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">#</th>
+                  <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
+                  <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">Turno</th>
+                  <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
+                  <ThSort label="Nº de vendas" active={sortKey === "vendas"} dir={sortDir} onClick={() => toggleSort("vendas")} />
+                  <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} />
+                  <ThSort label="P.A." active={sortKey === "pa"} dir={sortDir} onClick={() => toggleSort("pa")} />
+                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
+                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((p) => {
+                  const rank = rankPorKey.get(p.key) ?? 0;
+                  const turno = partesTurno(p.turno);
+                  const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
+                  return (
+                    <tr key={p.key} className="border-b border-line hover:bg-bg-3">
+                      <td className="px-3 py-2.5 text-center text-[13px] font-extrabold text-t2">{rank + 1}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <AvatarIniciais nome={p.nome} idx={rank} />
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                            {loja &&
+                              (p.lojas.length > 1 ? (
+                                <Tooltip label={p.lojas.join(" · ")}>
+                                  <p className="truncate text-[11px] text-t2">{loja}</p>
+                                </Tooltip>
+                              ) : (
+                                <p className="truncate text-[11px] text-t2">{loja}</p>
+                              ))}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <p className={cn("text-[12.5px] font-semibold", p.turno ? "text-t1" : "text-t2")}>{turno.nome}</p>
+                        {turno.horario && <p className="text-[11px] text-t2">{turno.horario}</p>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brlCent(p.faturamento)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.vendas)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brlCent(p.ticketMedio)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{paFmt(p.pa)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.participacaoPct)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        <Tooltip label={tipVariacao}>
+                          <span>
+                            <Variacao v={p.variacaoPct} />
+                          </span>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t-2 border-line bg-bg-inset">
+                  <td className="px-3 py-3" />
+                  <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0" colSpan={2}>
+                    <span className="inline-flex items-center gap-1">
+                      Total do filtro
+                      <TipHelp label="Soma todas as pessoas encontradas no filtro, inclusive as que não aparecem nesta página." />
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-semibold text-t2">
+                      {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.vendas)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brlCent(totalTabela.ticketMedio)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{paFmt(totalTabela.pa)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{pctFmt(totalTabela.participacaoPct)}</td>
+                  <td className="px-3 py-3" />
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Mobile — card por pessoa */}
+        <div className="mt-3 flex flex-col gap-2.5 md:hidden">
+          {pageRows.length === 0 ? (
+            <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
+          ) : (
+            pageRows.map((p) => {
+              const rank = rankPorKey.get(p.key) ?? 0;
+              const turno = partesTurno(p.turno);
+              const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
+              return (
+                <div key={p.key} className="rounded-xl border border-line bg-bg-inset p-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <AvatarIniciais nome={p.nome} idx={rank} />
+                      <div className="min-w-0">
+                        <p className="truncate text-[13.5px] font-bold text-t0">
+                          {rank + 1}. {p.nome}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] font-semibold text-t2">
+                          {[loja, turno.horario ? `${turno.nome} · ${turno.horario}` : turno.nome].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-xs">
+                      <Variacao v={p.variacaoPct} />
+                    </span>
+                  </div>
+                  <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
+                </div>
+              );
+            })
+          )}
+          {linhasTabela.length > 0 && (
+            <div className="rounded-xl border border-line bg-bg-3 p-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total do filtro</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-t2">
+                {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
+              </p>
+              <GradeMetricas m={totalTabela} className="mt-2" destaque />
+            </div>
+          )}
+        </div>
+
+        {linhasTabela.length > 0 && totalPages > 1 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
+            <span className="text-[12.5px] text-t2">
+              Mostrando {pageRows.length} de {num(linhasTabela.length)} pessoas
+            </span>
+            <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />
+          </div>
+        )}
+      </div>
+    );
+  }
 }
 
 /** Mesmo desenho do gatilho do DateRangePicker (sm). */

@@ -22,7 +22,13 @@ const PODIO_ALTURA: Record<1 | 2 | 3, string> = {
 const PODIO_ORDEM = [1, 0, 2] as const;
 
 /** Pódio top 3 — aba Ranking (ouro / prata / bronze; degrau na cor primária). */
-export function BlocoRanking({ ranking }: { ranking: RankingRow[] }) {
+export function BlocoRanking({
+  ranking,
+  formatValor = brlK,
+}: {
+  ranking: RankingRow[];
+  formatValor?: (v: number) => string;
+}) {
   if (ranking.length === 0) {
     return (
       <EmptyState
@@ -70,7 +76,7 @@ export function BlocoRanking({ ranking }: { ranking: RankingRow[] }) {
             <p className="truncate text-[13px] font-bold text-t0 sm:text-[14px]">{l.nome.split(" ")[0]}</p>
             <p className="mt-0.5 text-[11px] font-semibold text-t2">{num(l.vendas)} vendas</p>
             <p className="mt-0.5 font-mono text-[13px] font-extrabold sm:text-[14px]" style={{ color: medal.cor }}>
-              {brlK(l.faturamento)}
+              {formatValor(l.faturamento)}
             </p>
 
             <div
