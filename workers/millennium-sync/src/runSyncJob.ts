@@ -2116,9 +2116,10 @@ async function syncOnboardingRegistry(job: SyncJob, deps: SyncJobDeps): Promise<
 }
 
 /**
- * Atualizar cadastros (Configurações > Integrações): tudo do Millennium que não é venda —
- * lojas (nome, fantasia, CNPJ, inauguração), gerador de cada loja, colaboradores de cada loja
- * (consulta todo mundo) e produtos (tipos, catálogo, tabelas de custo e preços), sempre recarregados.
+ * Atualizar cadastros (Configurações > Integrações): lojas (nome, fantasia, CNPJ, inauguração),
+ * gerador de cada loja e a lista de tabelas de custo do ERP (opções do Select, sem preços).
+ * Produtos, preços e colaboradores ficam nos gatilhos automáticos (produto/vendedor desconhecido,
+ * troca de tabela) e no Atualizar de Gestão > Colaboradores.
  * Cada parte segue se outra falhar; alguma falhou → job FAILED com a lista. Sessão caída interrompe.
  */
 async function runRegistryJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncResult> {
@@ -2193,38 +2194,13 @@ async function runRegistryJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncR
       });
     }
 
-    const { loadSellerDirectory, fetchStoreSellers, syncStoreSellers } = deps;
-    if (loadSellerDirectory && fetchStoreSellers && syncStoreSellers) {
-      const teamFailed: string[] = [];
-      const linker = createSellerLinker({
-        deps: { loadSellerDirectory, fetchStoreSellers, syncStoreSellers },
-        tenantId: job.tenantId,
-        getSession: () => session,
-        now: () => deps.now(),
-        log: (_level, _message, store) => teamFailed.push(store.code),
-        isSessionDead: isSessionDeadError,
-      });
-      for (const store of stores) {
-        console.log(`  Colaboradores · ${store.code}${store.name ? ` · ${store.name}` : ""}`);
-        await linker.syncStore(store, { full: true });
-      }
-      if (teamFailed.length > 0) failed.push(`colaboradores (${teamFailed.join(", ")})`);
-    }
-
     if (deps.catalog) {
       const catalog = deps.catalog;
-      await step("produtos e tabelas de custo", async () => {
-        const r = await ensureProductCatalog(catalog, {
-          session,
-          seen: [],
-          guard: { attempted: false },
-          owner: `worker-${process.pid}`,
-          force: true,
-        });
-        if (r.status === "skipped") throw new Error("recarga de produtos em andamento em outro job");
-        if (r.status === "refreshed") {
-          console.log(`  Produtos · ${r.products} produtos · ${r.tables} tabelas de custo (${r.prices} preços) · ${r.calls} chamadas ao ERP`);
-        }
+      await step("tabelas de custo", async () => {
+        const tables = await catalog.fetchCostTables(session);
+        if (tables.length === 0) throw new Error("lookup de tabelas de custo voltou vazio");
+        await catalog.saveCostTables(tables);
+        console.log(`  Tabelas de custo · ${tables.length} disponível(is)`);
       });
     }
   } catch (e) {
