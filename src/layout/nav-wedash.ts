@@ -14,6 +14,20 @@ const ICONE = {
   /** Ondas de transmissão — “ao vivo” / tempo real (não raio). */
   aoVivo: "M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.1 19.1 19M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0",
   perfil: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  gestao: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+};
+
+/** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */
+const gestao: NavEntry = {
+  label: "Gestão",
+  description: "Área de gerenciamento da operação e da equipe.",
+  icon: ICONE.gestao,
+  items: [
+    { label: "Metas", to: paths.goals },
+    { label: "Desafios", to: paths.management.challenges },
+    { label: "Turnos", to: paths.management.shifts },
+    { label: "Colaboradores", to: paths.management.staff },
+  ],
 };
 
 const navGestor: NavEntry[] = [
@@ -28,20 +42,21 @@ const navGestor: NavEntry[] = [
     ],
   },
   { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.live.root },
-  { label: "Metas", icon: ICONE.meta, to: paths.goals },
+  gestao,
   {
-    label: "Configurações",
+    label: "Configurações da operação",
+    description: "Parâmetros usados pelo WeDash para calcular custos, margens e resultados da operação.",
     icon: ICONE.config,
     items: [
-      { label: "Lojas", to: paths.settings.stores },
-      { label: "Usuários", to: paths.settings.users },
-      { label: "Integrações", to: paths.settings.erp },
-      { label: "Logs", to: paths.settings.logs },
+      { label: "Custos", to: paths.operation.costs },
+      { label: "Franquia", to: paths.operation.franchise },
+      { label: "Aluguel", to: paths.operation.rent },
+      { label: "Produtos e impostos", to: paths.operation.productsTaxes },
     ],
   },
 ];
 
-/** Gerente: sem Financeiro; Configurações só Lojas (sem custos). */
+/** Gerente: sem Financeiro nem Configurações da operação. Lojas fica no menu do avatar. */
 const navGerente: NavEntry[] = [
   {
     label: "Dashboard",
@@ -53,11 +68,10 @@ const navGerente: NavEntry[] = [
     ],
   },
   { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.live.root },
-  { label: "Metas", icon: ICONE.meta, to: paths.goals },
-  { label: "Configurações", icon: ICONE.config, to: paths.settings.stores },
+  gestao,
 ];
 
-/** Telas só do Gestor (Financeiro, Usuários, Integrações, Logs, custos da loja). */
+/** Telas só do Gestor (Financeiro, Configurações da operação, Usuários, Integrações, Logs). */
 export const GESTOR_ROLES: Role[] = ["OWNER", "ADMIN_GLOBAL"];
 
 export function isGestor(role: Role): boolean {

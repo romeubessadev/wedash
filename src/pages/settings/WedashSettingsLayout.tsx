@@ -14,7 +14,7 @@ const TABS = [
 const META: Record<string, { title: string; subtitle: string }> = {
   [paths.settings.stores]: {
     title: "Lojas",
-    subtitle: "Funcionamento e custos de cada loja",
+    subtitle: "Funcionamento de cada loja",
   },
   [paths.settings.users]: {
     title: "Usuários",
@@ -31,7 +31,7 @@ const META: Record<string, { title: string; subtitle: string }> = {
 };
 
 /**
- * Shell de Configurações WeDash — mesmo padrão Vela (sidebar + TabNav).
+ * Shell de Administração (menu do avatar) — mesmo padrão Vela (TabNav).
  * Gerente vê só Lojas (sem abas).
  */
 export function WedashSettingsLayout() {
@@ -44,9 +44,9 @@ export function WedashSettingsLayout() {
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: "Configurações" }, { label: meta.title }]}
+        crumbs={[{ label: "Administração" }, { label: meta.title }]}
         title={meta.title}
-        subtitle={gestor ? meta.subtitle : "Funcionamento de cada loja"}
+        subtitle={meta.subtitle}
       />
       {tabs.length > 1 && <TabNav items={tabs.map(({ label, to }) => ({ label, to }))} />}
       <div className="mt-6">

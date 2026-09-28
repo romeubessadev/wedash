@@ -494,20 +494,9 @@ export default function FinancePage() {
             <EmptyBlock
               icon="🧾"
               title="Custos não configurados"
-              description="Configure royalties, marketing e aluguel para acompanhar o resultado operacional."
+              description="Configure custos, franquia e aluguel para acompanhar o resultado operacional."
               action={
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    const lojaId =
-                      escopo.filialIds.length === 1
-                        ? escopo.filialIds[0]
-                        : session.stores.length === 1
-                          ? session.stores[0]
-                          : undefined;
-                    navigate(lojaId ? paths.settings.storeDetail(lojaId) : paths.settings.stores);
-                  }}
-                >
+                <Button size="sm" onClick={() => navigate(paths.operation.costs)}>
                   Configurar custos
                 </Button>
               }

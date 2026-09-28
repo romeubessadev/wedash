@@ -30,6 +30,21 @@ export interface Store {
   custos?: StoreCosts;
   /** Tabela de custo do Millennium: completa o custo de produto que vem zerado na margem. */
   costTableId?: number | null;
+  /** Custos fixos / variáveis / outras despesas (Configurações da operação > Custos). */
+  custoItens?: StoreCostItem[];
+}
+
+/** FIXED e OTHER em R$/mês (rateados por dia); VARIABLE em % do faturamento. */
+export type StoreCostKind = "FIXED" | "VARIABLE" | "OTHER";
+
+export interface StoreCostItem {
+  id?: string;
+  kind: StoreCostKind;
+  name: string;
+  /** R$/mês (FIXED, OTHER). */
+  amount: number | null;
+  /** % do faturamento (VARIABLE). */
+  pct: number | null;
 }
 
 /** Tabela de custo do Millennium (product_cost_table). */
@@ -39,7 +54,7 @@ export interface CostTable {
   description: string;
 }
 
-/** % sobre o faturamento da marca; aluguel fixo em R$/mês. null = não configurado. */
+/** % sobre o faturamento da marca; aluguel mínimo em R$/mês. null = não configurado. */
 export interface StoreCosts {
   royaltiesWepinkPct: number | null;
   royaltiesWpinkPct: number | null;
@@ -47,7 +62,8 @@ export interface StoreCosts {
   marketingWpinkPct: number | null;
   rentWepinkPct: number | null;
   rentWpinkPct: number | null;
-  rentFixed: number | null;
+  /** Aluguel mínimo R$/mês: o aluguel do mês é o maior entre ele e o % do faturamento. */
+  rentMin: number | null;
   /** ICMS % sobre o faturamento da loja (as duas marcas). */
   icmsPct: number | null;
   /** ICMS ST % sobre o custo dos produtos vendidos (CMV). */
@@ -61,7 +77,7 @@ export const EMPTY_STORE_COSTS: StoreCosts = {
   marketingWpinkPct: null,
   rentWepinkPct: null,
   rentWpinkPct: null,
-  rentFixed: null,
+  rentMin: null,
   icmsPct: null,
   icmsStPct: null,
 };
@@ -78,13 +94,13 @@ export function storeOperatingCostsConfigured(s: Store): boolean {
     c.marketingWpinkPct,
     c.rentWepinkPct,
     c.rentWpinkPct,
-    c.rentFixed,
-  ].some((v) => v != null);
+    c.rentMin,
+  ].some((v) => v != null) || (s.custoItens?.length ?? 0) > 0;
 }
 
 export function storeCostsPending(s: Store): boolean {
   const c = s.custos ?? EMPTY_STORE_COSTS;
-  const base = [c.royaltiesWepinkPct, c.marketingWepinkPct, c.rentWepinkPct, c.rentFixed];
+  const base = [c.royaltiesWepinkPct, c.marketingWepinkPct, c.rentWepinkPct, c.rentMin];
   const wpink = s.temWpink ? [c.royaltiesWpinkPct, c.marketingWpinkPct, c.rentWpinkPct] : [];
   return [...base, ...wpink].some((v) => v == null);
 }
@@ -309,14 +325,14 @@ function rowToStore(r: {
   marketing_wpink_pct?: number | string | null;
   rent_wepink_pct?: number | string | null;
   rent_wpink_pct?: number | string | null;
-  rent_fixed_cents?: number | string | null;
+  rent_min_cents?: number | string | null;
   icms_pct?: number | string | null;
   icms_st_pct?: number | string | null;
   cost_table_id?: number | string | null;
 }): Store {
   const horas = parseWeekHours(r.hours);
   const num = (v: number | string | null | undefined) => (v == null || v === "" ? null : Number(v));
-  const rentCents = num(r.rent_fixed_cents);
+  const rentCents = num(r.rent_min_cents);
   return withHours({
     id: r.id,
     millenniumFilial: r.millennium_store_id,
@@ -339,7 +355,7 @@ function rowToStore(r: {
       marketingWpinkPct: num(r.marketing_wpink_pct),
       rentWepinkPct: num(r.rent_wepink_pct),
       rentWpinkPct: num(r.rent_wpink_pct),
-      rentFixed: rentCents == null ? null : rentCents / 100,
+      rentMin: rentCents == null ? null : rentCents / 100,
       icmsPct: num(r.icms_pct),
       icmsStPct: num(r.icms_st_pct),
     },
@@ -348,7 +364,7 @@ function rowToStore(r: {
 }
 
 const STORE_COST_COLUMNS =
-  "royalties_wepink_pct, royalties_wpink_pct, marketing_wepink_pct, marketing_wpink_pct, rent_wepink_pct, rent_wpink_pct, rent_fixed_cents";
+  "royalties_wepink_pct, royalties_wpink_pct, marketing_wepink_pct, marketing_wpink_pct, rent_wepink_pct, rent_wpink_pct, rent_min_cents";
 const STORE_TAX_COLUMNS = "icms_pct, icms_st_pct";
 const STORE_COST_TABLE_COLUMN = "cost_table_id";
 
@@ -406,6 +422,8 @@ export async function hydrateSessionStores(tenantId: string, sessionStoreIds: st
     }
 
     const out: Store[] = (data as unknown as Parameters<typeof rowToStore>[0][]).map(rowToStore);
+    const itens = await fetchStoreCostItems(tenantId, out.map((s) => s.id));
+    for (const s of out) s.custoItens = itens.get(s.id) ?? [];
     // Substitui o catálogo local: lojas de resets/reseeds antigos (com horário
     // padrão 9–21) não podem continuar entrando em "Todas" e nos eixos de hora.
     try {
@@ -522,7 +540,7 @@ export async function updateStoreCosts(
         marketing_wpink_pct: custos.marketingWpinkPct,
         rent_wepink_pct: custos.rentWepinkPct,
         rent_wpink_pct: custos.rentWpinkPct,
-        rent_fixed_cents: custos.rentFixed == null ? null : Math.round(custos.rentFixed * 100),
+        rent_min_cents: custos.rentMin == null ? null : Math.round(custos.rentMin * 100),
         icms_pct: custos.icmsPct,
         icms_st_pct: custos.icmsStPct,
       })
@@ -534,6 +552,85 @@ export async function updateStoreCosts(
       registerExtraStore({ ...existing, custos });
     }
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Custos fixos / variáveis / outras despesas por loja. Tabela ausente (migration pendente) ou erro → vazio. */
+export async function fetchStoreCostItems(tenantId: string, storeIds: string[]): Promise<Map<string, StoreCostItem[]>> {
+  const out = new Map<string, StoreCostItem[]>();
+  if (storeIds.length === 0) return out;
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return out;
+    const { data, error } = await sb
+      .from("store_cost_item")
+      .select("id, store_id, kind, name, amount_cents, pct, position")
+      .eq("tenant_id", tenantId)
+      .in("store_id", storeIds)
+      .order("position");
+    if (error) throw error;
+    for (const r of data ?? []) {
+      const list = out.get(r.store_id) ?? [];
+      list.push({
+        id: r.id,
+        kind: r.kind as StoreCostKind,
+        name: r.name,
+        amount: r.amount_cents == null ? null : Number(r.amount_cents) / 100,
+        pct: r.pct == null ? null : Number(r.pct),
+      });
+      out.set(r.store_id, list);
+    }
+  } catch (e) {
+    console.warn("fetchStoreCostItems:", e);
+  }
+  return out;
+}
+
+/** Substitui os custos da loja pela lista dada (apaga os removidos, grava os demais na ordem). */
+export async function saveStoreCostItems(
+  tenantId: string,
+  storeId: string,
+  items: StoreCostItem[],
+): Promise<{ ok: true; items: StoreCostItem[] } | { ok: false; error: string }> {
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: "Supabase não configurado" };
+
+    const keep = items.map((i) => i.id).filter((id): id is string => Boolean(id));
+    let del = sb.from("store_cost_item").delete().eq("tenant_id", tenantId).eq("store_id", storeId);
+    if (keep.length > 0) del = del.not("id", "in", `(${keep.join(",")})`);
+    const { error: delError } = await del;
+    if (delError) return { ok: false, error: delError.message };
+
+    const rows = items.map((i, position) => ({
+      ...(i.id ? { id: i.id } : {}),
+      tenant_id: tenantId,
+      store_id: storeId,
+      kind: i.kind,
+      name: i.name.trim(),
+      amount_cents: i.kind === "VARIABLE" || i.amount == null ? null : Math.round(i.amount * 100),
+      pct: i.kind === "VARIABLE" ? i.pct : null,
+      position,
+    }));
+    const novos = rows.filter((r) => !("id" in r));
+    const existentes = rows.filter((r) => "id" in r);
+    if (existentes.length > 0) {
+      const { error } = await sb.from("store_cost_item").upsert(existentes);
+      if (error) return { ok: false, error: error.message };
+    }
+    if (novos.length > 0) {
+      const { error } = await sb.from("store_cost_item").insert(novos);
+      if (error) return { ok: false, error: error.message };
+    }
+
+    const saved = (await fetchStoreCostItems(tenantId, [storeId])).get(storeId) ?? [];
+    const existing = allStores().find((s) => s.id === storeId);
+    if (existing) registerExtraStore({ ...existing, custoItens: saved });
+    return { ok: true, items: saved };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -685,9 +782,9 @@ export async function setSellerShift(sellerId: string, shiftId: string | null): 
 }
 
 const SYNC_SELLERS_ERRORS: Record<string, string> = {
-  credential_missing: "Conecte o Millennium em Configurações > Integrações.",
-  credential_invalid: "Senha do Millennium inválida. Reconecte em Configurações > Integrações.",
-  integration_paused: "Integração desconectada. Conecte o Millennium em Configurações > Integrações.",
+  credential_missing: "Conecte o Millennium em Integrações, no menu do seu perfil.",
+  credential_invalid: "Senha do Millennium inválida. Reconecte em Integrações, no menu do seu perfil.",
+  integration_paused: "Integração desconectada. Conecte o Millennium em Integrações, no menu do seu perfil.",
   erp_busy: "Millennium ocupado (limite de sessões). Tente de novo em instantes.",
   forbidden: "Seu perfil não pode atualizar a equipe de vendas.",
 };

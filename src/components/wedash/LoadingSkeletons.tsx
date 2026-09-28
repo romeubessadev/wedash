@@ -536,8 +536,8 @@ function FieldSkeleton() {
   );
 }
 
-/** Detalhe da loja: Funcionamento · Configuração da operação · Turnos · Equipe. */
-export function StoreDetailSkeleton({ showCosts = true }: { showCosts?: boolean }) {
+/** Detalhe da loja: Funcionamento (fuso + 7 dias). */
+export function StoreDetailSkeleton() {
   return (
     <Busy className="flex max-w-[720px] flex-col gap-5">
       <Card>
@@ -554,38 +554,57 @@ export function StoreDetailSkeleton({ showCosts = true }: { showCosts?: boolean 
           </div>
         ))}
       </Card>
-      {showCosts && (
-        <Card>
-          <CardHead sub />
-          {[2, 1, 3].map((n, g) => (
-            <div key={g} className={g > 0 ? "mt-5 border-t border-line pt-5" : undefined}>
-              <Skeleton className="mb-3 h-3.5 w-24" />
+    </Busy>
+  );
+}
+
+/**
+ * Telas de Gestão / Configurações da operação: 1 card por loja (fantasia + CNPJ).
+ * `fields` = grade de campos; `rows` = linhas editáveis (Custos, Turnos); `team` = tabela da equipe.
+ */
+export function StoreCardsSkeleton({
+  count = 2,
+  fields = 0,
+  rows = 0,
+  team = false,
+  wide = false,
+}: {
+  count?: number;
+  fields?: number;
+  rows?: number;
+  team?: boolean;
+  wide?: boolean;
+}) {
+  return (
+    <Busy className={cn("flex flex-col gap-5", !wide && "max-w-[720px]")}>
+      {Array.from({ length: count }, (_, c) =>
+        team ? (
+          <Card key={c} padding="none">
+            <div className="px-5 pt-5 pb-4">
+              <CardHead sub button />
+              <SegmentedSkeleton widths={["w-24", "w-32"]} />
+            </div>
+            <TeamTableSkeleton />
+          </Card>
+        ) : (
+          <Card key={c}>
+            <CardHead sub />
+            {fields > 0 && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {Array.from({ length: n }, (_, i) => (
+                {Array.from({ length: fields }, (_, i) => (
                   <FieldSkeleton key={i} />
                 ))}
               </div>
-            </div>
-          ))}
-        </Card>
+            )}
+            {Array.from({ length: rows }, (_, i) => (
+              <div key={i} className="mb-2.5 flex items-center gap-3">
+                <Skeleton className="h-9 flex-1 rounded-[var(--radius-vela-sm)]" />
+                <Skeleton className="h-9 w-28 rounded-[var(--radius-vela-sm)]" />
+              </div>
+            ))}
+          </Card>
+        ),
       )}
-      <Card>
-        <CardHead sub />
-        {Array.from({ length: 2 }, (_, i) => (
-          <div key={i} className="mb-2.5 flex items-center gap-3">
-            <Skeleton className="h-9 flex-1 rounded-[var(--radius-vela-sm)]" />
-            <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
-            <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
-          </div>
-        ))}
-      </Card>
-      <Card padding="none">
-        <div className="px-5 pt-5 pb-4">
-          <CardHead sub button />
-          <SegmentedSkeleton widths={["w-24", "w-32"]} />
-        </div>
-        <TeamTableSkeleton />
-      </Card>
     </Busy>
   );
 }

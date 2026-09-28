@@ -9,6 +9,8 @@ export type NavLeaf = {
 
 export type NavGroup = {
   label: string;
+  /** Dica ao passar o mouse no grupo. */
+  description?: string;
   icon: string; // svg path "d"
   items: NavLeaf[];
 };

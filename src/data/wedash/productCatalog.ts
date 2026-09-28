@@ -1,5 +1,5 @@
 /**
- * Custos do Millennium sob demanda (Edge `erp-products-sync`): card "Custo dos produtos" da loja e
+ * Custos do Millennium sob demanda (Edge `erp-products-sync`): tela Produtos e impostos e
  * "Atualizar custos" do aviso de produtos sem custo. O catálogo de produtos se atualiza sozinho no worker.
  */
 

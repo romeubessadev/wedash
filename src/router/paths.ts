@@ -40,6 +40,19 @@ export const paths = {
   team: "/dashboard/team",
   /** CRUD de metas (fora do Dashboard). */
   goals: "/goals",
+  /** Gestão: operação e equipe (Metas fica em `goals`). */
+  management: {
+    challenges: "/management/challenges",
+    shifts: "/management/shifts",
+    staff: "/management/staff",
+  },
+  /** Configurações da operação: parâmetros de custo por loja usados no Financeiro. */
+  operation: {
+    costs: "/operation/costs",
+    franchise: "/operation/franchise",
+    rent: "/operation/rent",
+    productsTaxes: "/operation/products-and-taxes",
+  },
   /** Live — painel operacional do mês + pulso do dia. */
   live: {
     root: "/live",

@@ -1532,7 +1532,7 @@ function aluguelFixoMock(f: Store): number {
 function custosDaFilial(f: Store) {
   const c = f.custos;
   return {
-    aluguelFixo: c?.rentFixed ?? aluguelFixoMock(f),
+    aluguelFixo: c?.rentMin ?? aluguelFixoMock(f),
     aluguelWepinkPct: c?.rentWepinkPct ?? PCT_CUSTOS_FIXOS.aluguelShopping,
     aluguelWpinkPct: c?.rentWpinkPct ?? PCT_CUSTOS_FIXOS.aluguelShopping,
     royaltiesWepinkPct: c?.royaltiesWepinkPct ?? PCT_CUSTOS_FIXOS.royaltiesWepink,
@@ -1965,8 +1965,25 @@ export interface ProductWithoutCost {
 
 type FinMoney = { rev: number; cmv: number; sales: number; items: number };
 type FinCell = { ALL?: FinMoney; WEPINK?: FinMoney; WPINK?: FinMoney };
-type FinCosts = { aluguelPct: number; royWepink: number; royWpink: number; mktWepink: number; mktWpink: number };
-type FinLine = FinMoney & FinCosts & { aluguelFixo: number; icms: number; icmsSt: number };
+type FinCosts = {
+  aluguelPct: number;
+  royWepink: number;
+  royWpink: number;
+  mktWepink: number;
+  mktWpink: number;
+  /** Custos variáveis da loja (% do faturamento). */
+  variaveis: number;
+};
+/** Custos mensais rateados por dia (não seguem o faturamento). */
+type FinMonthly = {
+  fixos: number;
+  outras: number;
+  /** Aluguel mínimo rateado no período. */
+  aluguelMinBase: number;
+  /** Quanto falta para o % chegar no mínimo: max(0, mínimo − aluguel %), por loja no período. */
+  aluguelMin: number;
+};
+type FinLine = FinMoney & FinCosts & FinMonthly & { icms: number; icmsSt: number };
 
 const FIN_ZERO: FinMoney = { rev: 0, cmv: 0, sales: 0, items: 0 };
 const FIN_LINE_ZERO: FinLine = {
@@ -1976,7 +1993,11 @@ const FIN_LINE_ZERO: FinLine = {
   royWpink: 0,
   mktWepink: 0,
   mktWpink: 0,
-  aluguelFixo: 0,
+  variaveis: 0,
+  fixos: 0,
+  outras: 0,
+  aluguelMinBase: 0,
+  aluguelMin: 0,
   icms: 0,
   icmsSt: 0,
 };
@@ -1998,15 +2019,27 @@ function finScale<T extends Record<string, number>>(a: T, f: number): T {
   return out;
 }
 
-function finVariableCosts(line: FinCosts): number {
-  return line.aluguelPct + line.royWepink + line.royWpink + line.mktWepink + line.mktWpink;
+/** Custos da operação da linha: aluguel (% + complemento do mínimo) + franquia + custos da loja. */
+function finOperatingCosts(l: FinCosts & FinMonthly): number {
+  return l.aluguelPct + l.aluguelMin + l.royWepink + l.royWpink + l.mktWepink + l.mktWpink + l.variaveis + l.fixos + l.outras;
+}
+
+/** Custos mensais (fixos, outras despesas, complemento do aluguel mínimo) — rateados nas horas abertas. */
+function finMonthlyCosts(l: FinMonthly): number {
+  return l.fixos + l.outras + l.aluguelMin;
 }
 
 /** Custos da loja para dados reais: campo sem configuração = 0 (não inventa R$). */
 function custosDaFilialReal(f: Store) {
   const c = f.custos;
+  const itens = f.custoItens ?? [];
+  const soma = (kind: string, campo: "amount" | "pct") =>
+    itens.filter((i) => i.kind === kind).reduce((s, i) => s + (i[campo] ?? 0), 0);
   return {
-    aluguelFixo: c?.rentFixed ?? 0,
+    aluguelMin: c?.rentMin ?? 0,
+    fixosMes: soma("FIXED", "amount"),
+    outrasMes: soma("OTHER", "amount"),
+    variaveisPct: soma("VARIABLE", "pct"),
     aluguelWepinkPct: c?.rentWepinkPct ?? 0,
     aluguelWpinkPct: c?.rentWpinkPct ?? 0,
     royaltiesWepinkPct: c?.royaltiesWepinkPct ?? 0,
@@ -2060,22 +2093,41 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
     const c = custosDaFilialReal(f);
     const w = incluiWepink ? wepink.rev : 0;
     const p = incluiWpink ? wpink.rev : 0;
+    const diasMes = diasNoMes(iso.slice(0, 7));
+    const aluguelPct = (w * c.aluguelWepinkPct + p * c.aluguelWpinkPct) / 100;
+    const aluguelMinBase = c.aluguelMin / diasMes;
     return {
       ...m,
-      aluguelPct: (w * c.aluguelWepinkPct + p * c.aluguelWpinkPct) / 100,
+      aluguelPct,
       royWepink: (w * c.royaltiesWepinkPct) / 100,
       royWpink: (p * c.royaltiesWpinkPct) / 100,
       mktWepink: (w * c.mktWepinkPct) / 100,
       mktWpink: (p * c.mktWpinkPct) / 100,
-      aluguelFixo: c.aluguelFixo / diasNoMes(iso.slice(0, 7)),
+      variaveis: (m.rev * c.variaveisPct) / 100,
+      fixos: c.fixosMes / diasMes,
+      outras: c.outrasMes / diasMes,
+      aluguelMinBase,
+      aluguelMin: Math.max(0, aluguelMinBase - aluguelPct),
       icms: (m.rev * c.icmsPct) / 100,
       icmsSt: (m.cmv * c.icmsStPct) / 100,
     };
   }
 
+  /** Soma loja × mês: o aluguel do mês é o maior entre o mínimo (rateado nos dias do recorte) e o %, não dia a dia. */
   function sumDays(dias: string[]): FinLine {
+    const porMes = new Map<string, string[]>();
+    for (const iso of dias) {
+      const mes = iso.slice(0, 7);
+      porMes.set(mes, [...(porMes.get(mes) ?? []), iso]);
+    }
     let acc = FIN_LINE_ZERO;
-    for (const f of fs) for (const iso of dias) acc = finAdd(acc, storeDay(f, iso));
+    for (const f of fs) {
+      for (const diasMes of porMes.values()) {
+        let loja = FIN_LINE_ZERO;
+        for (const iso of diasMes) loja = finAdd(loja, storeDay(f, iso));
+        acc = finAdd(acc, { ...loja, aluguelMin: Math.max(0, loja.aluguelMinBase - loja.aluguelPct) });
+      }
+    }
     return acc;
   }
 
@@ -2132,7 +2184,17 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
         items += m.items;
       }
       const frac = dia.rev > 0 ? rev / dia.rev : 0;
-      parcial = finAdd(parcial, { ...finScale(dia, frac), rev, sales, items, aluguelFixo: dia.aluguelFixo });
+      const escalado = finScale(dia, frac);
+      parcial = finAdd(parcial, {
+        ...escalado,
+        rev,
+        sales,
+        items,
+        fixos: dia.fixos,
+        outras: dia.outras,
+        aluguelMinBase: dia.aluguelMinBase,
+        aluguelMin: Math.max(0, dia.aluguelMinBase - escalado.aluguelPct),
+      });
     }
     anterior = faltaHora ? null : parcial;
   }
@@ -2193,7 +2255,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
   const resultadoOperacional: OpResultMonth[] = [];
   const pushPonto = (label: string, l: FinLine) => {
     const lucro = finLucro(l);
-    const resultado = lucro - finVariableCosts(l) - l.aluguelFixo;
+    const resultado = lucro - finOperatingCosts(l);
     custoLucroMargem.push({ mes: label, custo: l.cmv, lucro, margemPct: divSeguro(lucro, l.rev) * 100, faturamento: l.rev });
     resultadoOperacional.push({ mes: label, lucro, resultado, margemOpPct: divSeguro(resultado, l.rev) * 100, faturamento: l.rev });
   };
@@ -2210,6 +2272,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       for (const [h, m] of horas) {
         const cur = porHora.get(h) ?? FIN_LINE_ZERO;
         porHora.set(h, finAdd(cur, {
+          ...FIN_LINE_ZERO,
           ...m,
           cmv: m.rev * cmvRatio,
           aluguelPct: m.rev * dia.aluguelPct * costRatio,
@@ -2217,7 +2280,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
           royWpink: m.rev * dia.royWpink * costRatio,
           mktWepink: m.rev * dia.mktWepink * costRatio,
           mktWpink: m.rev * dia.mktWpink * costRatio,
-          aluguelFixo: 0,
+          variaveis: m.rev * dia.variaveis * costRatio,
           icms: m.rev * dia.icms * costRatio,
           icmsSt: m.rev * dia.icmsSt * costRatio,
         }));
@@ -2231,19 +2294,25 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
         ? { abertura: Math.min(...comVenda), fechamento: Math.max(...comVenda) + 1 }
         : unionOpenWindow(fs.map((f) => effectiveWeekHours(f.horas)), dow));
     const horasAbertas = Math.max(1, win.fechamento - win.abertura);
-    const aluguelHora = atual.aluguelFixo / horasAbertas;
+    const mensalHora = finMonthlyCosts(atual) / horasAbertas;
     const first = Math.min(win.abertura, ...comVenda);
     let last = Math.max(win.fechamento - 1, ...comVenda);
     if (periodo.ehHoje) last = Math.max(Math.min(last, calendarCurrentHour()), ...comVenda, first);
     for (let h = first; h <= last; h++) {
       const l = porHora.get(h) ?? FIN_LINE_ZERO;
       const dentro = h >= win.abertura && h < win.fechamento;
-      pushPonto(horaCurta(h), { ...l, aluguelFixo: dentro ? aluguelHora : 0 });
+      pushPonto(horaCurta(h), { ...l, fixos: dentro ? mensalHora : 0, outras: 0, aluguelMinBase: 0, aluguelMin: 0 });
     }
   } else if (eixoSerie === "dia") {
+    // Complemento do aluguel mínimo é do mês: dividido igualmente pelos dias do mês no período.
+    const complementoDia = new Map<string, number>();
+    for (const mes of new Set(diasPeriodo.map((iso) => iso.slice(0, 7)))) {
+      const diasDoMes = diasPeriodo.filter((iso) => iso.startsWith(mes));
+      complementoDia.set(mes, sumDays(diasDoMes).aluguelMin / diasDoMes.length);
+    }
     for (const iso of diasPeriodo) {
       const label = periodo.granularidade === "mes" ? String(deIso(iso).getDate()) : diaSemanaCurto(iso);
-      pushPonto(label, sumDays([iso]));
+      pushPonto(label, { ...sumDays([iso]), aluguelMin: complementoDia.get(iso.slice(0, 7)) ?? 0 });
     }
   } else {
     for (const mes of mesesEntre(periodo.inicio, periodo.fim)) {
@@ -2254,10 +2323,10 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
     }
   }
 
-  const totalCustos = finVariableCosts(atual) + atual.aluguelFixo;
+  const totalCustos = finOperatingCosts(atual);
   const resultadoAtual = lucroAtual - totalCustos;
-  const resultadoAtualCmp = lucroAtualCmp - finVariableCosts(atualCmp) - atualCmp.aluguelFixo;
-  const resultadoAnteriorCmp = lucroAnteriorCmp - finVariableCosts(antCmp) - antCmp.aluguelFixo;
+  const resultadoAtualCmp = lucroAtualCmp - finOperatingCosts(atualCmp);
+  const resultadoAnteriorCmp = lucroAnteriorCmp - finOperatingCosts(antCmp);
   const deltaResultado = cmvComparavel ? kpiDelta(resultadoAtualCmp, resultadoAnteriorCmp, vsCmv) : undefined;
 
   // Formas de pagamento: sempre total (a Lista não traz marca).
@@ -2299,9 +2368,12 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
   }
   const custosFixosFranquia: FixedCostRow[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
-    ...(atual.aluguelFixo > 0 ? [{ rotulo: "Aluguel fixo", valor: atual.aluguelFixo }] : []),
     { rotulo: `Aluguel percentual${rotuloPct(custos.map((c) => c.aluguelWepinkPct))}`, valor: atual.aluguelPct },
+    ...(atual.aluguelMin > 0 ? [{ rotulo: "Complemento do aluguel mínimo", valor: atual.aluguelMin }] : []),
     ...linhasMarca,
+    ...(atual.fixos > 0 ? [{ rotulo: "Custos fixos", valor: atual.fixos }] : []),
+    ...(atual.variaveis > 0 ? [{ rotulo: "Custos variáveis", valor: atual.variaveis }] : []),
+    ...(atual.outras > 0 ? [{ rotulo: "Outras despesas", valor: atual.outras }] : []),
     { rotulo: "Total de custos", valor: totalCustos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { padTopo } from "@/lib/safeArea";
 import { useTheme } from "@/theme/ThemeProvider";
-import { Avatar, Dropdown } from "@/components/ui";
+import { Avatar, Dropdown, type DropdownItem } from "@/components/ui";
+import { isGestor } from "./nav-wedash";
 import { paths } from "@/router/paths";
 import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvider";
 import {
@@ -75,7 +76,27 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname === paths.live.root ||
     location.pathname.startsWith(paths.live.root + "/") ||
     location.pathname === paths.goals ||
+    location.pathname.startsWith("/management/") ||
+    location.pathname.startsWith("/operation/") ||
     location.pathname.startsWith(paths.settings.root);
+
+  // Administração no menu do avatar: Lojas (Gestor e Gerente); Usuários, Integrações e Logs só Gestor.
+  const gestor = isGestor(session.role);
+  const administracao: DropdownItem[] =
+    session.role === "SELLER"
+      ? []
+      : [
+          { divider: true, label: "" },
+          { heading: true, label: "Administração" },
+          { label: "Lojas", onClick: () => navigate(paths.settings.stores) },
+          ...(gestor
+            ? [
+                { label: "Usuários", onClick: () => navigate(paths.settings.users) },
+                { label: "Integrações", onClick: () => navigate(paths.settings.erp) },
+                { label: "Logs", onClick: () => navigate(paths.settings.logs) },
+              ]
+            : []),
+        ];
 
   return (
     <header className="pad-topo sticky top-0 z-30 flex flex-none items-center gap-2.5 border-b border-line bg-bg-1/80 px-3.5 pb-3 backdrop-blur-md sm:gap-3.5 sm:px-6" style={padTopo("0.75rem")}>
@@ -139,7 +160,8 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
             </button>
           }
           items={[
-            { label: "Meu perfil", onClick: () => navigate(paths.profile) },
+            { heading: true, label: "Conta" },
+            { label: "Minha conta", onClick: () => navigate(paths.profile) },
             { label: "Instalar o app", onClick: () => navigate(paths.access.install) },
             {
               label: "Tema escuro",
@@ -151,7 +173,9 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
                 </span>
               ),
             },
+            ...administracao,
             { divider: true, label: "" },
+            { heading: true, label: "Sessão" },
             {
               label: "Sair",
               danger: true,

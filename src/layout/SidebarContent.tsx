@@ -91,8 +91,8 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
           const open = openGroup === entry.label;
           return (
             <div key={entry.label}>
-              <button onClick={() => toggleGroup(entry.label)} className={cn(linkBase, "w-full justify-between", collapsed && "justify-center")} title={collapsed ? entry.label : undefined}>
-                <span className="flex items-center gap-3">
+              <button onClick={() => toggleGroup(entry.label)} className={cn(linkBase, "w-full justify-between", collapsed && "justify-center")} title={collapsed ? entry.label : entry.description}>
+                <span className="flex min-w-0 items-center gap-3 text-left">
                   <GroupIcon d={entry.icon} />
                   {!collapsed && entry.label}
                 </span>

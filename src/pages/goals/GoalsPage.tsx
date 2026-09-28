@@ -44,6 +44,7 @@ export default function GoalsPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
+        crumbs={[{ label: "Gestão" }, { label: "Metas" }]}
         title="Metas"
         subtitle="Metas mensais, níveis de premiação e distribuição individual."
         actions={

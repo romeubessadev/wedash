@@ -203,12 +203,6 @@ export function TeamPage() {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
 
-  function abrirLojas() {
-    const lojaId =
-      escopo.filialIds.length === 1 ? escopo.filialIds[0] : session.stores.length === 1 ? session.stores[0] : undefined;
-    navigate(lojaId ? paths.settings.storeDetail(lojaId) : paths.settings.stores);
-  }
-
   const linhasTabela = useMemo(() => {
     let lista = view.pessoas;
     const q = busca.trim().toLowerCase();
@@ -390,7 +384,7 @@ export function TeamPage() {
                   description="Cadastre os turnos das lojas e vincule a equipe para comparar o desempenho por turno."
                   action={
                     podeConfigurar ? (
-                      <Button size="sm" onClick={abrirLojas}>
+                      <Button size="sm" onClick={() => navigate(paths.management.shifts)}>
                         Configurar turnos
                       </Button>
                     ) : undefined
@@ -517,7 +511,7 @@ export function TeamPage() {
                       title="Desafio não configurado"
                       description="Crie um desafio para engajar a equipe e acompanhar o progresso de cada pessoa."
                       action={
-                        <Button size="sm" onClick={() => navigate(paths.settings.challenges)}>
+                        <Button size="sm" onClick={() => navigate(paths.management.challenges)}>
                           Criar desafio
                         </Button>
                       }

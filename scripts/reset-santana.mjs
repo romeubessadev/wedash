@@ -57,7 +57,7 @@ const STORE_CONFIG_COLUMNS = [
   "marketing_wpink_pct",
   "rent_wepink_pct",
   "rent_wpink_pct",
-  "rent_fixed_cents",
+  "rent_min_cents",
   "icms_pct",
   "icms_st_pct",
 ];
@@ -123,7 +123,7 @@ for (const table of [...TENANT_TABLES, "store", "erp_credential"]) {
 
 const { data: stores } = await sb
   .from("store")
-  .select("code, name, timezone, hours, royalties_wepink_pct, icms_pct, icms_st_pct, rent_fixed_cents")
+  .select("code, name, timezone, hours, royalties_wepink_pct, icms_pct, icms_st_pct, rent_min_cents")
   .eq("tenant_id", tenantId);
 for (const s of stores ?? []) {
   const hasConfig =
@@ -131,7 +131,7 @@ for (const s of stores ?? []) {
     s.royalties_wepink_pct != null ||
     s.icms_pct != null ||
     s.icms_st_pct != null ||
-    s.rent_fixed_cents != null;
+    s.rent_min_cents != null;
   console.log(`  loja ${s.code} ${s.name} · ${s.timezone ?? "-"} · config manual: ${hasConfig ? "sim" : "não"}`);
 }
 

@@ -8,6 +8,8 @@ export interface DropdownItem {
   onClick?: () => void;
   danger?: boolean;
   divider?: boolean;
+  /** Rótulo de seção (não clicável). */
+  heading?: boolean;
   /** Destaca a opção selecionada (bg-acc-soft + texto acc). */
   active?: boolean;
   /** Opção não clicável (ex.: filtro ainda indisponível). */
@@ -94,6 +96,10 @@ export function Dropdown({ trigger, items, align = "right", menuClassName, porta
           {items.map((item, i) =>
             item.divider ? (
               <div key={i} className="my-1.5 h-px bg-line" />
+            ) : item.heading ? (
+              <p key={i} className="px-3 pb-1 pt-2 text-[10.5px] font-bold uppercase tracking-wider text-t2">
+                {item.label}
+              </p>
             ) : (
               <button
                 key={i}
