@@ -1,6 +1,6 @@
 /**
  * Volta um usuário para o "primeiro acesso" (tela Crie seu acesso) sem mexer em dados do ERP.
- * Marca temporary_password = true; a senha atual vira a "temporária".
+ * Marca temporary_password = true; a senha atual vira a "temporária". Apaga a foto de perfil (avatar_url + arquivos).
  * Com --onboarding (só dono): reabre o onboarding na etapa Integração ERP (onboarding_step = 2).
  * Reconectar com o mesmo usuário Millennium não apaga dados; outro usuário apaga os dados de venda do tenant.
  * Com --wipe (implica --onboarding): salva backup das lojas (config, turnos, turno das vendedoras) em
@@ -48,14 +48,24 @@ const sb = createClient(url, key, { auth: { persistSession: false } });
 
 const { data, error } = await sb
   .from("identity")
-  .update({ temporary_password: true })
+  .update({ temporary_password: true, avatar_url: null })
   .ilike("email", EMAIL)
-  .select("id, email, name, temporary_password");
+  .select("id, auth_user_id, email, name, temporary_password");
 if (error || !data?.length) {
   console.error("identity:", error?.message ?? "not found");
   process.exit(1);
 }
 console.log(data);
+
+const authUid = data[0].auth_user_id;
+if (authUid) {
+  const { data: fotos, error: listErr } = await sb.storage.from("avatars").list(authUid);
+  if (listErr) console.error("avatars:", listErr.message);
+  else if (fotos?.length) {
+    const { error: rmErr } = await sb.storage.from("avatars").remove(fotos.map((f) => `${authUid}/${f.name}`));
+    console.log(rmErr ? `avatars: ${rmErr.message}` : `apagado: fotos de perfil (${fotos.length})`);
+  }
+}
 
 if (WIPE) {
   const { data: owner } = await sb
