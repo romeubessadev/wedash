@@ -12,6 +12,7 @@ import {
   acessoRodape,
   acessoSubtitulo,
   acessoTitulo,
+  useFocoNoEnvioAposAutofill,
 } from "./AccessKit";
 import { cn } from "@/lib/cn";
 
@@ -33,6 +34,7 @@ export function Forgot() {
   const emailInicial = (location.state as { email?: string } | null)?.email ?? "";
   const [email, setEmail] = useState(emailInicial);
   const [carregando, setCarregando] = useState(false);
+  const formRef = useFocoNoEnvioAposAutofill();
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +62,7 @@ export function Forgot() {
           <p className={acessoSubtitulo}>
             Informe seu e-mail. Se existir uma conta, enviaremos um código de 6 dígitos.
           </p>
-          <form onSubmit={enviar} className="text-left" noValidate>
+          <form ref={formRef} onSubmit={enviar} className="text-left" noValidate>
             <CampoEmail label="E-mail" value={email} onChange={setEmail} autoFocus />
             <div className="mb-4 mt-3.5">
               <button

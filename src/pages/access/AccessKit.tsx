@@ -110,6 +110,47 @@ function useSoltarSelecaoDoAutofill() {
   return ref;
 }
 
+const CAMPOS_DE_TEXTO = new Set(["text", "email", "password", "tel", "search", "url"]);
+
+/**
+ * Sugestão do navegador que deixa o formulário completo → foco no botão de envio (Enter/toque envia).
+ * Nunca envia sozinho: conta errada escolhida, ou "Enviar código" para o e-mail errado, seriam irreversíveis.
+ * Digitação e colagem não contam (têm inputType); preenchimento do navegador não tem.
+ */
+export function useFocoNoEnvioAposAutofill() {
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const form = ref.current;
+    if (!form) return;
+    let timer = 0;
+    const focar = () => {
+      const botao = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (!botao || botao.disabled) return;
+      const ativo = document.activeElement;
+      if (ativo && ativo !== document.body && !form.contains(ativo)) return;
+      const campos = Array.from(form.querySelectorAll<HTMLInputElement>("input")).filter(
+        (i) => CAMPOS_DE_TEXTO.has(i.type) && !i.readOnly && !i.disabled,
+      );
+      if (campos.some((i) => i.value.trim() === "")) return;
+      botao.focus();
+    };
+    const aoMudar = (e: Event) => {
+      const alvo = e.target as HTMLInputElement;
+      if (!CAMPOS_DE_TEXTO.has(alvo.type)) return;
+      const tipo = (e as InputEvent).inputType;
+      if (tipo && tipo !== "insertReplacementText") return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(focar, 120);
+    };
+    form.addEventListener("input", aoMudar);
+    return () => {
+      form.removeEventListener("input", aoMudar);
+      window.clearTimeout(timer);
+    };
+  }, []);
+  return ref;
+}
+
 /** E-mail — FormField + Input (Vela). */
 export function CampoEmail({
   label = "E-mail",

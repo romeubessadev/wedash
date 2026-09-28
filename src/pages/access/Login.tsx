@@ -8,7 +8,7 @@ import { users } from "@/data/wedash/team";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { loginWithEmail, MENSAGEM_LOGIN, destinationAfterAuth } from "@/session/authApi";
 import { roleLabel, useSession } from "@/session/SessionProvider";
-import { acessoBotao, CampoEmail, CampoSenha, Checkbox } from "./AccessKit";
+import { acessoBotao, CampoEmail, CampoSenha, Checkbox, useFocoNoEnvioAposAutofill } from "./AccessKit";
 
 function emailValido(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -28,6 +28,7 @@ export function Login() {
   const [lembrar, setLembrar] = useState(true);
   const [carregando, setCarregando] = useState(false);
   const [mostrarDemo, setMostrarDemo] = useState(false);
+  const formRef = useFocoNoEnvioAposAutofill();
 
   const podeEnviar = email.trim().length > 0 && senha.length > 0 && !carregando;
 
@@ -121,7 +122,7 @@ export function Login() {
           <h1 className="mb-2 text-[26px] font-extrabold tracking-tight text-t0">Acesse sua conta</h1>
           <p className="mb-7 text-sm text-t1">Entre com seu e-mail e senha.</p>
 
-          <form onSubmit={enviar} className="flex flex-col gap-3.5" noValidate>
+          <form ref={formRef} onSubmit={enviar} className="flex flex-col gap-3.5" noValidate>
             <CampoEmail label="E-mail" value={email} onChange={setEmail} autoFocus />
             <CampoSenha label="Senha" value={senha} onChange={setSenha} />
 
