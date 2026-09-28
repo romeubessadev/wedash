@@ -17,7 +17,7 @@ import { Skeleton, Button, useToast } from "@/components/ui";
 import { roleLabel, useSession } from "@/session/SessionProvider";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
-import { senhaValida, SENHA_REGRA_TEXTO } from "@/lib/password";
+import { senhaValida } from "@/lib/password";
 import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth } from "@/session/authApi";
 import { acceptInvite, fetchInviteInfo, type InviteInfo } from "@/data/wedash/systemUsers";
 
@@ -179,7 +179,7 @@ export function Invite() {
           label="Nova senha"
           value={senha}
           onChange={setSenha}
-          placeholder={SENHA_REGRA_TEXTO}
+          placeholder="Digite sua nova senha"
           autoComplete="new-password"
         />
         <CampoSenha
