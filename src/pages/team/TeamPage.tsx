@@ -27,8 +27,7 @@ import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoRanking } from "@/pages/live/blocos";
 import type { RankingRow } from "@/data/wedash/live";
-import { MOBILE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
-import { TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_MOBILE } from "@/lib/usePagedRows";
+import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { brlCent, deIso, num, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
@@ -150,7 +149,6 @@ export function TeamPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [turnoSel, setTurnoSel] = useState<string | null>(null);
-  const isMobile = useMediaQuery(MOBILE_QUERY);
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
     const onStores = () => setStoresTick((n) => n + 1);
@@ -236,14 +234,14 @@ export function TeamPage() {
     };
   }, [linhasTabela]);
 
-  const pageSize = isMobile ? TABLE_PAGE_SIZE_MOBILE : TABLE_PAGE_SIZE;
+  const pageSize = TABLE_PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(linhasTabela.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
   const pageRows = linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [busca, sortKey, sortDir, escopo, isMobile, turnoSel]);
+  }, [busca, sortKey, sortDir, escopo, turnoSel]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {

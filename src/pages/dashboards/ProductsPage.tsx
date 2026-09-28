@@ -1,8 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { MOBILE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
-import { TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_MOBILE } from "@/lib/usePagedRows";
+import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
@@ -86,9 +85,6 @@ const KPI_COLORS = [
 type SortKey = "nome" | "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
 
-const PAGE_SIZE = TABLE_PAGE_SIZE;
-const PAGE_SIZE_MOBILE = TABLE_PAGE_SIZE_MOBILE;
-
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>
     <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
@@ -163,7 +159,6 @@ export default function ProductsPage() {
   const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const isMobile = useMediaQuery(MOBILE_QUERY);
   // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -305,14 +300,14 @@ export default function ProductsPage() {
     };
   }, [linhasTabela]);
 
-  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE;
+  const pageSize = TABLE_PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(linhasTabela.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
   const pageRows = linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [busca, sortKey, sortDir, escopo, isMobile]);
+  }, [busca, sortKey, sortDir, escopo]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
