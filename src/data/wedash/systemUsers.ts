@@ -186,7 +186,7 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
 }
 
 /** Ativa o convite gravando os dados pessoais da tela "Crie seu acesso". */
-export async function acceptInvite(personal: { firstName: string; lastName: string; phone: string }): Promise<boolean> {
+export async function acceptInvite(personal: { firstName: string; lastName: string; avatarUrl: string | null }): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return false;
   const { data, error } = await sb.functions.invoke("team-members", {
@@ -194,7 +194,7 @@ export async function acceptInvite(personal: { firstName: string; lastName: stri
       action: "accept",
       firstName: titleName(personal.firstName),
       lastName: titleName(personal.lastName),
-      phone: personal.phone.replace(/\D/g, ""),
+      avatarUrl: personal.avatarUrl,
     },
   });
   return !error && Boolean((data as { ok?: boolean } | null)?.ok);

@@ -1,12 +1,12 @@
-import { useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { padTopoEBase } from "@/lib/safeArea";
 import { cn } from "@/lib/cn";
 import { SENHA_MIN, dicaForcaSenha, senhaTemEspecial } from "@/lib/password";
-import { Checkbox, FormField, Input } from "@/components/ui";
+import { Avatar, Button, Checkbox, FormField, Input } from "@/components/ui";
 import { AuthGlow, BrandMark } from "@/pages/auth/authKit";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
-import { celularValido, mascararTelefone } from "@/lib/phone";
+import { AVATAR_TIPOS } from "@/lib/avatar";
 
 /**
  * Complementos das telas de acesso.
@@ -166,10 +166,18 @@ export function CampoSenha({
   );
 }
 
-export type DadosPessoais = { nome: string; sobrenome: string; telefone: string };
+export type DadosPessoais = {
+  nome: string;
+  sobrenome: string;
+  /** Foto escolhida (opcional) + URL local para o preview. */
+  foto: File | null;
+  fotoPreview: string | null;
+};
+
+export const dadosPessoaisVazios: DadosPessoais = { nome: "", sobrenome: "", foto: null, fotoPreview: null };
 
 export function dadosPessoaisValidos(d: DadosPessoais): boolean {
-  return d.nome.trim().length >= 2 && d.sobrenome.trim().length >= 2 && celularValido(d.telefone);
+  return d.nome.trim().length >= 2 && d.sobrenome.trim().length >= 2;
 }
 
 /** Separa um nome completo em nome (1ª palavra) + sobrenome (resto) para pré-preencher. */
@@ -178,7 +186,7 @@ export function separarNome(completo: string): Pick<DadosPessoais, "nome" | "sob
   return { nome, sobrenome: resto.join(" ") };
 }
 
-/** Nome · Sobrenome · Celular — cadastro pessoal do primeiro acesso (o e-mail/login vai no subtítulo da tela). */
+/** Foto (opcional) · Nome · Sobrenome — cadastro pessoal do primeiro acesso. */
 export function CamposPessoais({
   valor,
   onChange,
@@ -190,10 +198,41 @@ export function CamposPessoais({
   email: string;
   autoFocus?: boolean;
 }) {
-  const digitos = valor.telefone.replace(/\D/g, "");
-  const erroTelefone = digitos.length === 11 && !celularValido(valor.telefone) ? "Informe um celular válido com DDD." : null;
+  const arquivoRef = useRef<HTMLInputElement>(null);
+  const nomeCompleto = `${valor.nome} ${valor.sobrenome}`.trim();
+
+  function trocarFoto(file: File | null) {
+    if (valor.fotoPreview) URL.revokeObjectURL(valor.fotoPreview);
+    onChange({ foto: file, fotoPreview: file ? URL.createObjectURL(file) : null });
+  }
+
   return (
     <>
+      <FormField label="Foto de perfil" hint="Opcional. Aparece no topo da WeDash e para a sua equipe.">
+        <div className="flex items-center gap-3">
+          <Avatar name={nomeCompleto || "?"} src={valor.fotoPreview} size="xl" />
+          <div className="flex flex-col items-start gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={() => arquivoRef.current?.click()}>
+              {valor.foto ? "Trocar foto" : "Adicionar foto"}
+            </Button>
+            {valor.foto && (
+              <button type="button" onClick={() => trocarFoto(null)} className="text-[11.5px] font-semibold text-t2 hover:text-bad">
+                Remover
+              </button>
+            )}
+          </div>
+          <input
+            ref={arquivoRef}
+            type="file"
+            accept={AVATAR_TIPOS}
+            className="hidden"
+            onChange={(e) => {
+              trocarFoto(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </FormField>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Nome" required>
           <Input value={valor.nome} onChange={(e) => onChange({ nome: e.target.value })} autoComplete="given-name" autoFocus={autoFocus} maxLength={40} />
@@ -202,16 +241,6 @@ export function CamposPessoais({
           <Input value={valor.sobrenome} onChange={(e) => onChange({ sobrenome: e.target.value })} autoComplete="family-name" maxLength={60} />
         </FormField>
       </div>
-      <FormField label="Celular" required error={erroTelefone ?? undefined}>
-        <Input
-          value={valor.telefone}
-          onChange={(e) => onChange({ telefone: mascararTelefone(e.target.value) })}
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="(00) 00000-0000"
-          className={cn(erroTelefone && inputErro)}
-        />
-      </FormField>
       {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
       <input type="email" name="username" autoComplete="username" value={email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
     </>

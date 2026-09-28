@@ -152,10 +152,11 @@ Deno.serve(async (req) => {
     }
     const firstName = titleName(typeof body.firstName === "string" ? body.firstName : "");
     const lastName = titleName(typeof body.lastName === "string" ? body.lastName : "");
-    const phone = typeof body.phone === "string" ? body.phone.replace(/\D/g, "") : "";
-    if (firstName.length < 2 || lastName.length < 2 || !/^[1-9][1-9]9\d{8}$/.test(phone)) {
-      return fail("invalid_personal_data");
-    }
+    if (firstName.length < 2 || lastName.length < 2) return fail("invalid_personal_data");
+    // Foto só da pasta da própria pessoa no bucket público `avatars`.
+    const avatarPrefix = `${supabaseUrl}/storage/v1/object/public/avatars/${userData.user.id}/`;
+    const avatarUrl =
+      typeof body.avatarUrl === "string" && body.avatarUrl.startsWith(avatarPrefix) ? body.avatarUrl : null;
     const now = new Date().toISOString();
     const { error: mErr } = await admin
       .from("membership")
@@ -170,7 +171,7 @@ Deno.serve(async (req) => {
         first_name: firstName,
         last_name: lastName,
         name: titleName(`${firstName} ${lastName}`),
-        phone,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       })
       .eq("id", me.identity.id);
     if (iErr) return fail("accept_failed");

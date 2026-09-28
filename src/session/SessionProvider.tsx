@@ -37,7 +37,7 @@ function migrateLegacySession(raw: Record<string, unknown>): Session {
     name: titleName((raw.name ?? raw.nome) as string),
     cpf: raw.cpf as string,
     email: raw.email as string,
-    phone: (raw.phone as string | undefined) ?? "",
+    avatarUrl: (raw.avatarUrl as string | null | undefined) ?? null,
     role: raw.role as Session["role"],
     isOwner: Boolean(raw.isOwner ?? raw.proprietario),
     stores: (raw.stores as string[]) ?? [],

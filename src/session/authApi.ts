@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
+import { prepararAvatar } from "@/lib/avatar";
 import { companyNameCase, titleName } from "@/lib/format";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
@@ -281,7 +282,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   const { data: ident } = await sb
     .from("identity")
-    .select("id, name, email, cpf, phone, status, temporary_password")
+    .select("id, name, email, cpf, avatar_url, status, temporary_password")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
@@ -323,7 +324,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
     name: titleName(ident.name),
     cpf: ident.cpf ?? "",
     email: ident.email,
-    phone: ident.phone ?? "",
+    avatarUrl: ident.avatar_url ?? null,
     role: memb.role as Session["role"],
     isOwner: memb.is_owner,
     stores: storeIds,
@@ -336,27 +337,58 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
   };
 }
 
-export type PersonalAccessInput = { firstName: string; lastName: string; phone: string; password: string };
+/**
+ * Sobe a foto de perfil (já reduzida) para `avatars/{auth.uid}/…` e devolve a URL pública.
+ * Nome único por envio: evita cache antigo do navegador/CDN ao trocar de foto.
+ */
+export async function uploadAvatar(photo: File): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: true, url: URL.createObjectURL(photo) };
+  const { data: userData } = await sb.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo." };
+  let blob: Blob;
+  try {
+    blob = await prepararAvatar(photo);
+  } catch {
+    return { ok: false, error: "Não foi possível ler essa imagem. Tente outra foto." };
+  }
+  const path = `${uid}/${Date.now()}.jpg`;
+  const { error } = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg" });
+  if (error) {
+    console.warn("uploadAvatar:", error.message);
+    return { ok: false, error: "Não foi possível enviar a foto. Tente novamente ou continue sem foto." };
+  }
+  return { ok: true, url: sb.storage.from("avatars").getPublicUrl(path).data.publicUrl };
+}
+
+export type PersonalAccessInput = { firstName: string; lastName: string; photo: File | null; password: string };
 
 /**
- * "Crie seu acesso": troca a senha temporária no Auth e grava nome, sobrenome e celular na identity.
+ * "Crie seu acesso": troca a senha temporária no Auth e grava nome, sobrenome e foto (opcional) na identity.
  * Sessão permanece (diferente do recovery, que faz signOut).
  */
 export async function createPersonalAccess(
   input: PersonalAccessInput,
-): Promise<{ ok: true; name: string; phone: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; name: string; avatarUrl: string | null } | { ok: false; error: string }> {
   const check = validarSenha(input.password);
   if (!check.ok) return { ok: false, error: check.erro };
 
   const firstName = titleName(input.firstName);
   const lastName = titleName(input.lastName);
   const name = titleName(`${firstName} ${lastName}`);
-  const phone = input.phone.replace(/\D/g, "");
+
+  let avatarUrl: string | null = null;
+  if (input.photo) {
+    const up = await uploadAvatar(input.photo);
+    if (!up.ok) return up;
+    avatarUrl = up.url;
+  }
 
   const sb = getSupabase();
   if (!sb) {
     await delay(400);
-    return { ok: true, name, phone };
+    return { ok: true, name, avatarUrl };
   }
 
   const { data: userData } = await sb.auth.getUser();
@@ -366,7 +398,7 @@ export async function createPersonalAccess(
   // Dados antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
   const { error: idErr } = await sb
     .from("identity")
-    .update({ first_name: firstName, last_name: lastName, name, phone })
+    .update({ first_name: firstName, last_name: lastName, name, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) })
     .eq("auth_user_id", uid);
   if (idErr) {
     console.warn("createPersonalAccess identity:", idErr.message);
@@ -377,7 +409,7 @@ export async function createPersonalAccess(
   if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
 
   await sb.from("identity").update({ temporary_password: false }).eq("auth_user_id", uid);
-  return { ok: true, name, phone };
+  return { ok: true, name, avatarUrl };
 }
 
 /** Destino após login / troca de senha / raiz. */

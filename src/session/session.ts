@@ -13,8 +13,8 @@ export interface Session {
   name: string;
   cpf: string;
   email: string;
-  /** Celular com DDD, só dígitos ("" = ainda não informado). */
-  phone: string;
+  /** Foto de perfil (URL pública no Storage); null = iniciais. */
+  avatarUrl: string | null;
   role: Role;
   isOwner: boolean;
   /** Resolved store ids in scope (owner = all). */
@@ -37,7 +37,7 @@ export function sessionFromUser(u: User): Session {
     name: titleName(u.name),
     cpf: u.cpf,
     email: u.email,
-    phone: "",
+    avatarUrl: null,
     role: u.role,
     isOwner: u.isOwner,
     stores: u.stores.length ? u.stores : stores.map((f) => f.id),

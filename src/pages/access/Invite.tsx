@@ -11,6 +11,7 @@ import {
   acessoSubtitulo,
   acessoTitulo,
   dadosPessoaisValidos,
+  dadosPessoaisVazios,
   separarNome,
   type DadosPessoais,
 } from "./AccessKit";
@@ -19,7 +20,7 @@ import { roleLabel, useSession } from "@/session/SessionProvider";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
 import { senhaValida, SENHA_REGRA_TEXTO } from "@/lib/password";
-import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth } from "@/session/authApi";
+import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth, uploadAvatar } from "@/session/authApi";
 import { acceptInvite, fetchInviteInfo, type InviteInfo } from "@/data/wedash/systemUsers";
 
 type State =
@@ -66,7 +67,7 @@ export function Invite() {
   const navigate = useNavigate();
   const { applySession } = useSession();
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [dados, setDados] = useState<DadosPessoais>({ nome: "", sobrenome: "", telefone: "" });
+  const [dados, setDados] = useState<DadosPessoais>(dadosPessoaisVazios);
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -138,13 +139,23 @@ export function Invite() {
     if (!sb) return;
     setCarregando(true);
     setErro(null);
+    let avatarUrl: string | null = null;
+    if (dados.foto) {
+      const up = await uploadAvatar(dados.foto);
+      if (!up.ok) {
+        setErro(up.error);
+        setCarregando(false);
+        return;
+      }
+      avatarUrl = up.url;
+    }
     const { error } = await sb.auth.updateUser({ password: senha });
     if (error) {
       setErro(mensagemErroSenhaAuth(error));
       setCarregando(false);
       return;
     }
-    const aceito = await acceptInvite({ firstName: dados.nome, lastName: dados.sobrenome, phone: dados.telefone });
+    const aceito = await acceptInvite({ firstName: dados.nome, lastName: dados.sobrenome, avatarUrl });
     const session = aceito ? await sessionFromPersistedAuth() : null;
     if (!session) {
       setErro("Não foi possível ativar seu acesso. Tente novamente.");

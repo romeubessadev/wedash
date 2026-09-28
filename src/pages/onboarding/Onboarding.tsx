@@ -17,6 +17,7 @@ import {
 import { clearAwaitingInitialSync, markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import { waitForSeedJob, type SeedWaitResult } from "@/data/wedash/salesRepo";
 import { Step2Credentials } from "./Step2Credentials";
+import { ONBOARDING_STEPS } from "./steps";
 import { Step3Stores } from "./Step3Stores";
 import {
   gravarRascunho,
@@ -27,18 +28,8 @@ import {
   type RascunhoOnboarding,
 } from "./draft";
 
-/**
- * Etapa 1 = "Seu acesso" (dados pessoais + senha), feita antes em /change-password — aparece sempre concluída.
- * `onboarding_step` no banco: 2 = ERP, 3 = Lojas (1 é legado da antiga etapa Empresa → vai para ERP).
- */
 const PRIMEIRA_ETAPA = 2;
 const ULTIMA_ETAPA = 3;
-
-const etapas = [
-  { num: 1, label: "Seu acesso" },
-  { num: 2, label: "ERP" },
-  { num: 3, label: "Lojas" },
-];
 
 const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bullets: string[] }> = {
   2: {
@@ -235,7 +226,7 @@ export function Onboarding() {
         </div>
 
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-4">
-          <WizardSteps steps={etapas} current={atual} />
+          <WizardSteps steps={ONBOARDING_STEPS} current={atual} />
 
           {atual === 2 && (
             <Step2Credentials

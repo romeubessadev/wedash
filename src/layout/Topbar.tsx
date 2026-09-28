@@ -128,7 +128,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
           align="right"
           trigger={
             <button className="flex items-center gap-2 rounded-[10px] pl-0.5 pr-1 hover:bg-bg-3">
-              <Avatar name={session.name} size="sm" />
+              <Avatar name={session.name} src={session.avatarUrl} size="sm" />
               <span className="hidden text-left leading-tight md:block">
                 <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.name}</span>
                 <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</span>

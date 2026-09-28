@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 
 const GRADIENTS = [
@@ -33,6 +34,8 @@ const sizeClasses = {
 
 export interface AvatarProps {
   name: string;
+  /** Foto; sem foto (ou falha ao carregar) = iniciais no gradiente. */
+  src?: string | null;
   size?: keyof typeof sizeClasses;
   status?: "online" | "offline" | "away" | "busy";
   className?: string;
@@ -46,20 +49,31 @@ const statusColors: Record<NonNullable<AvatarProps["status"]>, string> = {
   busy: "var(--bad)",
 };
 
-export function Avatar({ name, size = "md", status, className, ring }: AvatarProps) {
+export function Avatar({ name, src, size = "md", status, className, ring }: AvatarProps) {
   const gradient = GRADIENTS[hashString(name) % GRADIENTS.length];
+  const [falhou, setFalhou] = useState<string | null>(null);
+  const foto = src && falhou !== src ? src : null;
   return (
     <span className={cn("relative inline-flex shrink-0", className)}>
-      <span
-        className={cn(
-          "flex items-center justify-center rounded-full font-bold text-white select-none",
-          sizeClasses[size],
-          ring && "ring-2 ring-bg-2",
-        )}
-        style={{ background: gradient }}
-      >
-        {initials(name)}
-      </span>
+      {foto ? (
+        <img
+          src={foto}
+          alt={name}
+          onError={() => setFalhou(foto)}
+          className={cn("rounded-full object-cover", sizeClasses[size], ring && "ring-2 ring-bg-2")}
+        />
+      ) : (
+        <span
+          className={cn(
+            "flex items-center justify-center rounded-full font-bold text-white select-none",
+            sizeClasses[size],
+            ring && "ring-2 ring-bg-2",
+          )}
+          style={{ background: gradient }}
+        >
+          {initials(name || "?")}
+        </span>
+      )}
       {status && (
         <span
           className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
