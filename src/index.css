@@ -233,6 +233,10 @@
     -webkit-text-fill-color: var(--t0);
     box-shadow: 0 0 0 1000px var(--bg-inset) inset;
   }
+  /* A prévia da sugestão chega com o texto inteiro selecionado. */
+  input:-webkit-autofill::selection {
+    background: transparent;
+  }
 }
 
 /* Native <select> dropdowns: replace the platform arrow with a consistent,
