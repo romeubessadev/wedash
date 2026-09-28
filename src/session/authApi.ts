@@ -1,7 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
 import { companyNameCase, titleName } from "@/lib/format";
-import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
 import { sessionFromUser, type Session } from "@/session/session";
@@ -302,13 +301,9 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   const { data: ten } = await sb
     .from("tenant")
-    .select("id, slug, name, display_name, logo_url")
+    .select("name")
     .eq("id", memb.tenant_id)
     .maybeSingle();
-
-  if (ten?.slug && ten.slug !== tenant.slug) {
-    // Multi-tenant por slug: rejeitar vínculo de outro tenant quando slug divergir.
-  }
 
   const { data: storeRows } = await sb.from("membership_store").select("store_id").eq("membership_id", memb.id);
   let storeIds = (storeRows ?? []).map((r) => r.store_id as string);
@@ -335,9 +330,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
     onboardingStep: memb.onboarding_step,
     temporaryPassword: Boolean(ident.temporary_password),
     tenantId: memb.tenant_id,
-    companyName: companyNameCase(ten?.display_name ?? ten?.name ?? tenant.nomeExibicao),
-    companySlug: ten?.slug ?? tenant.slug,
-    companyLogoUrl: ten?.logo_url ?? null,
+    companyName: companyNameCase(ten?.name ?? ""),
     appInstalled: false,
   };
 }
@@ -496,26 +489,14 @@ export async function touchLastSeen(): Promise<void> {
   if (error) console.warn("touch_last_seen:", error.message);
 }
 
-/** Grava marca da empresa (etapa 1 do onboarding) no tenant. */
-export async function saveTenantBrand(
-  tenantId: string,
-  brand: { name: string; slug: string; logoUrl?: string | null },
-): Promise<void> {
+/** Grava o nome da empresa (etapa 1 do onboarding) no tenant. */
+export async function saveCompanyName(tenantId: string, companyName: string): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const name = companyNameCase(brand.name);
-  const slug = brand.slug.trim().toLowerCase();
+  const name = companyNameCase(companyName);
   if (!name) return;
-  const { error } = await sb
-    .from("tenant")
-    .update({
-      name,
-      display_name: name,
-      ...(slug ? { slug } : {}),
-      ...(brand.logoUrl !== undefined ? { logo_url: brand.logoUrl } : {}),
-    })
-    .eq("id", tenantId);
-  if (error) console.warn("saveTenantBrand:", error.message);
+  const { error } = await sb.from("tenant").update({ name }).eq("id", tenantId);
+  if (error) console.warn("saveCompanyName:", error.message);
 }
 
 /** Para seed/manual: monta Session a partir de User fixture. */

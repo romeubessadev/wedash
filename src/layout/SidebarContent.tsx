@@ -6,7 +6,7 @@ import { paths } from "@/router/paths";
 import { isNavGroup, type NavEntry } from "./nav-config";
 import { navDoPapel } from "./nav-wedash";
 import { Button } from "@/components/ui";
-import { MarcaComNome } from "@/components/wedash/TenantBrand";
+import { WedashBrand } from "@/components/wedash/WedashBrand";
 import { useActiveSession } from "@/session/SessionProvider";
 
 /** True se `path` é (ou está aninhado sob) o destino `to`. */
@@ -66,7 +66,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
   return (
     <div className="flex h-full flex-col">
       <div className="pad-topo flex items-center gap-2.5 px-5 pb-[18px]" style={{ minHeight: 74, ...padTopo("18px") }}>
-        <MarcaComNome size={34} nome={collapsed ? "" : session.companyName} logoUrl={session.companyLogoUrl} />
+        <WedashBrand size={34} showName={!collapsed} />
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5">

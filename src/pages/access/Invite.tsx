@@ -156,8 +156,14 @@ export function Invite() {
       </IconeCard>
       <h1 className={acessoTitulo}>Olá, {primeiroNome}.</h1>
       <p className={acessoSubtitulo}>
-        Crie sua senha para acessar a <span className="font-bold text-t0">{info.companyName || "empresa"}</span> como{" "}
-        {roleLabel[info.role].toLowerCase()}. Seu login é <span className="font-bold text-t0">{info.email}</span>.
+        Crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+        {info.companyName ? (
+          <>
+            {" "}
+            da <span className="font-bold text-t0">{info.companyName}</span>
+          </>
+        ) : null}
+        . Seu login é <span className="font-bold text-t0">{info.email}</span>.
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
         <CampoSenha

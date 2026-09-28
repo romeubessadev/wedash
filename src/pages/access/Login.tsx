@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { BrandMark } from "@/pages/auth/authKit";
-import { tenant } from "@/data/wedash/tenant";
+import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { users } from "@/data/wedash/team";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { loginWithEmail, MENSAGEM_LOGIN, destinationAfterAuth } from "@/session/authApi";
@@ -91,7 +91,7 @@ export function Login() {
         />
         <div className="relative flex items-center gap-3">
           <BrandMark size={38} light />
-          <span className="text-[17px] font-extrabold text-white">{tenant.nomeExibicao}</span>
+          <span className="text-[17px] font-extrabold text-white">{PRODUCT_NAME}</span>
         </div>
         <div className="relative">
           <h2 className="mb-3.5 text-[30px] font-extrabold leading-[1.25] tracking-tight text-white">
@@ -114,7 +114,7 @@ export function Login() {
       <div className="flex flex-col items-center justify-center px-6 py-12 sm:px-14">
         <div className="mb-8 flex items-center gap-2.5 lg:hidden">
           <BrandMark size={34} />
-          <span className="text-[16px] font-extrabold text-t0">{tenant.nomeExibicao}</span>
+          <span className="text-[16px] font-extrabold text-t0">{PRODUCT_NAME}</span>
         </div>
 
         <div className="w-full max-w-[380px]">

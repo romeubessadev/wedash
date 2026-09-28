@@ -4,12 +4,11 @@
 Sistema de gestão analítica para rede de franquias de cosméticos (marcas **Wepink** e **Wpink**).
 Público-alvo principal: **gestor sênior / franqueado / dono da rede**, que precisa de dados para **tomada de decisão**, não apenas visualização.
 
-### URL do tenant (DECIDIDO — 2026-09-21)
-- Formato: **`wedash.app/{slug}`** (path), **não** subdomínio `slug.wedash.app`.
-- Slug **gerado automaticamente** a partir do nome da empresa no onboarding (sem campo manual). Em colisão: `nome`, `nome-2`, `nome-3`…
-- Sem “criar endereço próprio” / DNS wildcard no MVP.
-- Paths do produto (`login`, `dashboard`, …) ficam em lista de slugs reservados.
-- Edição manual do slug (se houver) fica em Configurações > Marca (fase futura).
+### Sem white label (DECIDIDO — 2026-09-27; substitui "URL do tenant" de 2026-09-21)
+- A plataforma aparece **sempre como WeDash** (sidebar, login, onboarding, telas de acesso) — `PRODUCT_NAME` + `WedashBrand` (`src/components/wedash/WedashBrand.tsx`). Sem nome, logo ou cor personalizados por empresa.
+- **Acesso sempre pelo endereço padrão da WeDash.** Sem slug, sem `wedash.app/{slug}`, sem `{empresa}.wedash.app`.
+- O **nome da empresa** (`tenant.name`, caixa alta) continua só como **identificação da conta**: etapa "Empresa" do onboarding (só o nome), Meu perfil ("Empresa") e convites ("acessar a WeDash como gerente da EMPRESA"). Não aparece como marca da plataforma. Menu do avatar (Topbar) mostra o nome da pessoa.
+- Removidos: Configurações > Marca (URLs antigas → Lojas), logo na etapa 1, geração de slug, leitura pública do tenant (anon). Migration `20260927120000_remove_white_label` tira `slug`, `previous_slug`, `display_name`, `logo_url` e `brand_color` do `tenant`.
 
 ## Tema visual
 - Seguir **estritamente** o tema **Vela** (paleta, componentes, tokens).
@@ -135,7 +134,7 @@ Sem esses 4 elementos, o número é "dado jogado na tela" — não serve para de
 - `MobileDrawer` — sidebar mobile
 
 ### Específicos de produto (`src/components/wedash/`)
-- `TenantBrand` — marca do tenant (logo / iniciais)
+- `WedashBrand` — marca WeDash (símbolo + nome); sem marca por empresa
 - `AiChat` — chat com IA
 
 ### Stack
@@ -622,7 +621,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - **Paginação das tabelas** (2026-09-26): toda tabela de lista da WeDash = **10 por página no desktop, 5 no celular** (`usePagedRows` em `src/lib/usePagedRows.ts`; corte do celular = `MOBILE_QUERY`, < 768px). `DataTable` com `paginate="produtos"` (substantivo do rodapé) pagina depois da ordenação e mostra "Mostrando X de Y …" + `Pagination` só quando há mais de 1 página; volta à página 1 ao mudar filtro/busca/ordenação. Aplicado em Configurações (Usuários, Convites, Equipe da loja), Financeiro > Evolução mensal, Metas, ranking da Equipe e Produtos > Desempenho por produto. Top 5 (Top produtos, Top linhas, Destaques) não paginam. Tabela nova de lista → `paginate`.
 
 41. ✅ **Nome de pessoa e de turno em Title Case** (2026-09-26; substitui "tudo em MAIÚSCULAS" do mesmo dia) — padroniza (usuário digita tudo minúsculo, tudo maiúsculo ou misturado). Primeira letra de cada palavra maiúscula; **de · da · do · das · dos · e** minúsculas fora do início ("Ana Paula de Souza e Silva"; "D'Ávila"). Vale para **nome de pessoa** (usuário, equipe de vendas, perfil, boas-vindas) e **nome do turno**.
- - **Empresa** = **caixa alta** (2026-09-26), igual às lojas: `companyNameCase` (`src/lib/format.ts`) ao gravar (onboarding → `saveTenantBrand`) e ao ler (sessão, convite); migration `20260926180000_tenant_name_upper` converteu o que existia. **Loja** = caixa alta (vem assim do ERP, não mexemos).
+ - **Empresa** = **caixa alta** (2026-09-26), igual às lojas: `companyNameCase` (`src/lib/format.ts`) ao gravar (onboarding → `saveCompanyName`) e ao ler (sessão, convite); migration `20260926180000_tenant_name_upper` converteu o que existia. **Loja** = caixa alta (vem assim do ERP, não mexemos).
  - Regra = `titleName` (`src/lib/format.ts`); espelhos: `supabase/functions/_shared/text.ts` (Edges) e SQL da migration `20260926170000_title_case_names`. Mudou a regra → mudar os três.
  - **Gravado já normalizado:** convite (app + Edge `team-members`), turnos (`saveStoreShift`), `seller_name` do worker (`sellerDisplayName`), `store_seller.name` (worker e Edge `erp-sellers-sync`, `millenniumSellers.ts` nas duas cópias). Leitura também passa por `titleName` (rede de segurança).
  - Dados antigos convertidos pela migration `20260926170000_title_case_names` (identity, store_shift, store_seller, sales_seller_day_agg; tenant não). Sem transformação visual no campo enquanto digita (a prop `upper` do `Input` saiu).

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { WizardSteps } from "@/components/ui";
 import { BrandMark } from "@/pages/auth/authKit";
 import { paths } from "@/router/paths";
-import { tenant } from "@/data/wedash/tenant";
+import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { storeIdsFromErp } from "@/data/wedash/stores";
 import type { StoreErp } from "@/data/wedash/erp";
 import { padTopoEBase } from "@/lib/safeArea";
@@ -13,12 +13,12 @@ import { useSession, useActiveSession } from "@/session/SessionProvider";
 import {
   saveOnboardingStep,
   saveMembershipStores,
-  saveTenantBrand,
+  saveCompanyName,
   persistErpCredentialAndStores,
 } from "@/session/authApi";
 import { clearAwaitingInitialSync, markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import { waitForSeedJob, type SeedWaitResult } from "@/data/wedash/salesRepo";
-import { Step1Brand, type RascunhoEmpresa } from "./Step1Brand";
+import { Step1Company, type RascunhoEmpresa } from "./Step1Company";
 import { Step2Credentials } from "./Step2Credentials";
 import { Step3Stores } from "./Step3Stores";
 import {
@@ -40,13 +40,13 @@ const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bul
   1: {
     titulo: (
       <>
-        Um ambiente com
+        Sua rede inteira,
         <br />
-        a identidade da sua empresa.
+        em um só painel.
       </>
     ),
-    texto: "Essas informações ajudam sua equipe a reconhecer e acessar a WeDash com facilidade.",
-    bullets: ["Nome visível em todo o sistema", "Link gerado automaticamente (wedash.app/…)", "Logo opcional para personalizar o ambiente"],
+    texto: "Comece pelo nome da empresa. Depois conectamos o Millennium e confirmamos suas lojas.",
+    bullets: ["Leva poucos minutos", "Sua equipe entra pelo mesmo endereço da WeDash", "Convites por e-mail com o nome da empresa"],
   },
   2: {
     titulo: (
@@ -167,12 +167,7 @@ export function Onboarding() {
       const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
       const empresa = draft.empresa;
       const companyName = companyNameCase(empresa.nome.trim() || session.companyName);
-      // Logo blob local não persiste; gravamos só nome/slug por enquanto.
-      await saveTenantBrand(session.tenantId, {
-        name: companyName,
-        slug: empresa.slug.trim() || session.companySlug,
-        logoUrl: null,
-      });
+      await saveCompanyName(session.tenantId, companyName);
 
       const password = lerSenhaErp(membershipId);
       let ids = storeIdsFromErp(confirmed);
@@ -207,8 +202,6 @@ export function Onboarding() {
           onboardingStep: null,
           stores: ids,
           companyName,
-          companySlug: empresa.slug.trim() || session.companySlug,
-          companyLogoUrl: null,
         });
         navigate(`${paths.overview}?periodo=hoje`, { replace: true });
       };
@@ -246,7 +239,7 @@ export function Onboarding() {
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <BrandMark size={34} />
-            <span className="text-[16px] font-extrabold text-t0">{tenant.nomeExibicao}</span>
+            <span className="text-[16px] font-extrabold text-t0">{PRODUCT_NAME}</span>
           </div>
           <button
             type="button"
@@ -261,7 +254,7 @@ export function Onboarding() {
           <WizardSteps steps={etapas} current={atual} />
 
           {atual === 1 && (
-            <Step1Brand valor={draft.empresa} onChange={patchEmpresa} onConcluir={() => void irPara(2)} />
+            <Step1Company valor={draft.empresa} onChange={patchEmpresa} onConcluir={() => void irPara(2)} />
           )}
           {atual === 2 && (
             <Step2Credentials

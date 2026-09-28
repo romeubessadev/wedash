@@ -33,7 +33,7 @@
   --bad-soft: rgba(247, 109, 125, 0.14);
   --warn-soft: rgba(247, 184, 78, 0.16);
   --info-soft: rgba(86, 168, 255, 0.14);
-  /* Cores primárias das marcas da rede (não seguem o acento do tenant). */
+  /* Cores primárias das marcas da rede (não seguem o acento do tema). */
   --wepink: #ff5fae;
   --wepink-soft: rgba(255, 95, 174, 0.15);
   --wpink: #a979ff;

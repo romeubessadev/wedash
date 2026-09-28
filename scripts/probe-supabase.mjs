@@ -31,8 +31,10 @@ console.log("Auth health:", health.status, health.ok ? "ok" : "FAIL");
 console.log("Auth body:", (await health.text()).slice(0, 100));
 
 const sb = createClient(url, key);
-const { data, error } = await sb.from("tenant").select("slug").limit(1);
-if (error) {
+const { data, error } = await sb.from("tenant").select("id").limit(1);
+if (error?.code === "42501") {
+  console.log("tenant query: ok (sem acesso anônimo, esperado)");
+} else if (error) {
   console.log("tenant query:", error.code || "", error.message);
   if (/schema cache|does not exist|PGRST/i.test(error.message + (error.code || ""))) {
     console.log("HINT: rode supabase/migrations/20260919120000_auth_core.sql no SQL Editor");

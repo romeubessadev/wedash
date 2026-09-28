@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui";
 import { BrandMark } from "@/pages/auth/authKit";
 import { CampoSenha, ForcaSenha, acessoBotao } from "@/pages/access/AccessKit";
-import { tenant } from "@/data/wedash/tenant";
+import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { senhaValida } from "@/lib/password";
 import { paths } from "@/router/paths";
 import { destinationAfterAuth, changeTemporaryPassword } from "@/session/authApi";
@@ -46,7 +46,7 @@ export function ChangePassword() {
         <div className="mb-8 flex w-full max-w-[400px] items-center justify-between">
           <div className="flex items-center gap-2.5 lg:hidden">
             <BrandMark size={34} />
-            <span className="text-[16px] font-extrabold text-t0">{tenant.nomeExibicao}</span>
+            <span className="text-[16px] font-extrabold text-t0">{PRODUCT_NAME}</span>
           </div>
           <button
             type="button"

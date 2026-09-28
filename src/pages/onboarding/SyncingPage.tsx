@@ -21,7 +21,7 @@ import {
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { getSupabase } from "@/lib/supabase";
 import { BrandMark } from "@/pages/auth/authKit";
-import { tenant } from "@/data/wedash/tenant";
+import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { padTopoEBase } from "@/lib/safeArea";
 
 /** Job na fila sem worker pegar → erro (não espera infinito). */
@@ -333,7 +333,7 @@ export function SyncingPage() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <BrandMark size={34} />
-          <span className="text-[16px] font-extrabold text-t0">{tenant.nomeExibicao}</span>
+          <span className="text-[16px] font-extrabold text-t0">{PRODUCT_NAME}</span>
         </div>
         <button
           type="button"

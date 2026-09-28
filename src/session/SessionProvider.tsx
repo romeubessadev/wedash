@@ -44,9 +44,7 @@ function migrateLegacySession(raw: Record<string, unknown>): Session {
     onboardingStep: (raw.onboardingStep ?? raw.onboardingEtapa ?? null) as number | null,
     temporaryPassword: Boolean(raw.temporaryPassword ?? raw.senhaTemporaria),
     tenantId: raw.tenantId as string,
-    companyName: companyNameCase((raw.companyName ?? raw.empresaNome ?? raw.name ?? raw.nome ?? "WeDash") as string),
-    companySlug: (raw.companySlug ?? raw.empresaSlug ?? "wedash") as string,
-    companyLogoUrl: (raw.companyLogoUrl ?? raw.empresaLogoUrl ?? null) as string | null,
+    companyName: companyNameCase((raw.companyName ?? raw.empresaNome ?? raw.name ?? raw.nome ?? "") as string),
     appInstalled: Boolean(raw.appInstalled ?? raw.appInstalado),
   };
 }
@@ -62,13 +60,7 @@ function ler(): Session | null {
     }
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const s = migrateLegacySession(parsed);
-    if (!s.companyName) {
-      s.companyName = s.name || "WeDash";
-      s.companySlug = s.companySlug || "wedash";
-      s.companyLogoUrl = s.companyLogoUrl ?? null;
-    }
-    return s;
+    return migrateLegacySession(parsed);
   } catch {
     return null;
   }
@@ -112,12 +104,6 @@ function mergeWithCache(fromAuth: Session, cached: Session | null): Session {
     temporaryPassword: cached.temporaryPassword ? fromAuth.temporaryPassword : false,
     companyName:
       cached.companyName && cached.onboardingStep === null ? cached.companyName : fromAuth.companyName,
-    companySlug:
-      cached.companySlug && cached.onboardingStep === null ? cached.companySlug : fromAuth.companySlug,
-    companyLogoUrl:
-      cached.onboardingStep === null && cached.companyLogoUrl !== undefined
-        ? cached.companyLogoUrl
-        : fromAuth.companyLogoUrl,
     appInstalled: cached.appInstalled || fromAuth.appInstalled,
   };
 }

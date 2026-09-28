@@ -49,8 +49,8 @@ function latest(a: string | null, b: string | null): string | null {
 
 /** Variáveis do template "Invite user" ({{ .Data.name }}, {{ .Data.company }}, {{ .Data.role }}). */
 async function inviteData(admin: SupabaseClient, tenantId: string, name: string, role: Role) {
-  const { data: ten } = await admin.from("tenant").select("name, display_name").eq("id", tenantId).maybeSingle();
-  return { name: titleName(name), company: ten?.display_name ?? ten?.name ?? "WeDash", role: ROLE_LABEL[role] };
+  const { data: ten } = await admin.from("tenant").select("name").eq("id", tenantId).maybeSingle();
+  return { name: titleName(name), company: ten?.name ?? "", role: ROLE_LABEL[role] };
 }
 
 function authErrorCode(e: { message?: string; status?: number; code?: string } | null): string {
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
     if (action === "invite_info") {
       const { data: ten } = await admin
         .from("tenant")
-        .select("name, display_name")
+        .select("name")
         .eq("id", pending.tenant_id)
         .maybeSingle();
       return json({
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
         name: me.identity.name,
         email: me.identity.email,
         role: pending.role,
-        companyName: ten?.display_name ?? ten?.name ?? "",
+        companyName: ten?.name ?? "",
       });
     }
     const now = new Date().toISOString();

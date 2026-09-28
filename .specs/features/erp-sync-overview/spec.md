@@ -21,7 +21,7 @@ A Visão Geral ainda usa mocks locais. O Millennium é a fonte real de vendas, m
 | Sync rodando só em Edge internacional | IP BR obrigatório |
 | Equipe / Produtos / Financeiro completo em dados reais | Só VG nesta feature |
 | UI completa de Configurações > ERP | Pode reusar credencial do onboarding; CRUD settings é fase 3 |
-| Roteamento `wedash.app/{slug}` | Decisão de URL à parte |
+| ~~Roteamento por slug~~ | Descartado (AD-023: sem white label, endereço único) |
 
 ---
 

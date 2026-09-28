@@ -2,7 +2,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Avatar, Badge, Button, Card, CardTitle, PageHeader } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { stores } from "@/data/wedash/stores";
-import { tenant } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
 import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvider";
 
@@ -27,8 +26,8 @@ export function Profile() {
           </div>
           <div className="mt-5 flex flex-col gap-2 text-[13px]">
             <div className="flex items-center justify-between border-t border-line pt-3">
-              <span className="text-t2">Franquia</span>
-              <span className="font-bold text-t0">{tenant.nomeExibicao}</span>
+              <span className="text-t2">Empresa</span>
+              <span className="font-bold text-t0">{session.companyName || "—"}</span>
             </div>
             <div className="flex items-center justify-between border-t border-line pt-3">
               <span className="text-t2">Role</span>

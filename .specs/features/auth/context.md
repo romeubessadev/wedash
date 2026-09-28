@@ -8,7 +8,7 @@
 
 ## Feature Boundary
 
-Autenticação e-mail+senha com Supabase Auth, sessão PWA grudenta, recuperar/redefinir senha, resolve vínculo no tenant do slug, convite ATIVACAO/ACEITE. **Sem** onboarding Millennium nesta fatia.
+Autenticação e-mail+senha com Supabase Auth, sessão PWA grudenta, recuperar/redefinir senha, resolve o vínculo ativo da pessoa (sem slug — AD-023), convite ATIVACAO/ACEITE. **Sem** onboarding Millennium nesta fatia.
 
 ---
 

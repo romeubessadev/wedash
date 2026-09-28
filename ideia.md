@@ -65,7 +65,6 @@ tem endereço próprio e identidade própria.
 | **meta** | Objetivo mensal, **sempre em reais**, uma por mês, com degraus |
 | **desafio** | Objetivo pontual em produto, quantidade ou índice. **Nunca em reais**. N por mês |
 | **degrau** | Faixa da meta: Meta, Super Meta, Hiper Meta, Meta Desafio — nomes e quantidade configuráveis |
-| **slug** | Identificador do tenant no subdomínio |
 | **proprietário** | O vínculo que administra a credencial do ERP. Um por tenant |
 | **sync leve** | Só vendas do dia. Segundos de sessão no ERP |
 | **sync pesado** | Custo, estoque, cadastros. Uma vez ao dia, de madrugada |
@@ -119,16 +118,15 @@ suporte (seção 15).
 - **Não existe link de cadastro.** Franqueado é criado pelo admin; vendedora e
   gerente são convidados
 
-**Antes de renderizar:** a marca do tenant carrega pelo slug do subdomínio, por
-endpoint público que devolve **somente** nome de exibição, logo e cor. Slug
-inexistente devolve a marca padrão do produto, com 200 — nunca 404, que
-confirmaria quais tenants existem.
+**Marca:** a tela é sempre da WeDash (sem white label, decisão de 2026-09-27).
+Não há marca por empresa nem endereço por empresa; todo mundo entra pelo
+endereço padrão da WeDash.
 
 **Comportamento no servidor:**
 
 1. Resolve a identidade pelo CPF
 2. Valida a senha e `identidade.status = ATIVO`
-3. Busca o vínculo ATIVO da identidade **no tenant do slug**
+3. Busca o vínculo ATIVO da identidade (o vínculo define o tenant)
 4. Emite JWT de acesso (15 min) e refresh token (30 dias), carregando
    `vinculo_id`, `tenant_id`, `papel` e as filiais do escopo
 5. Se `onboarding_etapa` estiver incompleta, redireciona para ela
@@ -143,9 +141,9 @@ testando CPFs.
 estourar, 429 com a mesma mensagem. Tempo de resposta constante: falha por CPF
 inexistente não pode responder mais rápido que senha errada.
 
-**Múltiplos vínculos:** o subdomínio já identifica o tenant, então a pessoa não
-escolhe nada no login. Dentro do app, se tiver mais de um vínculo ativo, aparece
-um seletor de franquia no perfil. Trocar reemite o token sem pedir senha.
+**Múltiplos vínculos:** a pessoa não escolhe nada no login. Dentro do app, se
+tiver mais de um vínculo ativo, aparece um seletor de franquia no perfil. Trocar
+reemite o token sem pedir senha.
 
 **Sessão:** múltiplas sessões simultâneas permitidas — a restrição de sessão
 única é do ERP, não nossa. Logout revoga o refresh token daquele dispositivo
@@ -229,10 +227,6 @@ que já existe, vê apenas "Esta pessoa já tem conta e receberá um convite".
 único. Reemitir invalida o anterior. **Nunca usar CPF como senha temporária** —
 CPF é o login e não é secreto.
 
-**Exceção:** a ativação do primeiro franqueado, criado pelo admin, sai no
-domínio principal, porque o slug ainda não existe — ele escolhe na primeira
-etapa do onboarding.
-
 ### 4.4 Convite de equipe
 
 **Vendedora** — nasce de um colaborador já sincronizado do ERP. O CPF vem do ERP
@@ -253,23 +247,13 @@ PENDENTE.
 
 ---
 
-## 5. Tenant e endereço próprio
+## 5. Tenant
 
-Cada franqueado responde em `{slug}.dominio.com.br`. O subdomínio identifica o
-tenant **antes do login**.
-
-**Regras do slug:** minúsculas, dígitos e hífen; 3 a 40 caracteres; não inicia
-nem termina com hífen; reservados fora: `www api app admin static assets cdn
-mail ftp status suporte painel`; único entre tenants. Mudança permitida,
-guardando o anterior como redirecionamento permanente — senão convites já
-enviados e apps instalados quebram.
-
-**O franqueado escolhe o slug** na etapa 1 do onboarding, com verificação de
-disponibilidade ao digitar. O admin não define.
-
-**Marca:** nome de exibição, logo e uma cor principal, configurados pelo
-franqueado. A cor tem checagem de contraste e de distância dos semânticos de
-positivo e negativo.
+**Sem white label** (2026-09-27): a plataforma aparece sempre como WeDash e o
+acesso é sempre pelo endereço padrão — sem slug, sem subdomínio por empresa, sem
+nome, logo ou cor personalizados. O tenant é resolvido pelo vínculo da pessoa
+depois do login. O nome da empresa fica só como identificação da conta (perfil,
+convites).
 
 **Tenant não é chaveado por CNPJ.** Um franqueado é pessoa física com CPF.
 Abaixo dele pode haver matriz com filiais (mesma raiz de CNPJ), empresas
@@ -292,11 +276,9 @@ Quatro etapas para o gestor proprietário, uma para a vendedora. **Retomável**:
 É aqui que o ERP é chamado **em tempo real**, com o usuário esperando. Nas telas
 do app o dado vem do sync.
 
-### Etapa 1 — Marca (obrigatória, no domínio principal)
+### Etapa 1 — Empresa (obrigatória)
 
-Campos: nome de exibição, endereço (slug) com verificação ao digitar, logo
-(opcional), cor principal (opcional). Ao concluir, **redireciona para o
-subdomínio** e o restante acontece lá.
+Campo: nome da empresa (identifica a conta; não muda a marca da plataforma).
 
 ### Etapa 2 — Credencial do ERP (obrigatória)
 
@@ -618,8 +600,7 @@ em silêncio.
 ## 8. Modelo de dados
 
 ```
-tenant             id, slug (único), slug_anterior, nome, nome_exibicao,
-                   logo_url, cor_marca, intervalo_sync_leve_min, ativo
+tenant             id, nome, intervalo_sync_leve_min, ativo
 
 identidade         id, cpf (ÚNICO global), nome, email, telefone,
                    senha_hash (Argon2id), status, ultimo_login

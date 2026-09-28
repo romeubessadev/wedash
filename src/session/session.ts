@@ -1,5 +1,5 @@
 import { stores } from "@/data/wedash/stores";
-import { tenant } from "@/data/wedash/tenant";
+import { demoTenant } from "@/data/wedash/tenant";
 import type { Role, User } from "@/data/wedash/team";
 import { titleName } from "@/lib/format";
 
@@ -9,7 +9,7 @@ import { titleName } from "@/lib/format";
  */
 export interface Session {
   membershipId: string;
-  /** Identity contact name; chrome uses companyName. */
+  /** Identity contact name. */
   name: string;
   cpf: string;
   email: string;
@@ -23,10 +23,8 @@ export interface Session {
   /** true = must change password before onboarding/app. */
   temporaryPassword: boolean;
   tenantId: string;
-  /** Company display name (onboarding / tenant.display_name). */
+  /** Company name (tenant.name) — identifies the account; the platform chrome always shows WeDash. */
   companyName: string;
-  companySlug: string;
-  companyLogoUrl: string | null;
   /** Installed the PWA? Used for the persistent install notice. */
   appInstalled: boolean;
 }
@@ -43,10 +41,8 @@ export function sessionFromUser(u: User): Session {
     collaboratorId: u.collaboratorId,
     onboardingStep: u.onboardingStep,
     temporaryPassword: u.temporaryPassword ?? false,
-    tenantId: tenant.id,
-    companyName: tenant.nomeExibicao,
-    companySlug: tenant.slug,
-    companyLogoUrl: tenant.logoUrl,
+    tenantId: demoTenant.id,
+    companyName: demoTenant.name,
     appInstalled: false,
   };
 }

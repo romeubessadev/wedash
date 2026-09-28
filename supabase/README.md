@@ -19,7 +19,7 @@ Where to find them: **Project Settings → API**
 
 | Table | Purpose |
 |-------|---------|
-| `tenant` | Franchise / brand (slug, name, display_name, …) |
+| `tenant` | Company account (name, active, …) — no white label: no slug / logo / display name |
 | `identity` | Person 1:1 with `auth.users` |
 | `membership` | identity ↔ tenant (role, is_owner, onboarding_step) |
 | `membership_store` | Store scope for a membership |

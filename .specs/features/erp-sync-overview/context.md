@@ -79,4 +79,4 @@ Entregar um **pipeline de sync Millennium → Postgres WeDash** e fazer a **Vis�
 - Linha a linha de venda para drill Produtos/Equipe.
 - Backfill sob demanda além de 24 meses.
 - Botão “Atualizar agora” na UI (pode ser P2 desta feature ou follow-up).
-- Subdomínio/`/:slug` routing (já decidido path; resolve de rota é outra feature).
+- ~~Subdomínio/`/:slug` routing~~ — descartado (AD-023: sem white label, endereço único da WeDash).

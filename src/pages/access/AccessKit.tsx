@@ -3,9 +3,8 @@ import { padTopoEBase } from "@/lib/safeArea";
 import { cn } from "@/lib/cn";
 import { SENHA_MIN, dicaForcaSenha, senhaTemEspecial } from "@/lib/password";
 import { Checkbox, FormField, Input } from "@/components/ui";
-import { AuthGlow } from "@/pages/auth/authKit";
-import { Marca } from "@/components/wedash/TenantBrand";
-import { tenant } from "@/data/wedash/tenant";
+import { AuthGlow, BrandMark } from "@/pages/auth/authKit";
+import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
 
 /**
@@ -34,14 +33,11 @@ export function AcessoPagina({ children, rodape, largura = 420, marca = true }: 
       <div className="relative w-full" style={{ maxWidth: largura }}>
         {marca && (
           <div className="mb-6 flex flex-col items-center gap-3">
-            <Marca size={56} />
-            <div className="text-center">
-              <p className="text-[17px] font-extrabold tracking-tight text-t0">
-                {tenant.nomeExibicao}
-                <span className="text-acc">.</span>
-              </p>
-              <p className="text-[11.5px] text-t2">wedash.app/{tenant.slug}</p>
-            </div>
+            <BrandMark size={56} />
+            <p className="text-[17px] font-extrabold tracking-tight text-t0">
+              {PRODUCT_NAME}
+              <span className="text-acc">.</span>
+            </p>
           </div>
         )}
         <div className="rounded-[22px] border border-line bg-bg-2 p-7 sm:p-9" style={{ boxShadow: "0 20px 60px -20px rgba(0,0,0,.6)" }}>

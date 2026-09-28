@@ -15,7 +15,7 @@ flowchart LR
 
 ## Data (auth core)
 
-- `tenant` — id, slug, name, display_name, …
+- `tenant` — id, name, active, … (sem slug/marca: AD-023)
 - `identity` — id, auth_user_id UNIQUE, email UNIQUE, cpf NULLABLE, name, status, temporary_password
 - `membership` — identity_id, tenant_id, role, is_owner, onboarding_step, status
 - `membership_store` — membership_id, store_id

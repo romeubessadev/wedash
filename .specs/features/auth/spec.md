@@ -2,11 +2,11 @@
 
 ## Problem Statement
 
-O app ainda autentica com mock (CPF, senha ignorada, localStorage). Precisamos de autenticação real e-mail+senha, segura e sticky para PWA, alinhada ao multi-tenant por slug — sem ainda plugar o onboarding Millennium.
+O app ainda autentica com mock (CPF, senha ignorada, localStorage). Precisamos de autenticação real e-mail+senha, segura e sticky para PWA, multi-tenant pelo vínculo da pessoa (sem slug — AD-023) — sem ainda plugar o onboarding Millennium.
 
 ## Goals
 
-- [ ] Usuário entra com e-mail e senha no tenant do slug e permanece logado após F5
+- [ ] Usuário entra com e-mail e senha pelo endereço padrão da WeDash e permanece logado após F5
 - [ ] Recuperação de senha por e-mail sem vazar se a conta existe
 - [ ] Sessão hidrata vínculo (papel, tenant, filiais do escopo mock/DB)
 - [ ] Front deixa de usar CPF como campo de login
@@ -101,7 +101,7 @@ O app ainda autentica com mock (CPF, senha ignorada, localStorage). Precisamos d
 
 **Acceptance Criteria**:
 
-1. WHEN a session is established THEN the system SHALL load the active vínculo for the tenant slug into `Sessao` (vinculoId, papel, proprietario, filiais, onboardingEtapa).
+1. WHEN a session is established THEN the system SHALL load the user's active vínculo (its tenant) into `Sessao` (vinculoId, papel, proprietario, filiais, onboardingEtapa).
 2. IF no active vínculo exists for that tenant THEN the system SHALL treat login as failed with the generic error.
 
 **Independent Test**: Login gestor → `RequirePapel` e home corretos.

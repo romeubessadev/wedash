@@ -16,7 +16,7 @@
 | AD-010 | Sess�o PWA sticky; multi-device; F5 n�o desloga | App instal�vel + push depois | 2026-09-19 |
 | AD-012 | Produto chama-se WeDash (n�o Vela Franquias) | Nome do dash / projeto Supabase | 2026-09-19 |
 | AD-013 | Schema/auth/edge em ingl�s (`identity`, `membership`, roles OWNER/MANAGER/SELLER) | Padr�o profissional; UI copy permanece PT | 2026-09-21 |
-| AD-014 | Tenant URL = `wedash.app/{slug}` (path), n�o subdom�nio | Ops simples; slug auto do nome | 2026-09-21 |
+| AD-014 | Tenant URL = `wedash.app/{slug}` (path), n�o subdom�nio | Ops simples; slug auto do nome | 2026-09-21 | **superseded by AD-023** |
 | AD-015 | Dashboard l� Postgres; Millennium s� via sync (worker BR) | Sess�o �nica ERP + IP + performance | 2026-09-21 |
 | AD-016 | Backfill 3 meses; agregados di�rios (+ hora no dia); VG v1 = VENDAS.Lista | Custo/perf; CMV no pesado depois | 2026-09-21 |
 | AD-017 | Canonical dashboard sales read model = `sales_day_agg` / `sales_hour_agg` | Overview e telas seguintes n�o leem Millennium | 2026-09-21 |
@@ -25,6 +25,7 @@
 | AD-020 | MVP worker gated by WeDash presence (heartbeat 5 min) | Solid path first; 24/7 later | 2026-09-21 | **superseded by AD-021** |
 | AD-021 | Millennium disconnect only via Settings > Integra��o ERP; WeDash logout keeps ERP session | Allows HISTORY while gestor offline; explicit release for ERP desktop use | 2026-09-22 |
 | AD-022 | SEED = previous calendar month ? today; LIGHT = today without filial; HISTORY monthly with filial sequential | Probe: multi-day without filial times out; dashboard needs MoM | 2026-09-22 |
+| AD-023 | No white label: platform always shows WeDash; no slug / wedash.app/{slug} / {empresa}.wedash.app; access always via default WeDash URL | Company name kept only as account identification (profile, invites) | 2026-09-27 |
 
 ## Handoff
 

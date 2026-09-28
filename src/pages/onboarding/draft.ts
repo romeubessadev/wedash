@@ -1,5 +1,5 @@
 import type { StoreErp } from "@/data/wedash/erp";
-import { rascunhoEmpresaVazio, type RascunhoEmpresa } from "./Step1Brand";
+import { rascunhoEmpresaVazio, type RascunhoEmpresa } from "./Step1Company";
 
 /** Rascunho do onboarding — sobrevive a F5 (localStorage). Senha do ERP só em sessionStorage. */
 
@@ -41,7 +41,7 @@ export function lerRascunho(membershipId: string): RascunhoOnboarding | null {
     if (!parsed || typeof parsed.etapa !== "number") return null;
     return {
       ...rascunhoVazio(),
-      empresa: { ...rascunhoEmpresaVazio, ...parsed.empresa },
+      empresa: { ...rascunhoEmpresaVazio, nome: parsed.empresa?.nome ?? "" },
       erp: {
         usuario: parsed.erp?.usuario ?? "",
         dedicada: parsed.erp?.dedicada ?? false,
