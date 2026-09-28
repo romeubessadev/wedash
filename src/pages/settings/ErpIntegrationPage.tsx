@@ -9,7 +9,6 @@ import {
   Modal,
   Skeleton,
   Switch,
-  Tooltip,
   useToast,
 } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -125,11 +124,9 @@ export function ErpIntegrationPage() {
                     Configurar
                   </Button>
                   {podeAtualizar && (
-                    <Tooltip label="Atualiza lojas, colaboradores, produtos e tabelas de custo. As vendas não são alteradas.">
-                      <Button size="sm" onClick={() => void atualizarCadastros()} disabled={atualizando}>
-                        {atualizando ? "Atualizando…" : "Atualizar"}
-                      </Button>
-                    </Tooltip>
+                    <Button size="sm" onClick={() => void atualizarCadastros()} disabled={atualizando}>
+                      {atualizando ? "Atualizando…" : "Atualizar"}
+                    </Button>
                   )}
                 </div>
               ) : (
