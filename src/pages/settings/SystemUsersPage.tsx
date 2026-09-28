@@ -370,7 +370,17 @@ function UserModal({
   const storeIds = allStores ? [] : [...picked];
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && (allStores || picked.size > 0);
 
+  function toggleAll(checked: boolean) {
+    setAllStores(checked);
+    setPicked(new Set());
+  }
+
   function toggle(id: string) {
+    if (allStores) {
+      setAllStores(false);
+      setPicked(new Set(stores.map((s) => s.id).filter((sid) => sid !== id)));
+      return;
+    }
     setPicked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -435,29 +445,27 @@ function UserModal({
                 </span>
               }
               checked={allStores}
-              onChange={(e) => setAllStores(e.target.checked)}
+              onChange={(e) => toggleAll(e.target.checked)}
             />
-            {!allStores && (
-              <div className="max-h-[240px] divide-y divide-line overflow-y-auto border-t border-line">
-                {stores.length === 0 && <p className="px-3.5 py-3 text-[12.5px] text-t2">Nenhuma loja cadastrada.</p>}
-                {stores.map((s) => (
-                  <Checkbox
-                    key={s.id}
-                    className="flex w-full cursor-pointer px-3.5 py-2.5 hover:bg-bg-3"
-                    label={
-                      <span className="flex min-w-0 flex-1 items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate" title={s.name}>
-                          {s.name}
-                        </span>
-                        {s.code && <span className="shrink-0 text-[11.5px] text-t2">Filial {s.code}</span>}
+            <div className="max-h-[240px] divide-y divide-line overflow-y-auto border-t border-line">
+              {stores.length === 0 && <p className="px-3.5 py-3 text-[12.5px] text-t2">Nenhuma loja cadastrada.</p>}
+              {stores.map((s) => (
+                <Checkbox
+                  key={s.id}
+                  className="flex w-full cursor-pointer px-3.5 py-2.5 hover:bg-bg-3"
+                  label={
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate" title={s.name}>
+                        {s.name}
                       </span>
-                    }
-                    checked={picked.has(s.id)}
-                    onChange={() => toggle(s.id)}
-                  />
-                ))}
-              </div>
-            )}
+                      {s.code && <span className="shrink-0 text-[11.5px] text-t2">Filial {s.code}</span>}
+                    </span>
+                  }
+                  checked={allStores || picked.has(s.id)}
+                  onChange={() => toggle(s.id)}
+                />
+              ))}
+            </div>
           </div>
         </FormField>
         {error && <p className="text-[12.5px] font-medium text-bad">{error}</p>}
