@@ -14,9 +14,9 @@ const ICONE = {
   /** Ondas de transmissão — “ao vivo” / tempo real (não raio). */
   aoVivo: "M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.1 19.1 19M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0",
   perfil: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
-  /** Maleta — metas, desafios, turnos e equipe. */
+  /** Pessoa com engrenagem — metas, desafios, turnos e equipe. */
   gestao:
-    "M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16",
+    "M18 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M10 15H6a4 4 0 0 0-4 4v2M21.7 16.4l-.9-.3M15.2 13.9l-.9-.3M16.6 18.7l.3-.9M19.1 12.2l.3-.9M19.6 18.7l-.4-1M16.8 12.3l-.4-1M14.3 16.6l1-.4M20.7 13.8l1-.4",
 };
 
 /** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */
