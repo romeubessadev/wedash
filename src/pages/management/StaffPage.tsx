@@ -148,16 +148,18 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
         loja={loja}
         action={loaded && !semEquipe ? refreshButton("secondary") : undefined}
       />
-      <div className="px-5 pb-4">
-        <Segmented
-          options={[
-            { value: "ativos", label: `Ativos (${ativos.length})` },
-            { value: "desligados", label: `Desligados (${desligados.length})` },
-          ]}
-          value={tab}
-          onChange={(v) => v && setTab(v)}
-        />
-      </div>
+      {!semEquipe && (
+        <div className="px-5 pb-4">
+          <Segmented
+            options={[
+              { value: "ativos", label: `Ativos (${ativos.length})` },
+              { value: "desligados", label: `Desligados (${desligados.length})` },
+            ]}
+            value={tab}
+            onChange={(v) => v && setTab(v)}
+          />
+        </div>
+      )}
       {!loaded ? (
         <TeamTableSkeleton withShift={tab === "ativos"} />
       ) : rows.length === 0 ? (
@@ -165,9 +167,9 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           framed={false}
           className="pt-4!"
           icon="👥"
-          title={tab === "ativos" ? "Nenhum colaborador ativo" : "Nenhum colaborador desligado"}
+          title={semEquipe || tab === "ativos" ? "Nenhum colaborador ativo" : "Nenhum colaborador desligado"}
           description={
-            tab === "ativos"
+            semEquipe || tab === "ativos"
               ? "Os colaboradores vêm do Millennium. Use Atualizar para buscar os colaboradores desta loja."
               : "Colaboradores desativados no Millennium aparecem aqui."
           }
