@@ -2363,10 +2363,14 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       { rotulo: `Marketing WPINK${rotuloPct(cw.map((c) => c.mktWpinkPct))}`, valor: atual.mktWpink },
     );
   }
+  // Aluguel do mês = maior entre o fixo e o %: mostra o fixo e, se o % passar dele, só o excedente.
+  const aluguelFixo = atual.aluguelMinBase;
+  const aluguelExcedente = Math.max(0, atual.aluguelPct + atual.aluguelMin - aluguelFixo);
+  const rotuloAluguelPct = `${aluguelFixo > 0 ? "Aluguel percentual excedente" : "Aluguel percentual"}${rotuloPct(custos.map((c) => c.aluguelWepinkPct))}`;
   const custosFixosFranquia: FixedCostRow[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
-    { rotulo: `Aluguel percentual${rotuloPct(custos.map((c) => c.aluguelWepinkPct))}`, valor: atual.aluguelPct },
-    ...(atual.aluguelMin > 0 ? [{ rotulo: "Complemento do aluguel mínimo", valor: atual.aluguelMin }] : []),
+    ...(aluguelFixo > 0 ? [{ rotulo: "Aluguel", valor: aluguelFixo }] : []),
+    ...(aluguelExcedente >= 0.005 ? [{ rotulo: rotuloAluguelPct, valor: aluguelExcedente }] : []),
     ...linhasMarca,
     { rotulo: "Total de custos", valor: totalCustos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },

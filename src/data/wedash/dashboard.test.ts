@@ -1219,7 +1219,7 @@ describe("buildFinanceView com agregados reais", () => {
     expect(resultado).toBeCloseTo(180);
     expect(v.custosFixosFranquia.find((l) => l.ehTotal)?.valor).toBe(0);
     expect(v.custosConfigurados).toBe(false);
-    expect(v.custosFixosFranquia.some((l) => l.rotulo === "Complemento do aluguel mínimo")).toBe(false);
+    expect(v.custosFixosFranquia.some((l) => l.rotulo.startsWith("Aluguel"))).toBe(false);
     expect(v.custosFixosFranquia.some((l) => l.rotulo.includes("WPINK"))).toBe(false);
     expect(v.faturamentoPorMarca).toBeNull();
     expect(v.kpis[0]?.delta).toBeDefined();
@@ -1330,30 +1330,58 @@ describe("buildFinanceView com agregados reais", () => {
     }
   });
 
-  it("aluguel do mês = maior entre mínimo e % no Resultado", () => {
-    const loja = stores.find((s) => s.id === "f1")!;
-    const antes = loja.custos;
-    // Agosto = 31 dias: mínimo 3.100/mês = 100/dia.
-    loja.custos = { ...EMPTY_STORE_COSTS, rentMin: 3100, rentWepinkPct: 10, rentWpinkPct: 10 };
-    try {
-      const v = buildFinanceView(
-        { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null },
-        { dayAggs: [day("2026-08-10", 200, 80), day("2026-08-11", 100, 40)] },
-      );
-      const linha = (r: string) => v.custosFixosFranquia.find((l) => l.rotulo.startsWith(r))?.valor;
-      // Aluguel % = 30; mínimo no recorte = 200 → complemento 170.
-      expect(linha("Aluguel percentual")).toBeCloseTo(30);
-      expect(linha("Complemento do aluguel mínimo")).toBeCloseTo(170);
-      expect(linha("Custos fixos")).toBeUndefined();
-      const total = 30 + 170;
-      expect(v.custosFixosFranquia.find((l) => l.ehTotal)?.valor).toBeCloseTo(total);
-      expect(v.custosFixosFranquia.find((l) => l.ehResultado)?.valor).toBeCloseTo(180 - total);
-      // Série por dia soma o mesmo resultado do total.
-      expect(v.resultadoOperacional.reduce((s, p) => s + p.resultado, 0)).toBeCloseTo(180 - total);
+  describe("aluguel do mês = maior entre o aluguel e o % (mostra o aluguel + o excedente do %)", () => {
+    // Agosto = 31 dias; recorte 10–11/08 = 2 dias com R$ 300 de faturamento e R$ 180 de lucro bruto.
+    const rodar = (rentMin: number | null, pct: number | null) => {
+      const loja = stores.find((s) => s.id === "f1")!;
+      const antes = loja.custos;
+      loja.custos = { ...EMPTY_STORE_COSTS, rentMin, rentWepinkPct: pct, rentWpinkPct: pct };
+      try {
+        const v = buildFinanceView(
+          { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null },
+          { dayAggs: [day("2026-08-10", 200, 80), day("2026-08-11", 100, 40)] },
+        );
+        const linha = (r: string) => v.custosFixosFranquia.find((l) => l.rotulo === r || l.rotulo.startsWith(`${r} (`))?.valor;
+        const total = v.custosFixosFranquia.find((l) => l.ehTotal)?.valor;
+        const serie = v.resultadoOperacional.reduce((s, p) => s + p.resultado, 0);
+        return { v, linha, total, serie };
+      } finally {
+        loja.custos = antes;
+      }
+    };
+
+    it("% abaixo do aluguel: paga só o aluguel", () => {
+      // Aluguel 3.100/mês = 100/dia → 200 no recorte; 10% de 300 = 30.
+      const { v, linha, total, serie } = rodar(3100, 10);
+      expect(linha("Aluguel")).toBeCloseTo(200);
+      expect(linha("Aluguel percentual excedente")).toBeUndefined();
+      expect(total).toBeCloseTo(200);
+      expect(serie).toBeCloseTo(180 - 200);
       expect(v.custosConfigurados).toBe(true);
-    } finally {
-      loja.custos = antes;
-    }
+    });
+
+    it("% acima do aluguel: aluguel + só o excedente", () => {
+      // Aluguel 310/mês = 10/dia → 20 no recorte; 10% de 300 = 30 → excedente 10.
+      const { linha, total, serie } = rodar(310, 10);
+      expect(linha("Aluguel")).toBeCloseTo(20);
+      expect(linha("Aluguel percentual excedente")).toBeCloseTo(10);
+      expect(total).toBeCloseTo(30);
+      expect(serie).toBeCloseTo(180 - 30);
+    });
+
+    it("loja de rua (sem %): só o aluguel", () => {
+      const { linha, total } = rodar(3100, null);
+      expect(linha("Aluguel")).toBeCloseTo(200);
+      expect(linha("Aluguel percentual excedente")).toBeUndefined();
+      expect(total).toBeCloseTo(200);
+    });
+
+    it("só %: linha Aluguel percentual com o valor inteiro", () => {
+      const { linha, total } = rodar(null, 10);
+      expect(linha("Aluguel")).toBeUndefined();
+      expect(linha("Aluguel percentual")).toBeCloseTo(30);
+      expect(total).toBeCloseTo(30);
+    });
   });
 
   it("loja sem dados não quebra a tela (CMV vazio vira —)", () => {

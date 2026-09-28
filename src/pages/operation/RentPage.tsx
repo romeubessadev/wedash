@@ -6,7 +6,7 @@ import { StoreCardsPage, useScopedStores } from "./shared";
 const RENT_FIELDS: CostField[] = [
   {
     key: "rentMin",
-    label: "Aluguel mínimo",
+    label: "Aluguel",
     hint: "Valor mensal.",
     unit: "R$",
     get: (c) => c.rentMin,
@@ -15,21 +15,21 @@ const RENT_FIELDS: CostField[] = [
   {
     key: "rentPct",
     label: "Aluguel percentual",
-    hint: "Percentual sobre o faturamento total.",
+    hint: "Sobre o faturamento total. Vazio se a loja não paga percentual (ex.: loja de rua).",
     unit: "%",
     get: (c) => c.rentWepinkPct ?? c.rentWpinkPct,
     set: (c, v) => ({ ...c, rentWepinkPct: v, rentWpinkPct: v }),
   },
 ];
 
-/** Configurações > Aluguel — mínimo mensal e percentual do faturamento. */
+/** Configurações > Aluguel — aluguel mensal e percentual do faturamento (paga-se o que passar do aluguel). */
 export function RentPage() {
   const { lojas, loading, refresh } = useScopedStores();
   return (
     <StoreCardsPage
       section="Configurações"
       title="Aluguel"
-      subtitle="A WeDash considera o maior valor entre o aluguel mínimo e o percentual sobre o faturamento."
+      subtitle="Quando o percentual sobre o faturamento passa do aluguel, a diferença entra como aluguel extra. Ex.: aluguel de R$ 10.000 e 10% sobre R$ 120.000 vendidos = R$ 2.000 a mais."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
       lojas={lojas}

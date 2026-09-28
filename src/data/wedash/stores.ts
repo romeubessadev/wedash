@@ -47,7 +47,7 @@ export interface StoreCosts {
   marketingWpinkPct: number | null;
   rentWepinkPct: number | null;
   rentWpinkPct: number | null;
-  /** Aluguel mínimo R$/mês: o aluguel do mês é o maior entre ele e o % do faturamento. */
+  /** Aluguel R$/mês: o % do faturamento só soma o que passar dele (aluguel do mês = maior entre os dois). */
   rentMin: number | null;
   /** ICMS % sobre o faturamento da loja (as duas marcas). */
   icmsPct: number | null;
