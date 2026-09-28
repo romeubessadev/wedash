@@ -8,7 +8,6 @@ import {
   Input,
   Modal,
   Skeleton,
-  Switch,
   useToast,
 } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -23,7 +22,6 @@ import {
   prepareErpCredentialChange,
   refreshErpRegistry,
   releaseErpSession,
-  setAutoRefreshEnabled,
   type ErpCredentialChangeResult,
   type PreparedErpChange,
   type ErpIntegrationStatus,
@@ -188,11 +186,8 @@ function MillenniumModal({
   const [relatorios, setRelatorios] = useState<ErpReportCheck[] | null>(null);
   /** Login ok, mas a troca remove lojas — aguardando confirmação. */
   const [pendente, setPendente] = useState<PreparedErpChange | null>(null);
-  const [auto, setAuto] = useState(true);
-
   useEffect(() => {
     if (!open) return;
-    setAuto(info?.autoRefreshEnabled ?? true);
     setRelatorios(null);
     setPendente(null);
     setUsuario(info?.username ?? "");
@@ -282,17 +277,6 @@ function MillenniumModal({
     show("Millennium conectado.", "success");
     await onChanged();
     onClose();
-  }
-
-  async function mudarAuto(v: boolean) {
-    setAuto(v);
-    if (!(await setAutoRefreshEnabled(session.tenantId, v))) {
-      setAuto(!v);
-      show("Não foi possível salvar as alterações. Tente novamente.", "danger");
-      return;
-    }
-    show(v ? "Atualização automática ligada." : "Atualização automática desligada.", "success");
-    await onChanged();
   }
 
   const travado = conectado || busy || !canEdit;
@@ -441,18 +425,6 @@ function MillenniumModal({
               onChange={(e) => setAceiteTroca(e.target.checked)}
               disabled={busy}
             />
-          </div>
-        )}
-        {conectado && canEdit && (
-          <div className="mt-1 flex items-start justify-between gap-4 border-t border-line pt-4">
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-t0">Atualizar vendas automaticamente</p>
-              <p className="mt-0.5 text-xs text-t2">
-                A cada 30 minutos, enquanto as lojas estiverem abertas. Desligada, as vendas do dia só atualizam pelo botão
-                Atualizar.
-              </p>
-            </div>
-            <Switch checked={auto} onChange={(v) => void mudarAuto(v)} />
           </div>
         )}
         {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}

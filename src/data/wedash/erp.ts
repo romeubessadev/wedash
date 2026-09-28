@@ -216,15 +216,6 @@ export async function fetchErpIntegrationStatus(
   };
 }
 
-/** Liga/desliga a atualização automática de vendas (a cada 30 min, com a loja aberta). */
-export async function setAutoRefreshEnabled(tenantId: string, enabled: boolean): Promise<boolean> {
-  const sb = getSupabase();
-  if (!sb) return true;
-  const { error } = await sb.from("erp_credential").update({ auto_refresh_enabled: enabled }).eq("tenant_id", tenantId);
-  if (error) console.warn("setAutoRefreshEnabled:", error.message);
-  return !error;
-}
-
 /**
  * Atualizar do card Millennium: lojas do tenant + opções de tabela de custo do ERP (nada de venda).
  * Síncrono (Edge `erp-products-sync`, `scope: "registry"`), sem passar pela fila do worker.
