@@ -482,7 +482,7 @@ export function kpiDeltaPp(atual: number, anterior: number, vs?: string): { valu
   const diff = Math.abs(atual - anterior);
   if (num(diff, 1) === num(0, 1)) return undefined;
   return {
-    value: `${diff.toFixed(1)} p.p.`,
+    value: `${num(diff, 1)} p.p.`,
     positive: atual >= anterior,
     ...(vs ? { vs } : {}),
     anterior: `${num(anterior, 1)}%`,

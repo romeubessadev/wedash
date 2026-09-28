@@ -349,7 +349,7 @@ export default function ProductsPage() {
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const tipCmvProduto = view.temCustoProduto
-    ? "Custo das mercadorias vendidas e lucro bruto de cada produto no período. “—” indica que falta o custo de algum dia com venda do produto."
+    ? "Mostra o faturamento, CMV, lucro bruto e margem de cada produto no período.\n\nQuando aparecer “—”, não há custo suficiente para calcular o indicador corretamente."
     : "O CMV por produto não está disponível para este período.";
 
   return (
@@ -357,7 +357,7 @@ export default function ProductsPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
-        subtitle="Desempenho, margem e composição do mix de produtos."
+        subtitle="Acompanhe desempenho, margem e composição do mix de produtos."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -440,7 +440,7 @@ export default function ProductsPage() {
         <Card padding="lg" className="flex flex-col">
           <div className="mb-1 flex items-center gap-1.5">
             <CardTitle>Curva ABC por categoria</CardTitle>
-            <TipHelp label="Classifica as categorias pela participação acumulada no faturamento: A até 80%, B até 95% e C no restante." />
+            <TipHelp label={"Classifica as categorias pela participação acumulada no faturamento:\nClasse A: até 80%\nClasse B: de 80% a 95%\nClasse C: restante"} />
           </div>
           {view.curvaAbcCategorias.itens.length === 0 ? (
             <EmptyBlock />
@@ -492,7 +492,7 @@ export default function ProductsPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Top linhas de produto</CardTitle>
-              <TipHelp label="Soma a mesma fragrância em todos os tipos (desodorante colônia, body splash, body cream, roll-on…). Ex.: Obsessed, Obsessed Deluxe e Obsessed Intense entram na linha OBSESSED." />
+              <TipHelp label={"Agrupa produtos da mesma linha, mesmo quando existem em diferentes tipos, como colônia, body splash, body cream ou roll-on.\n\nExemplo: Obsessed, Obsessed Deluxe e Obsessed Intense pertencem à linha OBSESSED."} />
             </div>
             <Badge variant="accent">Top 5</Badge>
           </CardHeader>
@@ -602,7 +602,7 @@ export default function ProductsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
-              placeholder="Buscar produto ou código…"
+              placeholder="Buscar por produto ou código…"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className={cn(filtroInputClass, "sm:w-56")}
@@ -673,10 +673,10 @@ export default function ProductsPage() {
                   <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
-                      <TipHelp label="Soma todos os produtos do filtro, inclusive os que não aparecem nesta página." />
+                      <TipHelp label="Soma todos os produtos encontrados no filtro, inclusive os que não aparecem nesta página." />
                     </span>
-                    <span className="ml-2 text-[11px] font-semibold text-t2">
-                      ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})
+                    <span className="mt-0.5 block text-[11px] font-semibold text-t2">
+                      {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
@@ -730,8 +730,9 @@ export default function ProductsPage() {
           )}
           {linhasTabela.length > 0 && (
             <div className="rounded-xl border border-line bg-bg-3 p-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-t2">
-                Total do filtro · {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
+              <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total do filtro</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-t2">
+                {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
               </p>
               <GradeMetricas m={totalTabela} className="mt-2" destaque />
             </div>

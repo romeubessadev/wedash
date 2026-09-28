@@ -1282,7 +1282,7 @@ describe("buildFinanceView com agregados reais", () => {
     expect(fat?.delta).toMatchObject({ value: "100%", positive: true });
     expect(cmv?.delta).toMatchObject({ value: "60%", positive: true });
     expect(lucro?.valor).toMatch(/^R\$\s120,00$/);
-    expect(margem?.delta).toMatchObject({ value: "10.0 p.p.", positive: true });
+    expect(margem?.delta).toMatchObject({ value: "10,0 p.p.", positive: true });
 
     const semCmv = buildFinanceView(esc, {
       dayAggs: [row("2026-08-10", "ALL", 1000, 400), row("2026-08-10", "WPINK", 200, 0), row("2026-08-03", "WPINK", 100, 50)],
