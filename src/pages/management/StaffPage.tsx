@@ -126,23 +126,27 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     [shifts, shiftOf],
   );
 
+  const semEquipe = loaded && equipe.length === 0;
+  const refreshButton = (variant: "primary" | "secondary") => (
+    <Button
+      type="button"
+      size="sm"
+      variant={variant}
+      onClick={() => void atualizar()}
+      disabled={syncing}
+      title="Busca no Millennium a equipe de vendas desta loja."
+      icon={syncing ? undefined : <RefreshIcon />}
+    >
+      {syncing ? "Atualizando…" : "Atualizar"}
+    </Button>
+  );
+
   return (
     <Card padding="none">
       <StoreCardHeader
         className="mb-0 px-5 pt-5 pb-4"
         loja={loja}
-        action={
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void atualizar()}
-            disabled={syncing}
-            title="Busca no Millennium a equipe de vendas desta loja."
-            icon={syncing ? undefined : <RefreshIcon />}
-          >
-            {syncing ? "Atualizando…" : "Atualizar"}
-          </Button>
-        }
+        action={loaded && !semEquipe ? refreshButton("secondary") : undefined}
       />
       <div className="px-5 pb-4">
         <Segmented
@@ -167,6 +171,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
               ? "A equipe vem do Millennium. Use Atualizar para buscar as pessoas desta loja."
               : "Pessoas desativadas no Millennium aparecem aqui."
           }
+          action={semEquipe ? refreshButton("primary") : undefined}
         />
       ) : (
         <DataTable
