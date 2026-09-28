@@ -786,7 +786,7 @@ const SYNC_SELLERS_ERRORS: Record<string, string> = {
   credential_invalid: "Senha do Millennium inválida. Reconecte em Integrações, no menu do seu perfil.",
   integration_paused: "Integração desconectada. Conecte o Millennium em Integrações, no menu do seu perfil.",
   erp_busy: "Millennium ocupado (limite de sessões). Tente de novo em instantes.",
-  forbidden: "Seu perfil não pode atualizar a equipe de vendas.",
+  forbidden: "Seu perfil não pode atualizar os colaboradores.",
 };
 
 /** Busca as vendedoras da loja no Millennium agora (Edge `erp-sellers-sync`) e grava em `store_seller`. */
@@ -811,7 +811,7 @@ export async function syncStoreSellersNow(storeId: string): Promise<{ ok: true }
   const code = body?.error ?? "";
   return {
     ok: false,
-    message: SYNC_SELLERS_ERRORS[code] ?? "Não foi possível atualizar a equipe. Tente novamente.",
+    message: SYNC_SELLERS_ERRORS[code] ?? "Não foi possível atualizar os colaboradores. Tente novamente.",
   };
 }
 

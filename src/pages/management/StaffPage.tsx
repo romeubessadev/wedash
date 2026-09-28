@@ -21,7 +21,7 @@ export function StaffPage() {
     <StoreCardsPage
       section="Gestão"
       title="Colaboradores"
-      subtitle="Equipe de vendas de cada loja, sincronizada com o Millennium."
+      subtitle="Colaboradores de cada loja, sincronizados com o Millennium."
       loading={loading}
       skeleton={<StoreCardsSkeleton team wide />}
       lojas={lojas}
@@ -134,7 +134,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       variant={variant}
       onClick={() => void atualizar()}
       disabled={syncing}
-      title="Busca no Millennium a equipe de vendas desta loja."
+      title="Busca no Millennium os colaboradores desta loja."
       icon={syncing ? undefined : <RefreshIcon />}
     >
       {syncing ? "Atualizando…" : "Atualizar"}
@@ -165,11 +165,11 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           framed={false}
           className="pt-4!"
           icon="👥"
-          title={tab === "ativos" ? "Ninguém na equipe" : "Nenhuma pessoa desligada"}
+          title={tab === "ativos" ? "Nenhum colaborador ativo" : "Nenhum colaborador desligado"}
           description={
             tab === "ativos"
-              ? "A equipe vem do Millennium. Use Atualizar para buscar as pessoas desta loja."
-              : "Pessoas desativadas no Millennium aparecem aqui."
+              ? "Os colaboradores vêm do Millennium. Use Atualizar para buscar os colaboradores desta loja."
+              : "Colaboradores desativados no Millennium aparecem aqui."
           }
           action={semEquipe ? refreshButton("primary") : undefined}
         />

@@ -19,7 +19,7 @@ export function ShiftsPage() {
     <StoreCardsPage
       section="Gestão"
       title="Turnos"
-      subtitle="Configure os turnos de cada loja e defina o turno da equipe em Colaboradores."
+      subtitle="Configure os turnos de cada loja. O turno de cada colaborador é definido em Colaboradores."
       loading={loading}
       skeleton={<StoreCardsSkeleton rows={2} />}
       lojas={lojas}
@@ -107,7 +107,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
             className="py-4!"
             icon="🕒"
             title="Nenhum turno cadastrado"
-            description="Crie os turnos da loja para definir o turno dos colaboradores."
+            description="Crie os turnos da loja para definir o turno de cada colaborador."
             action={
               <Button type="button" size="sm" icon={<Icon d={icons.plus} size={14} />} onClick={add}>
                 Adicionar turno
