@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Card, useToast } from "@/components/ui";
 import { EMPTY_STORE_COSTS, updateStoreCosts, type Store, type StoreCosts } from "@/data/wedash/stores";
-import { FormActions, NumberField, StoreCardHeader, numText, parseNum } from "./shared";
+import { FormActions, NumberField, SAVE_ERROR_MSG, StoreCardHeader, numText, parseNum } from "./shared";
 
 /** Campo de custo da loja: lê e grava um pedaço de `store.custos`. */
 export type CostField = {
@@ -57,7 +57,7 @@ export function useCostFields(loja: Store, fields: CostField[]) {
   };
 }
 
-export const INVALID_COSTS_MSG = "Confira os valores: percentuais entre 0 e 100 (ex.: 5 ou 2,5) e valores em R$ sem sinal negativo.";
+export const INVALID_COSTS_MSG = "Confira os valores. Use percentuais entre 0 e 100 e valores em R$ sem sinal negativo.";
 
 /** Card da loja com campos de custo e Resetar/Salvar próprios. */
 export function CostFieldsCard({
@@ -81,7 +81,7 @@ export function CostFieldsCard({
     setSaving(true);
     const r = await updateStoreCosts(loja.id, custos);
     setSaving(false);
-    if (!r.ok) return show(`Não foi possível salvar: ${r.error}`, "danger");
+    if (!r.ok) return show(SAVE_ERROR_MSG, "danger");
     form.markSaved(custos);
     onSaved();
     show("Alterações salvas.", "success");

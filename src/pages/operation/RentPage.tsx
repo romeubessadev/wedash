@@ -7,7 +7,7 @@ const RENT_FIELDS: CostField[] = [
   {
     key: "rentMin",
     label: "Aluguel mínimo",
-    hint: "Valor mensal",
+    hint: "Valor mensal.",
     unit: "R$",
     get: (c) => c.rentMin,
     set: (c, v) => ({ ...c, rentMin: v }),
@@ -15,7 +15,7 @@ const RENT_FIELDS: CostField[] = [
   {
     key: "rentPct",
     label: "Aluguel percentual",
-    hint: "Sobre o faturamento total",
+    hint: "Percentual sobre o faturamento total.",
     unit: "%",
     get: (c) => c.rentWepinkPct ?? c.rentWpinkPct,
     set: (c, v) => ({ ...c, rentWepinkPct: v, rentWpinkPct: v }),
@@ -29,7 +29,7 @@ export function RentPage() {
     <StoreCardsPage
       section="Configurações da operação"
       title="Aluguel"
-      subtitle="O WeDash considera o maior valor entre o aluguel mínimo e o percentual do faturamento."
+      subtitle="A WeDash considera o maior valor entre o aluguel mínimo e o percentual sobre o faturamento."
       loading={loading}
       skeleton={<StoreCardsSkeleton fields={2} />}
       lojas={lojas}

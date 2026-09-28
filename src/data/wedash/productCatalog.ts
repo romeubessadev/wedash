@@ -54,6 +54,8 @@ export async function syncProductsNow(
       SYNC_PRODUCTS_ERRORS[body?.error ?? ""] ??
       (request.scope === "costs"
         ? "Não foi possível atualizar os custos. Tente novamente."
-        : "Não foi possível buscar os custos no Millennium. Tente novamente."),
+        : request.scope === "tables"
+          ? "Não foi possível atualizar as tabelas de custo. Tente novamente."
+          : "Não foi possível buscar os custos no Millennium. Tente novamente."),
   };
 }

@@ -20,7 +20,7 @@ const ICONE = {
 /** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */
 const gestao: NavGroup = {
   label: "Gestão",
-  description: "Área de gerenciamento da operação e da equipe.",
+  description: "Gerencie metas, desafios, turnos e equipe.",
   icon: ICONE.gestao,
   items: [
     { label: "Metas", to: paths.goals },
@@ -33,7 +33,7 @@ const gestao: NavGroup = {
 /** Custos · Franquia · Aluguel · Produtos e impostos (só Gestor). */
 const operacao: NavGroup = {
   label: "Configurações da operação",
-  description: "Parâmetros usados pelo WeDash para calcular custos, margens e resultados da operação.",
+  description: "Defina os parâmetros usados pela WeDash para calcular custos, margens e resultados.",
   icon: ICONE.config,
   items: [
     { label: "Custos", to: paths.operation.costs },

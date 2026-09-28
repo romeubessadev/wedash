@@ -4,7 +4,7 @@ import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { deleteStoreShift, fetchStoreShifts, saveStoreShift, type Store, type StoreShift } from "@/data/wedash/stores";
 import { Icon, icons } from "@/pages/users/Icons";
 import { titleName } from "@/lib/format";
-import { FormActions, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, useScopedStores } from "@/pages/operation/shared";
+import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, useScopedStores } from "@/pages/operation/shared";
 
 /** Linha editável; `id` ausente = turno novo ainda não salvo. */
 type ShiftDraft = { key: string; id?: string; name: string; start: string; end: string };
@@ -19,7 +19,7 @@ export function ShiftsPage() {
     <StoreCardsPage
       section="Gestão"
       title="Turnos"
-      subtitle="Turnos de cada loja. O turno de cada pessoa é definido em Colaboradores."
+      subtitle="Configure os turnos de cada loja. O turno de cada pessoa é definido em Colaboradores."
       loading={loading}
       skeleton={<StoreCardsSkeleton rows={2} />}
       lojas={lojas}
@@ -64,9 +64,9 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     for (const s of shifts) {
       const nome = s.name.trim();
       if (!nome) return show("Dê um nome para cada turno.", "danger");
-      if (nomes.has(nome.toLowerCase())) return show(`Turno "${nome}" repetido.`, "danger");
+      if (nomes.has(nome.toLowerCase())) return show(`Já existe um turno chamado “${nome}”.`, "danger");
       nomes.add(nome.toLowerCase());
-      if (s.start >= s.end) return show(`${nome}: início deve ser antes do fim.`, "danger");
+      if (s.start >= s.end) return show(`${nome}: o horário de início deve ser anterior ao horário de fim.`, "danger");
     }
     setSaving(true);
     let error: string | null = null;
@@ -87,7 +87,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     setSaved(list);
     setShifts(list.map(toDraft));
     setSaving(false);
-    if (error) show(`Não foi possível salvar: ${error}`, "danger");
+    if (error) show(SAVE_ERROR_MSG, "danger");
     else show("Alterações salvas.", "success");
   }
 
@@ -120,7 +120,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
               <div key={s.key} className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                 <Input
                   className="h-9! min-w-0 flex-1 basis-full sm:basis-auto"
-                  placeholder="Nome (ex.: Manhã)"
+                  placeholder="Nome do turno (ex.: Manhã)"
                   value={s.name}
                   onChange={(e) => change(s.key, { name: e.target.value })}
                   aria-label="Nome do turno"
@@ -131,7 +131,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
                 <button
                   type="button"
                   onClick={() => setShifts(shifts.filter((x) => x.key !== s.key))}
-                  aria-label={`Excluir turno ${s.name || ""}`}
+                  aria-label="Excluir turno"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-bad"
                 >
                   <Icon d={icons.trash} size={16} />

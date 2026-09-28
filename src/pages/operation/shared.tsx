@@ -117,6 +117,8 @@ export function StoreCardHeader({ loja, action, className }: { loja: Store; acti
   );
 }
 
+export const SAVE_ERROR_MSG = "Não foi possível salvar as alterações. Tente novamente.";
+
 export function FormActions({ dirty, saving, onReset }: { dirty: boolean; saving: boolean; onReset: () => void }) {
   return (
     <div className="flex gap-2.5 pt-1">

@@ -811,7 +811,7 @@ export async function syncStoreSellersNow(storeId: string): Promise<{ ok: true }
   const code = body?.error ?? "";
   return {
     ok: false,
-    message: SYNC_SELLERS_ERRORS[code] ?? "Não foi possível buscar a equipe de vendas no Millennium. Tente de novo.",
+    message: SYNC_SELLERS_ERRORS[code] ?? "Não foi possível atualizar a equipe. Tente novamente.",
   };
 }
 

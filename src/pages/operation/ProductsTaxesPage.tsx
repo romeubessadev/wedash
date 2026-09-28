@@ -4,11 +4,11 @@ import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { fetchCostTables, updateStoreCosts, updateStoreCostTable, type CostTable, type Store } from "@/data/wedash/stores";
 import { syncProductsNow } from "@/data/wedash/productCatalog";
 import { INVALID_COSTS_MSG, pctField, useCostFields, type CostField } from "./costFields";
-import { FormActions, NumberField, RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "./shared";
+import { FormActions, NumberField, RefreshIcon, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, useScopedStores } from "./shared";
 
 const TAX_FIELDS: CostField[] = [
-  pctField("icmsPct", "ICMS", "Sobre o faturamento"),
-  pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)"),
+  pctField("icmsPct", "ICMS", "Percentual sobre o faturamento."),
+  pctField("icmsStPct", "ICMS ST", "Percentual sobre o custo dos produtos (CMV)."),
 ];
 
 /** Configurações da operação > Produtos e impostos — tabela de custo do Millennium, ICMS e ICMS ST. */
@@ -41,14 +41,14 @@ export function ProductsTaxesPage() {
     <StoreCardsPage
       section="Configurações da operação"
       title="Produtos e impostos"
-      subtitle="Tabela de custo dos produtos e impostos de cada loja"
+      subtitle="Configure a tabela de custo dos produtos e os impostos de cada loja."
       actions={
         <Button
           size="sm"
           variant="secondary"
           onClick={() => void atualizarTabelas()}
           disabled={syncing}
-          title="Busca no Millennium a lista de tabelas de custo"
+          title="Busca no Millennium as tabelas de custo disponíveis."
           icon={syncing ? undefined : <RefreshIcon />}
         >
           {syncing ? "Atualizando…" : "Atualizar tabelas"}
@@ -87,7 +87,7 @@ function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: Cos
       const r = await updateStoreCosts(loja.id, custos);
       if (!r.ok) {
         setSaving(false);
-        return show(`Não foi possível salvar: ${r.error}`, "danger");
+        return show(SAVE_ERROR_MSG, "danger");
       }
       form.markSaved(custos);
     }
@@ -95,7 +95,7 @@ function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: Cos
       const r = await updateStoreCostTable(loja.id, table);
       if (!r.ok) {
         setSaving(false);
-        return show(`Não foi possível salvar: ${r.error}`, "danger");
+        return show(SAVE_ERROR_MSG, "danger");
       }
       setSavedTable(table);
     }
@@ -116,7 +116,7 @@ function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: Cos
       >
         <FormField
           label="Tabela de custo dos produtos"
-          hint="Usada quando o Millennium traz um produto vendido sem custo. Escolhida automaticamente pela tabela mais próxima dos custos da loja."
+          hint="Usada quando um produto vendido chega do Millennium sem custo. A WeDash seleciona automaticamente a tabela mais próxima dos custos da loja."
         >
           <Select
             value={table == null ? "" : String(table)}

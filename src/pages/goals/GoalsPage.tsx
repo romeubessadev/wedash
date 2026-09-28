@@ -47,7 +47,7 @@ export default function GoalsPage() {
       <SectionHeader
         section="Gestão"
         title="Metas"
-        subtitle="Metas mensais, níveis de premiação e distribuição individual."
+        subtitle="Gerencie metas mensais, níveis de premiação e distribuição individual."
         actions={
           <Button size="sm" disabled title="Em breve">
             Nova meta

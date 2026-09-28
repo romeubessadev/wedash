@@ -3,19 +3,19 @@ import { Card, Input, useToast } from "@/components/ui";
 import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { saveStoreCostItems, type Store, type StoreCostItem, type StoreCostKind } from "@/data/wedash/stores";
 import { Icon, icons } from "@/pages/users/Icons";
-import { FormActions, NumberInput, StoreCardHeader, StoreCardsPage, numText, parseNum, useScopedStores } from "./shared";
+import { FormActions, NumberInput, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, numText, parseNum, useScopedStores } from "./shared";
 
 const SECTIONS: { kind: StoreCostKind; title: string; hint: string; unit: "%" | "R$"; placeholder: string; empty: string }[] = [
-  { kind: "FIXED", title: "Custos fixos", hint: "Valor mensal", unit: "R$", placeholder: "Nome (ex.: Energia)", empty: "Nenhum custo fixo." },
+  { kind: "FIXED", title: "Custos fixos", hint: "Valor mensal", unit: "R$", placeholder: "Nome do custo (ex.: Energia)", empty: "Nenhum custo fixo cadastrado." },
   {
     kind: "VARIABLE",
     title: "Custos variáveis",
     hint: "Percentual sobre o faturamento",
     unit: "%",
-    placeholder: "Nome (ex.: Taxa do cartão)",
-    empty: "Nenhum custo variável.",
+    placeholder: "Nome do custo (ex.: Taxa do cartão)",
+    empty: "Nenhum custo variável cadastrado.",
   },
-  { kind: "OTHER", title: "Outras despesas", hint: "Valor mensal", unit: "R$", placeholder: "Nome (ex.: Contador)", empty: "Nenhuma outra despesa." },
+  { kind: "OTHER", title: "Outras despesas", hint: "Valor mensal", unit: "R$", placeholder: "Nome da despesa (ex.: Contador)", empty: "Nenhuma outra despesa cadastrada." },
 ];
 
 /** Linha editável; `id` ausente = item novo ainda não salvo. */
@@ -40,7 +40,7 @@ export function CostsPage() {
     <StoreCardsPage
       section="Configurações da operação"
       title="Custos"
-      subtitle="Custos fixos, custos variáveis e outras despesas de cada loja"
+      subtitle="Configure os custos fixos, variáveis e outras despesas de cada loja."
       loading={loading}
       skeleton={<StoreCardsSkeleton rows={3} />}
       lojas={lojas}
@@ -70,7 +70,7 @@ function CostsCard({ tenantId, loja, onSaved }: { tenantId: string; loja: Store;
         const v = parseNum(d.value);
         if (v == null || Number.isNaN(v) || v < 0 || (s.unit === "%" && v > 100)) {
           return show(
-            s.unit === "%" ? `${name}: informe um percentual entre 0 e 100 (ex.: 2,5).` : `${name}: informe o valor mensal em R$ (ex.: 800,00).`,
+            s.unit === "%" ? `${name}: informe um percentual entre 0 e 100. Ex.: 2,5.` : `${name}: informe um valor mensal válido em R$. Ex.: 800,00.`,
             "danger",
           );
         }
@@ -80,7 +80,7 @@ function CostsCard({ tenantId, loja, onSaved }: { tenantId: string; loja: Store;
     setSaving(true);
     const r = await saveStoreCostItems(tenantId, loja.id, items);
     setSaving(false);
-    if (!r.ok) return show(`Não foi possível salvar: ${r.error}`, "danger");
+    if (!r.ok) return show(SAVE_ERROR_MSG, "danger");
     const next = toDrafts(r.items);
     setSaved(next);
     setDrafts(next);
@@ -127,7 +127,7 @@ function CostsCard({ tenantId, loja, onSaved }: { tenantId: string; loja: Store;
                   <button
                     type="button"
                     onClick={() => remove(d.key)}
-                    aria-label={`Excluir ${d.name || "item"}`}
+                    aria-label="Excluir item"
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-bad"
                   >
                     <Icon d={icons.trash} size={16} />

@@ -21,7 +21,7 @@ export function StaffPage() {
     <StoreCardsPage
       section="Gestão"
       title="Colaboradores"
-      subtitle="Equipe de vendas de cada loja, sincronizada do Millennium"
+      subtitle="Equipe de vendas de cada loja, sincronizada com o Millennium."
       loading={loading}
       skeleton={<StoreCardsSkeleton team wide />}
       lojas={lojas}
@@ -92,7 +92,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       else next[sellerId] = antes;
       return next;
     });
-    show(`Não foi possível trocar o turno: ${r.error}`, "danger");
+    show("Não foi possível alterar o turno. Tente novamente.", "danger");
   }
 
   const columns = useMemo<DataTableColumn<StoreSeller>[]>(
@@ -137,7 +137,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
             variant="secondary"
             onClick={() => void atualizar()}
             disabled={syncing}
-            title="Busca a equipe de vendas desta loja no Millennium"
+            title="Busca no Millennium a equipe de vendas desta loja."
             icon={syncing ? undefined : <RefreshIcon />}
           >
             {syncing ? "Atualizando…" : "Atualizar"}
@@ -161,7 +161,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           framed={false}
           className="pt-4!"
           icon="👥"
-          title={tab === "ativos" ? "Ninguém na equipe" : "Nenhum desligado"}
+          title={tab === "ativos" ? "Ninguém na equipe" : "Nenhuma pessoa desligada"}
           description={
             tab === "ativos"
               ? "A equipe vem do Millennium. Use Atualizar para buscar as pessoas desta loja."
@@ -194,7 +194,7 @@ const SELLER_COLUMNS: DataTableColumn<StoreSeller>[] = [
   },
   {
     key: "code",
-    header: "Código ERP",
+    header: "Código no Millennium",
     render: (v) => <span className="tabular-nums text-t1">{v.code || "—"}</span>,
   },
   {

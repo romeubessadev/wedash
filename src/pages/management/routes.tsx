@@ -19,15 +19,20 @@ export const managementRoutes: RouteObject[] = [
         path: paths.management.challenges,
         element: (
           <ComingSoon
-            header={<SectionHeader section="Gestão" title="Desafios" subtitle="Fase 2 · em construção" />}
+            header={<SectionHeader section="Gestão" title="Desafios" subtitle="Crie objetivos para engajar a equipe e acompanhar resultados." />}
             titulo="Desafios"
-            fase="Fase 2 · em construção"
-            descricao="Objetivos pontuais em quantidade, produto, faturamento, P.A. ou ticket médio. Prêmio em reais; meta nunca em reais (exceto ticket/faturamento)."
+            fase="Crie objetivos para engajar a equipe e acompanhar resultados."
+            icone="🔥"
+            aviso="Desafios estarão disponíveis em breve"
+            descricao="Em breve, você poderá criar desafios de vendas, produtos, P.A., ticket médio e outros indicadores da equipe."
+            tituloLista="O que estará disponível"
             itens={[
-              "Nome, tipo, critério, meta por pessoa, prêmio, período e participantes",
-              "Produtos por categoria, não SKU a SKU",
-              "Aviso de quantos já estão ativos ao criar",
-              "Candidatos: compra bloqueada com estoque, cobertura alta com ticket acima da média",
+              "Definição do período",
+              "Meta por pessoa",
+              "Participantes",
+              "Critério do desafio",
+              "Valor da premiação",
+              "Acompanhamento do progresso",
             ]}
           />
         ),

@@ -5,12 +5,13 @@ import { StoreCardsPage, useScopedStores } from "./shared";
 
 /** WPINK só aparece para loja que vende a marca. */
 function franchiseFields(loja: Store): CostField[] {
-  const hint = "Sobre o faturamento da marca";
+  const wepink = "Percentual sobre o faturamento WEPINK.";
+  const wpink = "Percentual sobre o faturamento WPINK.";
   return [
-    pctField("royaltiesWepinkPct", "Royalties WEPINK", hint),
-    pctField("marketingWepinkPct", "Taxa de marketing WEPINK", hint),
+    pctField("royaltiesWepinkPct", "Royalties WEPINK", wepink),
+    pctField("marketingWepinkPct", "Taxa de marketing WEPINK", wepink),
     ...(loja.temWpink
-      ? [pctField("royaltiesWpinkPct", "Royalties WPINK", hint), pctField("marketingWpinkPct", "Taxa de marketing WPINK", hint)]
+      ? [pctField("royaltiesWpinkPct", "Royalties WPINK", wpink), pctField("marketingWpinkPct", "Taxa de marketing WPINK", wpink)]
       : []),
   ];
 }
@@ -22,7 +23,7 @@ export function FranchisePage() {
     <StoreCardsPage
       section="Configurações da operação"
       title="Franquia"
-      subtitle="Royalties e taxa de marketing pagos à franqueadora"
+      subtitle="Configure royalties e taxa de marketing pagos à franqueadora."
       loading={loading}
       skeleton={<StoreCardsSkeleton fields={2} />}
       lojas={lojas}
