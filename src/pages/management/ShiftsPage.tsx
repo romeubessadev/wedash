@@ -4,7 +4,7 @@ import { ShiftRowsSkeleton, StoreCardsSkeleton } from "@/components/wedash/Loadi
 import { deleteStoreShift, fetchStoreShifts, saveStoreShift, type Store, type StoreShift } from "@/data/wedash/stores";
 import { Icon, icons } from "@/pages/users/Icons";
 import { titleName } from "@/lib/format";
-import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, storeDataCache, useScopedStores } from "@/pages/operation/shared";
+import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, useScopedStores } from "@/pages/operation/shared";
 
 /** Linha editável; `id` ausente = turno novo ainda não salvo. */
 type ShiftDraft = { key: string; id?: string; name: string; start: string; end: string };
@@ -33,27 +33,22 @@ const sameShifts = (drafts: ShiftDraft[], list: StoreShift[]) => JSON.stringify(
 
 function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const { show } = useToast();
-  const cached = storeDataCache.shifts.get(loja.id);
-  const [saved, setSaved] = useState<StoreShift[]>(cached ?? []);
-  const [shifts, setShifts] = useState<ShiftDraft[]>(() => (cached ?? []).map(toDraft));
-  const [loaded, setLoaded] = useState(cached != null);
+  const [saved, setSaved] = useState<StoreShift[]>([]);
+  const [shifts, setShifts] = useState<ShiftDraft[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const dirty = !sameShifts(shifts, saved);
 
   function applySaved(list: StoreShift[]) {
-    storeDataCache.shifts.set(loja.id, list);
     setSaved(list);
     setShifts(list.map(toDraft));
   }
 
   useEffect(() => {
     let cancelled = false;
-    const before = storeDataCache.shifts.get(loja.id) ?? [];
     void fetchStoreShifts(tenantId, loja.id).then((list) => {
       if (cancelled) return;
-      storeDataCache.shifts.set(loja.id, list);
-      setSaved(list);
-      setShifts((cur) => (sameShifts(cur, before) ? list.map(toDraft) : cur));
+      applySaved(list);
       setLoaded(true);
     });
     return () => {

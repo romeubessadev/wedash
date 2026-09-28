@@ -12,7 +12,7 @@ import {
   type StoreShift,
 } from "@/data/wedash/stores";
 import { titleName } from "@/lib/format";
-import { RefreshIcon, StoreCardHeader, StoreCardsPage, storeDataCache, useScopedStores } from "@/pages/operation/shared";
+import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
 
 /** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o turno de cada pessoa. */
 export function StaffPage() {
@@ -34,11 +34,11 @@ export function StaffPage() {
 
 function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const { show } = useToast();
-  const [equipe, setEquipe] = useState<StoreSeller[]>(() => storeDataCache.sellers.get(loja.id) ?? []);
-  const [loaded, setLoaded] = useState(() => storeDataCache.sellers.has(loja.id));
+  const [equipe, setEquipe] = useState<StoreSeller[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [tick, setTick] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [shifts, setShifts] = useState<StoreShift[]>(() => storeDataCache.shifts.get(loja.id) ?? []);
+  const [shifts, setShifts] = useState<StoreShift[]>([]);
   const [shiftOf, setShiftOf] = useState<Record<string, string | null>>({});
   const [tab, setTab] = useState<"ativos" | "desligados">("ativos");
 
@@ -46,10 +46,8 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     let cancelled = false;
     void fetchStoreSellers(tenantId, [loja.id])
       .then((m) => {
-        const list = m.get(loja.id) ?? [];
-        storeDataCache.sellers.set(loja.id, list);
         if (!cancelled) {
-          setEquipe(list);
+          setEquipe(m.get(loja.id) ?? []);
           setShiftOf({});
         }
       })
@@ -64,7 +62,6 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   useEffect(() => {
     let cancelled = false;
     void fetchStoreShifts(tenantId, loja.id).then((list) => {
-      storeDataCache.shifts.set(loja.id, list);
       if (!cancelled) setShifts(list);
     });
     return () => {

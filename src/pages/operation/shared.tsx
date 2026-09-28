@@ -4,42 +4,42 @@ import { managementTabs, operationTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
 import { useScope } from "@/pages/dashboard/useScope";
-import { hydrateSessionStores, storesForSession, type Store, type StoreSeller, type StoreShift } from "@/data/wedash/stores";
+import { hydrateSessionStores, storesForSession, type Store } from "@/data/wedash/stores";
 import { StoreIcon } from "@/pages/dashboards/icons";
 import { cn } from "@/lib/cn";
 
-/** Lojas já lidas do banco nesta sessão do app: troca de aba mostra na hora e relê em segundo plano. */
-const hydratedStores = new Set<string>();
+/** Tempo mínimo do skeleton ao abrir a tela: carga rápida não vira um "pisca". */
+export const MIN_SKELETON_MS = 600;
 
-/** Último valor lido por loja (Turnos / Colaboradores), mesmo padrão: mostra na hora e relê. */
-export const storeDataCache = {
-  sellers: new Map<string, StoreSeller[]>(),
-  shifts: new Map<string, StoreShift[]>(),
-};
+/** Espera o que falta para completar `MIN_SKELETON_MS` desde `startedAt`. */
+export function waitMinSkeleton(startedAt: number): Promise<void> {
+  const rest = MIN_SKELETON_MS - (Date.now() - startedAt);
+  return rest > 0 ? new Promise((r) => setTimeout(r, rest)) : Promise.resolve();
+}
 
 /** Lojas do escopo do StorePicker ("Todas" = todas as lojas da sessão), já com custos e horário do banco. */
 export function useScopedStores() {
   const session = useActiveSession();
   const { escopo } = useScope();
   const [tick, setTick] = useState(0);
-  const cacheKey = `${session.tenantId}:${session.stores.join(",")}`;
-  const [loading, setLoading] = useState(() => !hydratedStores.has(cacheKey));
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    const startedAt = Date.now();
     (async () => {
-      if (!hydratedStores.has(cacheKey)) setLoading(true);
+      setLoading(true);
       if (session.stores.length > 0) {
         await hydrateSessionStores(session.tenantId, session.stores);
-        hydratedStores.add(cacheKey);
         if (!cancelled) setTick((n) => n + 1);
       }
+      await waitMinSkeleton(startedAt);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [session.tenantId, session.stores, cacheKey]);
+  }, [session.tenantId, session.stores]);
 
   const lojas = useMemo(() => {
     const todas = storesForSession(session.stores);
