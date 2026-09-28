@@ -135,7 +135,7 @@ Sem esses 4 elementos, o número é "dado jogado na tela" — não serve para de
 
 ### Específicos de produto (`src/components/wedash/`)
 - `WedashBrand` — marca WeDash (símbolo + nome); sem marca por empresa
-- `AiChat` — chat com IA
+- `AiChat` — chat com IA (**fora do app desde 2026-09-28**: balão flutuante removido do `AppShell` até a implementação real; componente preservado)
 
 ### Stack
 - React 19 + Vite 8 + Tailwind 4 + react-router-dom 7

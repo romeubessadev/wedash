@@ -6,8 +6,6 @@ import { MobileDrawer } from "./MobileDrawer";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { PageLoader } from "./PageLoader";
-import { ChatIA } from "@/components/wedash/AiChat";
-import { useActiveSession } from "@/session/SessionProvider";
 import { touchLastSeen } from "@/session/authApi";
 
 /** O banco só grava 1x a cada 5 min; aqui só evita chamadas à toa. */
@@ -19,7 +17,6 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
-  const session = useActiveSession();
 
   // html/body com height 100% + overflow-x hidden fazem o <body> rolar (não a janela nem o <main>):
   // zera todos para a tela nova abrir no topo.
@@ -55,8 +52,6 @@ export function AppShell() {
     };
   }, []);
 
-  const temChat = session.role === "OWNER" || session.role === "MANAGER";
-
   return (
     <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0">
       <Sidebar collapsed={collapsed} />
@@ -74,7 +69,6 @@ export function AppShell() {
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      {temChat && <ChatIA />}
     </div>
   );
 }
