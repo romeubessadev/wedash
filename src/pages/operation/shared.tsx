@@ -4,23 +4,34 @@ import { managementTabs, operationTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
 import { useScope } from "@/pages/dashboard/useScope";
-import { hydrateSessionStores, storesForSession, type Store } from "@/data/wedash/stores";
+import { hydrateSessionStores, storesForSession, type Store, type StoreSeller, type StoreShift } from "@/data/wedash/stores";
 import { StoreIcon } from "@/pages/dashboards/icons";
 import { cn } from "@/lib/cn";
+
+/** Lojas já lidas do banco nesta sessão do app: troca de aba mostra na hora e relê em segundo plano. */
+const hydratedStores = new Set<string>();
+
+/** Último valor lido por loja (Turnos / Colaboradores), mesmo padrão: mostra na hora e relê. */
+export const storeDataCache = {
+  sellers: new Map<string, StoreSeller[]>(),
+  shifts: new Map<string, StoreShift[]>(),
+};
 
 /** Lojas do escopo do StorePicker ("Todas" = todas as lojas da sessão), já com custos e horário do banco. */
 export function useScopedStores() {
   const session = useActiveSession();
   const { escopo } = useScope();
   const [tick, setTick] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `${session.tenantId}:${session.stores.join(",")}`;
+  const [loading, setLoading] = useState(() => !hydratedStores.has(cacheKey));
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      if (!hydratedStores.has(cacheKey)) setLoading(true);
       if (session.stores.length > 0) {
         await hydrateSessionStores(session.tenantId, session.stores);
+        hydratedStores.add(cacheKey);
         if (!cancelled) setTick((n) => n + 1);
       }
       if (!cancelled) setLoading(false);
@@ -28,7 +39,7 @@ export function useScopedStores() {
     return () => {
       cancelled = true;
     };
-  }, [session.tenantId, session.stores]);
+  }, [session.tenantId, session.stores, cacheKey]);
 
   const lojas = useMemo(() => {
     const todas = storesForSession(session.stores);
@@ -45,8 +56,27 @@ const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
   "Configurações da operação": operationTabs,
 };
 
+/** Código das outras abas da seção — baixado junto para a troca de aba não esperar o download. */
+const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
+  Gestão: [
+    () => import("@/pages/goals/GoalsPage"),
+    () => import("@/pages/management/ChallengesPage"),
+    () => import("@/pages/management/ShiftsPage"),
+    () => import("@/pages/management/StaffPage"),
+  ],
+  "Configurações da operação": [
+    () => import("@/pages/operation/CostsPage"),
+    () => import("@/pages/operation/FranchisePage"),
+    () => import("@/pages/operation/RentPage"),
+    () => import("@/pages/operation/ProductsTaxesPage"),
+  ],
+};
+
 /** Cabeçalho da seção (breadcrumb + abas do grupo do menu). */
 export function SectionHeader({ section, title, subtitle, actions }: { section: SectionName; title: string; subtitle: string; actions?: ReactNode }) {
+  useEffect(() => {
+    for (const load of SECTION_PAGES[section]) void load().catch(() => {});
+  }, [section]);
   return (
     <>
       <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} />

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Button, Card, EmptyState, Input, useToast } from "@/components/ui";
-import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { ShiftRowsSkeleton, StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { deleteStoreShift, fetchStoreShifts, saveStoreShift, type Store, type StoreShift } from "@/data/wedash/stores";
 import { Icon, icons } from "@/pages/users/Icons";
 import { titleName } from "@/lib/format";
-import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, useScopedStores } from "@/pages/operation/shared";
+import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, storeDataCache, useScopedStores } from "@/pages/operation/shared";
 
 /** Linha editável; `id` ausente = turno novo ainda não salvo. */
 type ShiftDraft = { key: string; id?: string; name: string; start: string; end: string };
@@ -21,7 +21,7 @@ export function ShiftsPage() {
       title="Turnos"
       subtitle="Configure os turnos de cada loja. O turno de cada colaborador é definido em Colaboradores."
       loading={loading}
-      skeleton={<StoreCardsSkeleton rows={2} />}
+      skeleton={<StoreCardsSkeleton shifts />}
       lojas={lojas}
     >
       {(loja) => <ShiftsCard tenantId={session.tenantId} loja={loja} />}
@@ -29,20 +29,31 @@ export function ShiftsPage() {
   );
 }
 
+const sameShifts = (drafts: ShiftDraft[], list: StoreShift[]) => JSON.stringify(drafts.map(toShift)) === JSON.stringify(list);
+
 function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const { show } = useToast();
-  const [saved, setSaved] = useState<StoreShift[]>([]);
-  const [shifts, setShifts] = useState<ShiftDraft[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const cached = storeDataCache.shifts.get(loja.id);
+  const [saved, setSaved] = useState<StoreShift[]>(cached ?? []);
+  const [shifts, setShifts] = useState<ShiftDraft[]>(() => (cached ?? []).map(toDraft));
+  const [loaded, setLoaded] = useState(cached != null);
   const [saving, setSaving] = useState(false);
-  const dirty = JSON.stringify(shifts.map(toShift)) !== JSON.stringify(saved);
+  const dirty = !sameShifts(shifts, saved);
+
+  function applySaved(list: StoreShift[]) {
+    storeDataCache.shifts.set(loja.id, list);
+    setSaved(list);
+    setShifts(list.map(toDraft));
+  }
 
   useEffect(() => {
     let cancelled = false;
+    const before = storeDataCache.shifts.get(loja.id) ?? [];
     void fetchStoreShifts(tenantId, loja.id).then((list) => {
       if (cancelled) return;
+      storeDataCache.shifts.set(loja.id, list);
       setSaved(list);
-      setShifts(list.map(toDraft));
+      setShifts((cur) => (sameShifts(cur, before) ? list.map(toDraft) : cur));
       setLoaded(true);
     });
     return () => {
@@ -83,9 +94,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       const r = await saveStoreShift({ tenantId, storeId: loja.id, shift: toShift(s) });
       if (!r.ok) error = r.error;
     }
-    const list = await fetchStoreShifts(tenantId, loja.id);
-    setSaved(list);
-    setShifts(list.map(toDraft));
+    applySaved(await fetchStoreShifts(tenantId, loja.id));
     setSaving(false);
     if (error) show(SAVE_ERROR_MSG, "danger");
     else show("Alterações salvas.", "success");
@@ -101,7 +110,9 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           void save();
         }}
       >
-        {!loaded ? null : shifts.length === 0 ? (
+        {!loaded ? (
+          <ShiftRowsSkeleton />
+        ) : shifts.length === 0 ? (
           <EmptyState
             framed={false}
             className="py-4!"

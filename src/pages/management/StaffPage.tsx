@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Avatar, Badge, Button, Card, DataTable, EmptyState, Segmented, Select, useToast, type DataTableColumn } from "@/components/ui";
-import { StoreCardsSkeleton, TeamTableSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { Avatar, Badge, Button, Card, DataTable, EmptyState, Segmented, Select, Skeleton, useToast, type DataTableColumn } from "@/components/ui";
+import { SegmentedSkeleton, StoreCardsSkeleton, TeamTableSkeleton } from "@/components/wedash/LoadingSkeletons";
 import {
   fetchStoreSellers,
   fetchStoreShifts,
@@ -12,7 +12,7 @@ import {
   type StoreShift,
 } from "@/data/wedash/stores";
 import { titleName } from "@/lib/format";
-import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
+import { RefreshIcon, StoreCardHeader, StoreCardsPage, storeDataCache, useScopedStores } from "@/pages/operation/shared";
 
 /** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o turno de cada pessoa. */
 export function StaffPage() {
@@ -34,11 +34,11 @@ export function StaffPage() {
 
 function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const { show } = useToast();
-  const [equipe, setEquipe] = useState<StoreSeller[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [equipe, setEquipe] = useState<StoreSeller[]>(() => storeDataCache.sellers.get(loja.id) ?? []);
+  const [loaded, setLoaded] = useState(() => storeDataCache.sellers.has(loja.id));
   const [tick, setTick] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [shifts, setShifts] = useState<StoreShift[]>([]);
+  const [shifts, setShifts] = useState<StoreShift[]>(() => storeDataCache.shifts.get(loja.id) ?? []);
   const [shiftOf, setShiftOf] = useState<Record<string, string | null>>({});
   const [tab, setTab] = useState<"ativos" | "desligados">("ativos");
 
@@ -46,8 +46,10 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     let cancelled = false;
     void fetchStoreSellers(tenantId, [loja.id])
       .then((m) => {
+        const list = m.get(loja.id) ?? [];
+        storeDataCache.sellers.set(loja.id, list);
         if (!cancelled) {
-          setEquipe(m.get(loja.id) ?? []);
+          setEquipe(list);
           setShiftOf({});
         }
       })
@@ -62,6 +64,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   useEffect(() => {
     let cancelled = false;
     void fetchStoreShifts(tenantId, loja.id).then((list) => {
+      storeDataCache.shifts.set(loja.id, list);
       if (!cancelled) setShifts(list);
     });
     return () => {
@@ -146,9 +149,19 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       <StoreCardHeader
         className="mb-0 px-5 pt-5 pb-4"
         loja={loja}
-        action={loaded && !semEquipe ? refreshButton("secondary") : undefined}
+        action={
+          !loaded ? (
+            <Skeleton className="h-8 w-24 shrink-0 rounded-[var(--radius-vela-sm)]" />
+          ) : semEquipe ? undefined : (
+            refreshButton("secondary")
+          )
+        }
       />
-      {!semEquipe && (
+      {!loaded ? (
+        <div className="px-5 pb-4">
+          <SegmentedSkeleton widths={["w-24", "w-32"]} />
+        </div>
+      ) : !semEquipe && (
         <div className="px-5 pb-4">
           <Segmented
             options={[

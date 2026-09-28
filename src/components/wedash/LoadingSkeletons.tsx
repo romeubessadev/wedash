@@ -436,7 +436,7 @@ function DataTableSkeleton({ cells, rows = 4, bare = false }: { cells: TableCell
 }
 
 /** Pills do `Segmented` (h-8, cantos 9px). */
-function SegmentedSkeleton({ widths }: { widths: string[] }) {
+export function SegmentedSkeleton({ widths }: { widths: string[] }) {
   return (
     <div className="flex gap-1.5">
       {widths.map((w, i) => (
@@ -558,20 +558,69 @@ export function StoreDetailSkeleton() {
   );
 }
 
+/** Mesmo desenho do `StoreCardHeader`: ícone 40px + fantasia + CNPJ (+ botão à direita). */
+function StoreHeadSkeleton({ button = false, className }: { button?: boolean; className?: string }) {
+  return (
+    <div className={cn("mb-4 flex items-start justify-between gap-3", className)}>
+      <div className="flex min-w-0 items-center gap-3">
+        <Skeleton className="h-10 w-10 shrink-0 rounded-[12px]" />
+        <div className="min-w-0">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="mt-1.5 h-3 w-32" />
+        </div>
+      </div>
+      {button && <Skeleton className="h-8 w-24 shrink-0 rounded-[var(--radius-vela-sm)]" />}
+    </div>
+  );
+}
+
+/** Resetar + Salvar alterações (`FormActions`). */
+function FormActionsSkeleton() {
+  return (
+    <div className="flex gap-2.5 pt-1">
+      <Skeleton className="h-10 w-[88px] rounded-[var(--radius-vela-md)]" />
+      <Skeleton className="h-10 w-[148px] rounded-[var(--radius-vela-md)]" />
+    </div>
+  );
+}
+
+/** Linhas de turno: nome · início – fim · lixeira, + "Adicionar turno" e rodapé do card. */
+export function ShiftRowsSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2.5">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
+            <Skeleton className="h-9 min-w-0 flex-1 basis-full rounded-[var(--radius-vela-sm)] sm:basis-auto" />
+            <Skeleton className="h-9 w-[80px] rounded-[var(--radius-vela-sm)] sm:w-[96px]" />
+            <span className="text-t2">–</span>
+            <Skeleton className="h-9 w-[80px] rounded-[var(--radius-vela-sm)] sm:w-[96px]" />
+            <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-3.5 w-28" />
+      <FormActionsSkeleton />
+    </div>
+  );
+}
+
 /**
- * Telas de Gestão / Configurações da operação: 1 card por loja (fantasia + CNPJ).
- * `fields` = grade de campos; `rows` = linhas editáveis (Custos, Turnos); `team` = tabela da equipe.
+ * Telas de Gestão / Configurações da operação: 1 card por loja (ícone + fantasia + CNPJ).
+ * `fields` = grade de campos; `rows` = linhas editáveis (Custos); `shifts` = Turnos; `team` = Colaboradores.
  */
 export function StoreCardsSkeleton({
   count = 2,
   fields = 0,
   rows = 0,
+  shifts = false,
   team = false,
   wide = false,
 }: {
   count?: number;
   fields?: number;
   rows?: number;
+  shifts?: boolean;
   team?: boolean;
   wide?: boolean;
 }) {
@@ -581,14 +630,15 @@ export function StoreCardsSkeleton({
         team ? (
           <Card key={c} padding="none">
             <div className="px-5 pt-5 pb-4">
-              <CardHead sub button />
+              <StoreHeadSkeleton button />
               <SegmentedSkeleton widths={["w-24", "w-32"]} />
             </div>
             <TeamTableSkeleton />
           </Card>
         ) : (
           <Card key={c}>
-            <CardHead sub />
+            <StoreHeadSkeleton />
+            {shifts && <ShiftRowsSkeleton />}
             {fields > 0 && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {Array.from({ length: fields }, (_, i) => (
