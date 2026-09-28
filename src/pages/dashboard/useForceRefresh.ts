@@ -28,6 +28,8 @@ export type ForceRefreshState = {
   canForce: boolean;
   refreshing: boolean;
   forceError: string | null;
+  /** Muda a cada Atualizar concluído com sucesso (para o toast). */
+  forceDoneAt: number | null;
   forceCooldownSec: number | null;
   forcarAtualizacao: () => Promise<void>;
 };
@@ -50,6 +52,7 @@ export function useForceRefresh({
   const canForce = canForceSyncRefresh(session.role);
   const [refreshing, setRefreshing] = useState(false);
   const [forceError, setForceError] = useState<string | null>(null);
+  const [forceDoneAt, setForceDoneAt] = useState<number | null>(null);
   const [forceAtMap, setForceAtMap] = useState<ForceAtMap>(() => readForceAtMap(session.tenantId));
   const [forceCooldownSec, setForceCooldownSec] = useState<number | null>(() =>
     forceCooldownForScopeSec(readForceAtMap(session.tenantId), storeIds),
@@ -87,6 +90,7 @@ export function useForceRefresh({
         await reload();
       } finally {
         setRefreshing(false);
+        if (wait.status === "SUCCEEDED") setForceDoneAt(Date.now());
       }
     },
     [session.tenantId, reload],
@@ -195,5 +199,5 @@ export function useForceRefresh({
     await resumeOrWaitForce(pending, true);
   }, [canForce, refreshing, forceCooldownSec, disconnected, storeIds, session.tenantId, resumeOrWaitForce]);
 
-  return { canForce, refreshing, forceError, forceCooldownSec, forcarAtualizacao };
+  return { canForce, refreshing, forceError, forceDoneAt, forceCooldownSec, forcarAtualizacao };
 }

@@ -77,8 +77,9 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     setSyncing(true);
     const r = await syncStoreSellersNow(loja.id);
     setSyncing(false);
-    if (r.ok) setTick((n) => n + 1);
-    else show(r.message, "danger");
+    if (!r.ok) return show(r.message, "danger");
+    setTick((n) => n + 1);
+    show("Colaboradores atualizados.", "success");
   }
 
   async function changeShift(sellerId: string, shiftId: string | null) {

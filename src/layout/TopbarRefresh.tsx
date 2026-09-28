@@ -75,7 +75,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
   }, [loadWatermark]);
 
   const disconnected = erp != null && (erp.status !== "VALID" || erp.syncPaused);
-  const { canForce, refreshing, forceError, forceCooldownSec, forcarAtualizacao } = useForceRefresh({
+  const { canForce, refreshing, forceError, forceDoneAt, forceCooldownSec, forcarAtualizacao } = useForceRefresh({
     storeIds,
     reload,
     disconnected,
@@ -84,6 +84,10 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
   useEffect(() => {
     if (forceError) show(forceError, "danger");
   }, [forceError, show]);
+
+  useEffect(() => {
+    if (forceDoneAt) show("Vendas atualizadas.", "success");
+  }, [forceDoneAt, show]);
 
   const autoOn = erp != null && !disconnected && erp.autoRefreshEnabled;
   const escopo = storeIds.length > 0 ? lojas.filter((l) => storeIds.includes(l.id)) : lojas;
