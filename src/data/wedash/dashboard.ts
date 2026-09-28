@@ -2849,14 +2849,19 @@ export interface TeamShiftSlice {
 export interface TeamDashboardView {
   escopo: Scope;
   periodo: ResolvedPeriod;
+  /** KPIs e tabela já filtrados pelo turno escolhido. */
   kpis: TeamKpi[];
   pessoas: TeamMemberRow[];
-  /** Maior faturamento primeiro; "Sem turno definido" sempre por último. */
+  /** Toda a equipe (sem filtro de turno). Maior faturamento primeiro; "Sem turno definido" sempre por último. */
   turnos: TeamShiftSlice[];
   /** Alguma pessoa das lojas do escopo tem turno cadastrado. */
   turnosConfigurados: boolean;
-  /** Faturamento das lojas = equipe + vendas sem vendedor ou de gerência. */
-  composicao: { equipe: number; fora: number; total: number };
+  /** Opções do filtro de turno (nome do turno; "Sem turno definido" se alguém vendeu sem turno). */
+  turnosDisponiveis: string[];
+  /** Turno aplicado (null = todos; valor fora das opções vira null). */
+  turnoFiltro: string | null;
+  /** Faturamento das lojas = equipe + vendas sem vendedor ou de gerência; `turno` = parte da equipe no turno filtrado. */
+  composicao: { equipe: number; fora: number; total: number; turno?: number };
   vsVariacao: string;
   /** Mais de 1 loja no escopo → mostra a loja de cada pessoa. */
   multiLoja: boolean;
@@ -2870,11 +2875,21 @@ export type TeamAggInput = {
 
 export const TEAM_SEM_TURNO = "Sem turno definido";
 
+/** Nome do turno a partir do rótulo "Manhã · 09:00–15:00" (sem turno = TEAM_SEM_TURNO). */
+export function teamShiftName(turno?: string): string {
+  return turno ? (turno.split(" · ")[0] ?? turno) : TEAM_SEM_TURNO;
+}
+
 /**
  * Equipe a partir dos agregados do sync (sales_seller_day_agg, sem gerência / conta de freelancer).
  * Sem dado por hora: período terminando hoje compara até ontem nos dois lados; em "Hoje" fica sem badge.
+ * `opts.turno` filtra KPIs e tabela pelo nome do turno (turno atual da pessoa vale também para o período anterior).
  */
-export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { dayAggs: [] }): TeamDashboardView {
+export function buildTeamDashboardView(
+  escopo: Scope,
+  input: TeamAggInput = { dayAggs: [] },
+  opts: { turno?: string | null } = {},
+): TeamDashboardView {
   const esc: Scope = { ...escopo, divisao: null };
   const periodo = resolvePeriod(esc.periodo, calendarTodayIso());
   const fs = storesInScope(esc);
@@ -2892,28 +2907,31 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
 
   type Tot = { fat: number; vendas: number; itens: number; semItens: boolean };
   const novoTot = (): Tot => ({ fat: 0, vendas: 0, itens: 0, semItens: false });
-  const somar = (t: Tot, r: import("./salesTypes").SalesSellerDayAgg) => {
-    t.fat += r.revenueCents / 100;
-    t.vendas += r.salesCount;
-    t.itens += r.itemCount ?? 0;
-    if (r.salesCount > 0 && !(r.itemCount && r.itemCount > 0)) t.semItens = true;
+  const somar = (t: Tot, r: { fat: number; vendas: number; itens: number; semItens: boolean }) => {
+    t.fat += r.fat;
+    t.vendas += r.vendas;
+    t.itens += r.itens;
+    if (r.semItens) t.semItens = true;
   };
+  const linha = (r: import("./salesTypes").SalesSellerDayAgg) => ({
+    fat: r.revenueCents / 100,
+    vendas: r.salesCount,
+    itens: r.itemCount ?? 0,
+    semItens: r.salesCount > 0 && !(r.itemCount && r.itemCount > 0),
+  });
 
   type Acc = {
     nome: string;
     nomeDia: string;
     atual: Tot;
-    fatCmp: number;
-    fatAnt: number;
+    cmp: Tot;
+    ant: Tot;
     fatPorLoja: Map<string, number>;
     employeeId: number | null;
     geradorId: number | null;
     sellerKeys: Set<string>;
   };
   const acc = new Map<string, Acc>();
-  const totAtual = novoTot();
-  const totCmp = novoTot();
-  const totAnt = novoTot();
   for (const r of input.sellerDayAggs ?? []) {
     if (!storeIds.has(r.storeId)) continue;
     const key = r.sellerEmployeeId != null ? `e:${r.sellerEmployeeId}` : `n:${r.sellerKey}`;
@@ -2921,8 +2939,8 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
       nome: r.sellerName,
       nomeDia: r.day,
       atual: novoTot(),
-      fatCmp: 0,
-      fatAnt: 0,
+      cmp: novoTot(),
+      ant: novoTot(),
       fatPorLoja: new Map<string, number>(),
       employeeId: r.sellerEmployeeId ?? null,
       geradorId: null,
@@ -2934,49 +2952,79 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
       a.nome = r.sellerName;
       a.nomeDia = r.day;
     }
+    const l = linha(r);
     if (noAtual(r.day)) {
-      somar(a.atual, r);
-      somar(totAtual, r);
+      somar(a.atual, l);
       a.fatPorLoja.set(r.storeId, (a.fatPorLoja.get(r.storeId) ?? 0) + r.revenueCents);
     }
-    if (noAtualCmp(r.day)) {
-      a.fatCmp += r.revenueCents / 100;
-      somar(totCmp, r);
-    }
-    if (noAntCmp(r.day)) {
-      a.fatAnt += r.revenueCents / 100;
-      somar(totAnt, r);
-    }
+    if (noAtualCmp(r.day)) somar(a.cmp, l);
+    if (noAntCmp(r.day)) somar(a.ant, l);
     acc.set(key, a);
   }
 
   const turnoDe = sellerShiftResolver(input.sellerShifts);
-  const pessoas: TeamMemberRow[] = [...acc.entries()]
-    .filter(([, a]) => a.atual.fat > 0 || a.atual.vendas > 0)
-    .map(([key, a]) => {
-      const lojasIds = [...a.fatPorLoja.entries()].sort((x, y) => y[1] - x[1]).map(([id]) => id);
-      return {
-        key,
-        nome: a.nome,
-        lojas: lojasIds.map((id) => nomeLoja.get(id)).filter((n): n is string => Boolean(n)),
-        turno: turnoDe({ employeeId: a.employeeId, geradorId: a.geradorId, sellerKeys: a.sellerKeys, lojas: lojasIds }),
-        faturamento: a.atual.fat,
-        vendas: a.atual.vendas,
-        itens: a.atual.itens,
-        ticketMedio: divSeguro(a.atual.fat, a.atual.vendas),
-        pa: a.atual.semItens || a.atual.vendas === 0 ? null : a.atual.itens / a.atual.vendas,
-        participacaoPct: divSeguro(a.atual.fat, totAtual.fat) * 100,
-        variacaoPct: a.fatAnt > 0 && a.fatCmp > 0 ? ((a.fatCmp - a.fatAnt) / a.fatAnt) * 100 : null,
-      };
-    })
+  const todas = [...acc.entries()].map(([key, a]) => {
+    const lojasIds = [...a.fatPorLoja.entries()].sort((x, y) => y[1] - x[1]).map(([id]) => id);
+    const turno = turnoDe({
+      employeeId: a.employeeId,
+      geradorId: a.geradorId,
+      sellerKeys: a.sellerKeys,
+      // Sem venda no período (só no anterior): liga pelo código/nome em qualquer loja do escopo.
+      lojas: lojasIds.length > 0 ? lojasIds : [...storeIds],
+    });
+    return { key, a, lojasIds, turno };
+  });
+  const comVenda = todas.filter(({ a }) => a.atual.fat > 0 || a.atual.vendas > 0);
+
+  // Opções do filtro: turnos cadastrados nas lojas do escopo (ordem de início) + "Sem turno definido".
+  const inicioPorNome = new Map<string, string>();
+  for (const s of input.sellerShifts ?? []) {
+    if (!storeIds.has(s.storeId)) continue;
+    const atual = inicioPorNome.get(s.name);
+    if (atual == null || s.start < atual) inicioPorNome.set(s.name, s.start);
+  }
+  const turnosDisponiveis = [...inicioPorNome.entries()]
+    .sort((x, y) => x[1].localeCompare(y[1]) || x[0].localeCompare(y[0], "pt-BR"))
+    .map(([nome]) => nome);
+  if (turnosDisponiveis.length > 0 && comVenda.some((p) => !p.turno)) turnosDisponiveis.push(TEAM_SEM_TURNO);
+  const turnoFiltro = opts.turno && turnosDisponiveis.includes(opts.turno) ? opts.turno : null;
+  const noFiltro = (turno?: string) => !turnoFiltro || teamShiftName(turno) === turnoFiltro;
+
+  const filtradas = todas.filter((p) => noFiltro(p.turno));
+  const totAtual = novoTot();
+  const totCmp = novoTot();
+  const totAnt = novoTot();
+  for (const { a } of filtradas) {
+    somar(totAtual, a.atual);
+    somar(totCmp, a.cmp);
+    somar(totAnt, a.ant);
+  }
+
+  const pessoas: TeamMemberRow[] = filtradas
+    .filter(({ a }) => a.atual.fat > 0 || a.atual.vendas > 0)
+    .map(({ key, a, lojasIds, turno }) => ({
+      key,
+      nome: a.nome,
+      lojas: lojasIds.map((id) => nomeLoja.get(id)).filter((n): n is string => Boolean(n)),
+      turno,
+      faturamento: a.atual.fat,
+      vendas: a.atual.vendas,
+      itens: a.atual.itens,
+      ticketMedio: divSeguro(a.atual.fat, a.atual.vendas),
+      pa: a.atual.semItens || a.atual.vendas === 0 ? null : a.atual.itens / a.atual.vendas,
+      participacaoPct: divSeguro(a.atual.fat, totAtual.fat) * 100,
+      variacaoPct: a.ant.fat > 0 && a.cmp.fat > 0 ? ((a.cmp.fat - a.ant.fat) / a.ant.fat) * 100 : null,
+    }))
     .sort((x, y) => y.faturamento - x.faturamento || x.nome.localeCompare(y.nome, "pt-BR"));
 
-  // Turnos: soma por rótulo; sem turno por último.
+  // Turnos (toda a equipe): soma por rótulo; sem turno por último.
   const porTurno = new Map<string, TeamShiftSlice>();
-  for (const p of pessoas) {
-    const nome = p.turno ?? TEAM_SEM_TURNO;
+  let equipeTotal = 0;
+  for (const { a, turno } of comVenda) {
+    equipeTotal += a.atual.fat;
+    const nome = turno ?? TEAM_SEM_TURNO;
     const s = porTurno.get(nome) ?? { nome, faturamento: 0, pessoas: 0 };
-    s.faturamento += p.faturamento;
+    s.faturamento += a.atual.fat;
     s.pessoas += 1;
     porTurno.set(nome, s);
   }
@@ -2992,13 +3040,12 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
   const totalLojas = input.dayAggs
     .filter((r) => r.brand === "ALL" && storeIds.has(r.storeId) && noAtual(r.day))
     .reduce((s, r) => s + r.revenueCents / 100, 0);
-  const fora = Math.max(0, totalLojas - totAtual.fat);
+  const fora = Math.max(0, totalLojas - equipeTotal);
 
   // Comparativos: só com venda no período atual (nunca −100%) e dado nos dois lados.
   const comparavel = totAtual.fat > 0 && totCmp.vendas > 0 && totAnt.vendas > 0;
   const ticketCmp = divSeguro(totCmp.fat, totCmp.vendas);
   const ticketAnt = divSeguro(totAnt.fat, totAnt.vendas);
-  const deltaEquipe = comparavel ? kpiDelta(totCmp.fat, totAnt.fat, vsCmp) : undefined;
   const n = pessoas.length;
   const ticket = divSeguro(totAtual.fat, totAtual.vendas);
   const pa = totAtual.semItens || totAtual.vendas === 0 ? null : totAtual.itens / totAtual.vendas;
@@ -3009,7 +3056,7 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
       label: "Faturamento da equipe",
       valor: brlCent(totAtual.fat),
       sub: n > 0 ? `${n} ${n === 1 ? "pessoa" : "pessoas"} · média de ${brlCent(totAtual.fat / n)}` : undefined,
-      delta: deltaEquipe,
+      delta: comparavel ? kpiDelta(totCmp.fat, totAnt.fat, vsCmp) : undefined,
       tooltip: "Vendas feitas pela equipe de vendas. Não inclui vendas sem vendedor ou de gerência.",
     },
     {
@@ -3039,7 +3086,14 @@ export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { da
     pessoas,
     turnos,
     turnosConfigurados,
-    composicao: { equipe: totAtual.fat, fora, total: totAtual.fat + fora },
+    turnosDisponiveis,
+    turnoFiltro,
+    composicao: {
+      equipe: equipeTotal,
+      fora,
+      total: equipeTotal + fora,
+      ...(turnoFiltro ? { turno: totAtual.fat } : {}),
+    },
     vsVariacao: vsCmp,
     multiLoja: fs.length > 1,
   };

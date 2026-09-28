@@ -1499,6 +1499,32 @@ describe("buildTeamDashboardView com agregados reais", () => {
     expect(v.composicao).toEqual({ equipe: 500, fora: 100, total: 600 });
   });
 
+  it("filtro de turno: KPIs e tabela só do turno; composição separa o turno do resto da equipe", () => {
+    const input = {
+      dayAggs: [dia("2026-08-10", 600)],
+      sellerDayAggs: [
+        vend("2026-08-10", "Ana", 300, 3, 6, { sellerEmployeeId: 10 }),
+        vend("2026-08-10", "Bia", 200, 2, 4),
+        vend("2026-08-08", "Ana", 100, 1, 2, { sellerEmployeeId: 10 }),
+      ],
+      sellerShifts: [{ storeId: "f1", employeeId: 10, geradorId: null, nameKeys: [], name: "Manhã", start: "09:00", end: "15:00" }],
+    };
+    const v = buildTeamDashboardView(esc, input, { turno: "Manhã" });
+    expect(v.turnosDisponiveis).toEqual(["Manhã", TEAM_SEM_TURNO]);
+    expect(v.turnoFiltro).toBe("Manhã");
+    expect(v.pessoas.map((p) => p.nome)).toEqual(["Ana"]);
+    expect(v.pessoas[0]?.participacaoPct).toBeCloseTo(100);
+    expect(v.kpis[0]?.valor).toMatch(/300,00$/);
+    expect(v.kpis[0]?.delta).toMatchObject({ value: "200%", positive: true });
+    expect(v.turnos).toHaveLength(2);
+    expect(v.composicao).toEqual({ equipe: 500, fora: 100, total: 600, turno: 300 });
+
+    const semTurno = buildTeamDashboardView(esc, input, { turno: TEAM_SEM_TURNO });
+    expect(semTurno.pessoas.map((p) => p.nome)).toEqual(["Bia"]);
+    // Turno que não existe no escopo = todos.
+    expect(buildTeamDashboardView(esc, input, { turno: "Noite" }).turnoFiltro).toBeNull();
+  });
+
   it("sem venda no período: sem badge e sem pessoas", () => {
     const v = buildTeamDashboardView(esc, { dayAggs: [], sellerDayAggs: [vend("2026-08-08", "Ana", 150, 2, 3)] });
     expect(v.pessoas).toEqual([]);

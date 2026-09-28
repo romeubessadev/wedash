@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { Button, Card, CardHeader, CardTitle, DateRangePicker, PageHeader, Pagination, StatCard, ThSort, type SortDir } from "@/components/ui";
+import { Button, Card, CardHeader, CardTitle, DateRangePicker, Dropdown, PageHeader, Pagination, StatCard, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -144,6 +144,7 @@ export function TeamPage() {
   const [sortKey, setSortKey] = useState<SortKey>("faturamento");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [turnoSel, setTurnoSel] = useState<string | null>(null);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -187,9 +188,9 @@ export function TeamPage() {
   }, [reload]);
 
   const view = useMemo(
-    () => buildTeamDashboardView(escopo, aggs),
+    () => buildTeamDashboardView(escopo, aggs, { turno: turnoSel }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [escopo, aggs, storesTick],
+    [escopo, aggs, storesTick, turnoSel],
   );
 
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
@@ -243,7 +244,7 @@ export function TeamPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [busca, sortKey, sortDir, escopo, isMobile]);
+  }, [busca, sortKey, sortDir, escopo, isMobile, turnoSel]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -300,6 +301,20 @@ export function TeamPage() {
                 size="sm"
                 minDate={pickerMinDate(coverageFrom, monthFill)}
               />
+              {view.turnosDisponiveis.length > 0 && (
+                <Dropdown
+                  align="right"
+                  trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
+                  items={[
+                    { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
+                    ...view.turnosDisponiveis.map((t) => ({
+                      label: t,
+                      active: view.turnoFiltro === t,
+                      onClick: () => setTurnoSel(t),
+                    })),
+                  ]}
+                />
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -425,11 +440,19 @@ export function TeamPage() {
                 <EmptyBlock />
               ) : (
                 (() => {
-                  const { equipe, fora, total } = view.composicao;
-                  const fatias = [
-                    { nome: "Equipe de vendas", valor: equipe, cor: "var(--acc)" },
-                    { nome: "Sem vendedor ou gerência", valor: fora, cor: COR_NEUTRA },
-                  ].filter((f) => f.valor > 0);
+                  const { equipe, fora, total, turno } = view.composicao;
+                  const fatias = (
+                    turno != null && view.turnoFiltro
+                      ? [
+                          { nome: view.turnoFiltro, valor: turno, cor: "var(--acc)" },
+                          { nome: "Demais da equipe", valor: Math.max(0, equipe - turno), cor: "var(--info)" },
+                          { nome: "Sem vendedor ou gerência", valor: fora, cor: COR_NEUTRA },
+                        ]
+                      : [
+                          { nome: "Equipe de vendas", valor: equipe, cor: "var(--acc)" },
+                          { nome: "Sem vendedor ou gerência", valor: fora, cor: COR_NEUTRA },
+                        ]
+                  ).filter((f) => f.valor > 0);
                   return (
                     <div className="flex flex-1 flex-col justify-center px-4 pb-4">
                       <div className="mx-auto my-2">
@@ -621,6 +644,25 @@ export function TeamPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** Mesmo desenho do gatilho do DateRangePicker (sm). */
+function FiltroTurnoTrigger({ rotulo }: { rotulo: string }) {
+  return (
+    <button
+      type="button"
+      className="flex h-8 min-w-0 items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-left transition-colors hover:border-acc"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+      <span className="min-w-0 truncate text-xs font-semibold text-t0">{rotulo}</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </button>
   );
 }
 
