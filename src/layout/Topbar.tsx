@@ -36,9 +36,13 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
       ? historico.items.map((n) => ({
           label: n.text,
           danger: !n.ok,
+          highlight: !n.read,
+          keepOpen: true,
+          onClick: () => historico.markRead(n.id),
+          icon: <span className={`h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-acc"}`} />,
           trailing: <span className="shrink-0 text-[11.5px] font-normal tabular-nums text-t2">{quando(n.at)}</span>,
         }))
-      : [{ label: "Nenhuma notificação nova", disabled: true }];
+      : [{ label: "Nenhuma notificação", disabled: true }];
 
   const [listaLojas, setListaLojas] = useState<Store[]>(() => {
     const hit = storesForSession(session.stores);
@@ -109,7 +113,6 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
           align="right"
           trigger={
             <button
-              onClick={historico.markSeen}
               className="relative flex h-9 w-9 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3"
               aria-label="Notificações"
             >
@@ -121,7 +124,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
             </button>
           }
           items={notificacoes}
-          menuClassName="max-h-[min(60vh,340px)] overflow-y-auto"
+          menuClassName="max-h-[196px] overflow-y-auto"
         />
 
         <Dropdown

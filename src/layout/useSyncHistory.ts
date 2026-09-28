@@ -3,29 +3,46 @@ import { fetchSyncHistory, type SyncHistoryItem } from "@/data/wedash/syncHistor
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 
 const POLL_MS = 60_000;
-const seenKey = (tenantId: string) => `wedash.notif.seen.${tenantId}`;
-const readSeen = (tenantId: string) => Number(localStorage.getItem(seenKey(tenantId)) ?? 0);
+/** Tudo que terminou até esse instante conta como lido (1º uso e versão antiga "abrir = ler"). */
+const readBeforeKey = (tenantId: string) => `wedash.notif.seen.${tenantId}`;
+const readIdsKey = (tenantId: string) => `wedash.notif.read.${tenantId}`;
+
+function loadReadBefore(tenantId: string): number {
+  const raw = localStorage.getItem(readBeforeKey(tenantId));
+  if (raw != null) return Number(raw) || 0;
+  const now = Date.now();
+  localStorage.setItem(readBeforeKey(tenantId), String(now));
+  return now;
+}
+
+function loadReadIds(tenantId: string): Set<string> {
+  try {
+    const arr = JSON.parse(localStorage.getItem(readIdsKey(tenantId)) ?? "[]");
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export type SyncNotification = SyncHistoryItem & { read: boolean };
 
 /**
  * Histórico de sincronizações para o sino de Notificações.
- * Abrir o sino marca tudo como lido: a lista mostra o que chegou desde a abertura anterior
- * e, na próxima abertura, essas somem (só aparece o que for novo).
+ * A lista fica (últimas 20); cada item nasce não lido e vira lido ao ser clicado.
  * Recarrega a cada 60s, quando uma sincronização termina e ao voltar para o app (PWA).
  */
 export function useSyncHistory(tenantId: string) {
   const [items, setItems] = useState<SyncHistoryItem[]>([]);
-  const [seenAt, setSeenAt] = useState<number>(() => readSeen(tenantId));
-  /** Início da lista exibida (lido na abertura anterior). */
-  const [listSince, setListSince] = useState<number>(() => readSeen(tenantId));
+  const [readBefore, setReadBefore] = useState<number>(() => loadReadBefore(tenantId));
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds(tenantId));
 
   const load = useCallback(async () => {
     setItems(await fetchSyncHistory(tenantId));
   }, [tenantId]);
 
   useEffect(() => {
-    const seen = readSeen(tenantId);
-    setSeenAt(seen);
-    setListSince(seen);
+    setReadBefore(loadReadBefore(tenantId));
+    setReadIds(loadReadIds(tenantId));
     void load();
     const id = window.setInterval(() => void load(), POLL_MS);
     const onSynced = () => void load();
@@ -41,17 +58,29 @@ export function useSyncHistory(tenantId: string) {
     };
   }, [tenantId, load]);
 
-  const markSeen = useCallback(() => {
-    const now = Date.now();
-    setListSince(seenAt);
-    localStorage.setItem(seenKey(tenantId), String(now));
-    setSeenAt(now);
-  }, [tenantId, seenAt]);
+  const markRead = useCallback(
+    (id: string) => {
+      setReadIds((prev) => {
+        if (prev.has(id)) return prev;
+        // Guarda só os ids que ainda estão na lista (não cresce para sempre).
+        const visiveis = new Set(items.map((i) => i.id));
+        const next = new Set([...prev].filter((x) => visiveis.has(x)));
+        next.add(id);
+        localStorage.setItem(readIdsKey(tenantId), JSON.stringify([...next]));
+        return next;
+      });
+    },
+    [tenantId, items],
+  );
+
+  const notifications: SyncNotification[] = items.map((i) => ({
+    ...i,
+    read: i.at.getTime() <= readBefore || readIds.has(i.id),
+  }));
 
   return {
-    /** Notificações da abertura atual (novas desde a abertura anterior). */
-    items: items.filter((i) => i.at.getTime() > listSince),
-    unread: items.some((i) => i.at.getTime() > seenAt),
-    markSeen,
+    items: notifications,
+    unread: notifications.some((n) => !n.read),
+    markRead,
   };
 }

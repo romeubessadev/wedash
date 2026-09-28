@@ -16,6 +16,8 @@ export interface DropdownItem {
   trailing?: ReactNode;
   /** Não fecha o menu ao clicar (toggles). */
   keepOpen?: boolean;
+  /** Texto na cor primária sem fundo (ex.: notificação não lida). */
+  highlight?: boolean;
 }
 
 export interface DropdownProps {
@@ -110,7 +112,9 @@ export function Dropdown({ trigger, items, align = "right", menuClassName, porta
                       ? "bg-acc-soft text-acc"
                       : item.danger
                         ? "text-bad hover:bg-bg-3"
-                        : "text-t0 hover:bg-bg-3",
+                        : item.highlight
+                          ? "text-acc hover:bg-bg-3"
+                          : "text-t0 hover:bg-bg-3",
                 )}
               >
                 {item.icon}
