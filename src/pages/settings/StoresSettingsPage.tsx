@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AvatarGroup, Badge, Card } from "@/components/ui";
 import { CardGridSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { useActiveSession } from "@/session/SessionProvider";
 import {
   fetchStoreSellers,
@@ -22,6 +23,7 @@ export function StoresSettingsPage() {
   const navigate = useNavigate();
   const [catalogTick, setCatalogTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [sellers, setSellers] = useState<Map<string, StoreSeller[]>>(new Map());
 
   const lojas = useMemo(
@@ -54,7 +56,7 @@ export function StoresSettingsPage() {
     };
   }, [session.tenantId, session.stores]);
 
-  if (loading) {
+  if (showSkeleton) {
     return <CardGridSkeleton count={3} />;
   }
 

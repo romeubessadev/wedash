@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Breadcrumbs, Button, Card, CardHeader, CardTitle, FormField, Select, Switch, useToast } from "@/components/ui";
 import { StoreDetailSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { useActiveSession } from "@/session/SessionProvider";
 import { hydrateSessionStores, storesForSession, updateStoreSchedule, type Store } from "@/data/wedash/stores";
 import {
@@ -29,6 +30,7 @@ export function StoreDetailPage() {
   const session = useActiveSession();
   const [catalogTick, setCatalogTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
 
   const store = useMemo(
     () => storesForSession(session.stores).find((s) => s.id === id) ?? null,
@@ -52,11 +54,11 @@ export function StoreDetailPage() {
 
   const voltar = () => navigate(paths.settings.stores);
 
-  if (!store) {
+  if (showSkeleton || !store) {
     return (
       <div>
-        <DetailHeader nome="Loja" onBack={voltar} />
-        {loading ? (
+        <DetailHeader nome={store?.fantasia ?? "Loja"} onBack={voltar} />
+        {showSkeleton ? (
           <StoreDetailSkeleton />
         ) : (
           <span className="block py-6 text-center text-[12px] text-t2">Loja não encontrada no seu escopo.</span>

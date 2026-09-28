@@ -12,6 +12,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { TimelineSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { useActiveSession } from "@/session/SessionProvider";import { hydrateSessionStores, storesForSession } from "@/data/wedash/stores";
 import {
   SYNC_JOB_KIND_LABEL,
@@ -74,6 +75,7 @@ export function SyncLogsPage() {
   const [busca, setBusca] = useState("");
   const [logs, setLogs] = useState<SyncLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [error, setError] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<SyncLogEntry | null>(null);
   const { show } = useToast();
@@ -158,7 +160,7 @@ export function SyncLogsPage() {
       <Card padding="lg">
         {error ? (
           <span className="block py-6 text-center text-[12px] text-bad">Não foi possível carregar os logs: {error}</span>
-        ) : loading ? (
+        ) : showSkeleton ? (
           <TimelineSkeleton rows={5} />
         ) : events.length === 0 ? (
           busca.trim() || nivel ? (

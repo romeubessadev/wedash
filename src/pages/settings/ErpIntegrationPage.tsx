@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import {
   applyErpCredentialChange,
@@ -62,6 +63,7 @@ export function ErpIntegrationPage() {
   const session = useActiveSession();
   const [info, setInfo] = useState<ErpIntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [aberto, setAberto] = useState(false);
 
   const reload = useCallback(async () => {
@@ -91,7 +93,7 @@ export function ErpIntegrationPage() {
               <p className="mt-0.5 text-[11.5px] text-t2">ERP Linx · vendas, custos e lojas</p>
             </div>
           </div>
-          {loading ? (
+          {showSkeleton ? (
             <div className="flex items-center justify-between border-t border-line pt-3" aria-busy="true" aria-label="Carregando">
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-8 w-24 rounded-[var(--radius-vela-sm)]" />

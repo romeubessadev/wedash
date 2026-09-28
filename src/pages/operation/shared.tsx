@@ -7,15 +7,7 @@ import { useScope } from "@/pages/dashboard/useScope";
 import { hydrateSessionStores, storesForSession, type Store } from "@/data/wedash/stores";
 import { StoreIcon } from "@/pages/dashboards/icons";
 import { cn } from "@/lib/cn";
-
-/** Tempo mínimo do skeleton ao abrir a tela: carga rápida não vira um "pisca". */
-export const MIN_SKELETON_MS = 600;
-
-/** Espera o que falta para completar `MIN_SKELETON_MS` desde `startedAt`. */
-export function waitMinSkeleton(startedAt: number): Promise<void> {
-  const rest = MIN_SKELETON_MS - (Date.now() - startedAt);
-  return rest > 0 ? new Promise((r) => setTimeout(r, rest)) : Promise.resolve();
-}
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 
 /** Lojas do escopo do StorePicker ("Todas" = todas as lojas da sessão), já com custos e horário do banco. */
 export function useScopedStores() {
@@ -26,14 +18,12 @@ export function useScopedStores() {
 
   useEffect(() => {
     let cancelled = false;
-    const startedAt = Date.now();
     (async () => {
       setLoading(true);
       if (session.stores.length > 0) {
         await hydrateSessionStores(session.tenantId, session.stores);
         if (!cancelled) setTick((n) => n + 1);
       }
-      await waitMinSkeleton(startedAt);
       if (!cancelled) setLoading(false);
     })();
     return () => {
@@ -107,11 +97,12 @@ export function StoreCardsPage({
   wide?: boolean;
   children: (loja: Store) => ReactNode;
 }) {
+  const showSkeleton = useMinSkeleton(loading);
   return (
     <div>
       <SectionHeader section={section} title={title} subtitle={subtitle} actions={actions} />
       <div className="mt-6">
-        {loading ? (
+        {showSkeleton ? (
           skeleton
         ) : lojas.length === 0 ? (
           <Card>

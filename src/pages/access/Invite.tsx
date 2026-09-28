@@ -17,6 +17,7 @@ import { Skeleton, Button, useToast } from "@/components/ui";
 import { roleLabel, useSession } from "@/session/SessionProvider";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { senhaValida } from "@/lib/password";
 import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth } from "@/session/authApi";
 import { acceptInvite, fetchInviteInfo, type InviteInfo } from "@/data/wedash/systemUsers";
@@ -71,6 +72,7 @@ export function Invite() {
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const showSkeleton = useMinSkeleton(state.kind === "loading");
 
   useEffect(() => {
     let ativo = true;
@@ -90,7 +92,7 @@ export function Invite() {
     };
   }, [token]);
 
-  if (state.kind === "loading") {
+  if (showSkeleton || state.kind === "loading") {
     return (
       <AcessoPagina>
         <Skeleton className="mb-5 h-16 w-16 rounded-[18px]" />

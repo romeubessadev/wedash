@@ -23,6 +23,7 @@ import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { TeamSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoRanking } from "@/pages/live/blocos";
 import type { RankingRow } from "@/data/wedash/live";
@@ -143,6 +144,7 @@ export function TeamPage() {
   const [aggs, setAggs] = useState<TeamAggInput>({ dayAggs: [] });
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [busca, setBusca] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("faturamento");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -342,7 +344,7 @@ export function TeamPage() {
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
 
-      {loading ? (
+      {showSkeleton ? (
         <TeamSkeleton />
       ) : (
         <>

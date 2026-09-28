@@ -18,6 +18,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { UsersTableSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { Icon, icons } from "@/pages/users/Icons";
 import { roleLabel } from "@/session/session";
 import {
@@ -73,6 +74,7 @@ export function SystemUsersPage() {
   const [members, setMembers] = useState<SystemUser[]>([]);
   const [stores, setStores] = useState<SystemUserStore[]>([]);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
@@ -236,7 +238,7 @@ export function SystemUsersPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {showSkeleton ? (
         <UsersTableSkeleton />
       ) : loadError ? (
         <span className="block py-6 text-center text-[12px] text-t2">{loadError}</span>

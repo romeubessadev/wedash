@@ -34,6 +34,7 @@ import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { brlCent, deIso, tipDelta } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TINT } from "@/pages/dashboards/icons";
@@ -182,6 +183,7 @@ export default function FinancePage() {
   const [aggs, setAggs] = useState<FinanceAggInput>({ dayAggs: [] });
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   // Catálogo de lojas (horário/custos) hidratado depois do 1º render → recalcula.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -297,7 +299,7 @@ export default function FinancePage() {
         />
       )}
 
-      {loading ? (
+      {showSkeleton ? (
         <FinanceSkeleton />
       ) : (
       <>

@@ -38,6 +38,7 @@ import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
 import {
@@ -125,6 +126,7 @@ export default function OverviewPage() {
   const [sellerShifts, setSellerShifts] = useState<SellerShiftRef[]>([]);
   const [productDayAggs, setProductDayAggs] = useState<SalesProductDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinSkeleton(loading);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [goalHistoryDayAggs, setGoalHistoryDayAggs] = useState<SalesDayAgg[]>([]);
@@ -388,7 +390,7 @@ export default function OverviewPage() {
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
 
-      {loading ? (
+      {showSkeleton ? (
         <OverviewSkeleton weekdays={periodoAtual.inicio !== periodoAtual.fim} />
       ) : (
       <>
