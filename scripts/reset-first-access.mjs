@@ -3,16 +3,20 @@
  * Marca temporary_password = true; a senha atual vira a "temporária".
  * Com --onboarding (só dono): reabre o onboarding na etapa Integração ERP (onboarding_step = 2).
  * Reconectar com o mesmo usuário Millennium não apaga dados; outro usuário apaga os dados de venda do tenant.
+ * Com --wipe (implica --onboarding): salva backup das lojas (config, turnos, turno das vendedoras) em
+ * .tmp-backup-<tenant>-<data>.json e apaga TUDO do tenant (credencial ERP, lojas, vendas, jobs, logs).
+ * Catálogo de produtos e tabelas de custo são globais e ficam.
  * Usa a service role de workers/millennium-sync/.env.
  *
- *   node scripts/reset-first-access.mjs email@exemplo.com [--onboarding]
+ *   node scripts/reset-first-access.mjs email@exemplo.com [--onboarding] [--wipe]
  */
 import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 const EMAIL = process.argv[2];
-const REOPEN_ONBOARDING = process.argv.includes("--onboarding");
+const WIPE = process.argv.includes("--wipe");
+const REOPEN_ONBOARDING = WIPE || process.argv.includes("--onboarding");
 if (!EMAIL) {
   console.error("uso: npx tsx scripts/reset-first-access.mjs email@exemplo.com");
   process.exit(1);
@@ -52,6 +56,67 @@ if (error || !data?.length) {
   process.exit(1);
 }
 console.log(data);
+
+if (WIPE) {
+  const { data: owner } = await sb
+    .from("membership")
+    .select("tenant_id")
+    .eq("identity_id", data[0].id)
+    .eq("is_owner", true)
+    .maybeSingle();
+  if (!owner) {
+    console.error("--wipe: usuário não é dono de nenhum tenant");
+    process.exit(1);
+  }
+  const tenantId = owner.tenant_id;
+  const must = (label, r) => {
+    if (r.error) {
+      console.error(`${label}:`, r.error.message);
+      process.exit(1);
+    }
+    return r.data ?? [];
+  };
+
+  const stores = must("store", await sb.from("store").select("*").eq("tenant_id", tenantId));
+  const shifts = must("store_shift", await sb.from("store_shift").select("*").eq("tenant_id", tenantId));
+  const sellers = must(
+    "store_seller",
+    await sb
+      .from("store_seller")
+      .select("store_id, millennium_employee_id, name, shift_id")
+      .eq("tenant_id", tenantId)
+      .not("shift_id", "is", null),
+  );
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const backupFile = path.join(root, `.tmp-backup-${tenantId}-${stamp}.json`);
+  fs.writeFileSync(backupFile, JSON.stringify({ tenantId, stores, shifts, sellerShifts: sellers }, null, 2));
+  console.log(`backup: ${backupFile} (${stores.length} lojas, ${shifts.length} turnos, ${sellers.length} vendedoras com turno)`);
+
+  const storeIds = stores.map((s) => s.id);
+  if (storeIds.length) must("membership_store", await sb.from("membership_store").delete().in("store_id", storeIds));
+  for (const table of [
+    "sync_log",
+    "sync_job",
+    "sync_run",
+    "sales_coupon_brand",
+    "sales_product_cost_day_agg",
+    "sales_product_day_agg",
+    "sales_category_day_agg",
+    "sales_seller_day_agg",
+    "sales_payment_day_agg",
+    "sales_hour_agg",
+    "sales_day_agg",
+    "erp_sales_evento",
+    "store_seller",
+    "store_shift",
+    "store",
+    "erp_credential",
+  ]) {
+    const r = await sb.from(table).delete({ count: "exact" }).eq("tenant_id", tenantId);
+    must(table, r);
+    console.log(`apagado: ${table} (${r.count ?? 0})`);
+  }
+}
 
 const membQuery = sb.from("membership");
 const { data: memb } = REOPEN_ONBOARDING
