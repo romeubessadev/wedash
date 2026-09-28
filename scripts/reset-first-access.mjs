@@ -41,7 +41,7 @@ const sb = createClient(url, key, { auth: { persistSession: false } });
 
 const { data, error } = await sb
   .from("identity")
-  .update({ temporary_password: true, first_name: null, last_name: null, avatar_url: null })
+  .update({ temporary_password: true })
   .ilike("email", EMAIL)
   .select("email, name, temporary_password, first_name, last_name, phone");
 if (error || !data?.length) {

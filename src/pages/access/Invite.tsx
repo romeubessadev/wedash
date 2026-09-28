@@ -4,23 +4,18 @@ import { paths } from "@/router/paths";
 import {
   AcessoPagina,
   CampoSenha,
-  CamposPessoais,
   ForcaSenha,
   IconeCard,
   acessoLink,
   acessoSubtitulo,
   acessoTitulo,
-  dadosPessoaisValidos,
-  dadosPessoaisVazios,
-  separarNome,
-  type DadosPessoais,
 } from "./AccessKit";
 import { Skeleton, Button } from "@/components/ui";
 import { roleLabel, useSession } from "@/session/SessionProvider";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
 import { senhaValida, SENHA_REGRA_TEXTO } from "@/lib/password";
-import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth, uploadAvatar } from "@/session/authApi";
+import { destinationAfterAuth, mensagemErroSenhaAuth, sessionFromPersistedAuth } from "@/session/authApi";
 import { acceptInvite, fetchInviteInfo, type InviteInfo } from "@/data/wedash/systemUsers";
 
 type State =
@@ -67,7 +62,6 @@ export function Invite() {
   const navigate = useNavigate();
   const { applySession } = useSession();
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [dados, setDados] = useState<DadosPessoais>(dadosPessoaisVazios);
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -83,10 +77,8 @@ export function Invite() {
       }
       const r = await fetchInviteInfo();
       if (!ativo) return;
-      if (r.ok) {
-        setDados((d) => ({ ...d, ...separarNome(r.info.name) }));
-        setState({ kind: "form", info: r.info });
-      } else setState({ kind: r.code === "already_active" ? "active" : "invalid" });
+      if (r.ok) setState({ kind: "form", info: r.info });
+      else setState({ kind: r.code === "already_active" ? "active" : "invalid" });
     })();
     return () => {
       ativo = false;
@@ -130,7 +122,7 @@ export function Invite() {
   const { info } = state;
   const primeiroNome = info.name.split(/\s+/)[0] ?? info.name;
   const erroConfirma = confirma.length > 0 && confirma !== senha ? "As senhas não coincidem." : null;
-  const pode = dadosPessoaisValidos(dados) && senhaValida(senha) && confirma === senha && !carregando;
+  const pode = senhaValida(senha) && confirma === senha && !carregando;
 
   async function criar(e: FormEvent) {
     e.preventDefault();
@@ -139,23 +131,13 @@ export function Invite() {
     if (!sb) return;
     setCarregando(true);
     setErro(null);
-    let avatarUrl: string | null = null;
-    if (dados.foto) {
-      const up = await uploadAvatar(dados.foto);
-      if (!up.ok) {
-        setErro(up.error);
-        setCarregando(false);
-        return;
-      }
-      avatarUrl = up.url;
-    }
     const { error } = await sb.auth.updateUser({ password: senha });
     if (error) {
       setErro(mensagemErroSenhaAuth(error));
       setCarregando(false);
       return;
     }
-    const aceito = await acceptInvite({ firstName: dados.nome, lastName: dados.sobrenome, avatarUrl });
+    const aceito = await acceptInvite();
     const session = aceito ? await sessionFromPersistedAuth() : null;
     if (!session) {
       setErro("Não foi possível ativar seu acesso. Tente novamente.");
@@ -175,7 +157,7 @@ export function Invite() {
       </IconeCard>
       <h1 className={acessoTitulo}>Olá, {primeiroNome}.</h1>
       <p className={acessoSubtitulo}>
-        Confira seus dados e crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+        Crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
         {info.companyName ? (
           <>
             {" "}
@@ -185,7 +167,8 @@ export function Invite() {
         .
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
-        <CamposPessoais valor={dados} onChange={(p) => setDados((d) => ({ ...d, ...p }))} email={info.email} />
+        {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
+        <input type="email" name="username" autoComplete="username" value={info.email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
         <CampoSenha
           label="Nova senha"
           value={senha}

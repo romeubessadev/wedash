@@ -39,7 +39,7 @@ import { utilityRoutes } from "@/pages/utility/routes";
 import { miscRoutes } from "@/pages/misc/routes";
 import { authRoutes } from "@/pages/auth/routes";
 
-const CreateAccess = lazyPage(() => import("@/pages/access/CreateAccess"), "CreateAccess");
+const CreatePassword = lazyPage(() => import("@/pages/access/CreatePassword"), "CreatePassword");
 
 /** Raiz: sem sessão → login; com sessão → senha temp → onboarding → app. */
 function Raiz() {
@@ -57,11 +57,11 @@ const routeTree: RouteObject[] = [
     children: [...acessoRoutes, ...authRoutes],
   },
   {
-    element: <RequireSession modo="create-access" />,
+    element: <RequireSession modo="create-password" />,
     children: [
       {
         element: <AuthLayout />,
-        children: [{ path: paths.access.createAccess, element: <CreateAccess /> }],
+        children: [{ path: paths.access.createPassword, element: <CreatePassword /> }],
       },
     ],
   },

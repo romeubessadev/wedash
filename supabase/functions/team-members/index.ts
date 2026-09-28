@@ -150,13 +150,6 @@ Deno.serve(async (req) => {
         companyName: ten?.name ?? "",
       });
     }
-    const firstName = titleName(typeof body.firstName === "string" ? body.firstName : "");
-    const lastName = titleName(typeof body.lastName === "string" ? body.lastName : "");
-    if (firstName.length < 2 || lastName.length < 2) return fail("invalid_personal_data");
-    // Foto só da pasta da própria pessoa no bucket público `avatars`.
-    const avatarPrefix = `${supabaseUrl}/storage/v1/object/public/avatars/${userData.user.id}/`;
-    const avatarUrl =
-      typeof body.avatarUrl === "string" && body.avatarUrl.startsWith(avatarPrefix) ? body.avatarUrl : null;
     const now = new Date().toISOString();
     const { error: mErr } = await admin
       .from("membership")
@@ -165,14 +158,7 @@ Deno.serve(async (req) => {
     if (mErr) return fail("accept_failed");
     const { error: iErr } = await admin
       .from("identity")
-      .update({
-        status: "ACTIVE",
-        temporary_password: false,
-        first_name: firstName,
-        last_name: lastName,
-        name: titleName(`${firstName} ${lastName}`),
-        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
-      })
+      .update({ status: "ACTIVE", temporary_password: false })
       .eq("id", me.identity.id);
     if (iErr) return fail("accept_failed");
     return json({ ok: true });
