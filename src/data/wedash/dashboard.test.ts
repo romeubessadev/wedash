@@ -1332,10 +1332,12 @@ describe("buildFinanceView com agregados reais", () => {
 
   describe("aluguel do mês = maior entre o aluguel e o % (mostra o aluguel + o excedente do %)", () => {
     // Agosto = 31 dias; recorte 10–11/08 = 2 dias com R$ 300 de faturamento e R$ 180 de lucro bruto.
-    const rodar = (rentMin: number | null, pct: number | null) => {
+    const rodar = (rentMin: number | null, pct: number | null, pointType: "SHOPPING" | "RUA" = "SHOPPING") => {
       const loja = stores.find((s) => s.id === "f1")!;
       const antes = loja.custos;
+      const antesPonto = loja.pointType;
       loja.custos = { ...EMPTY_STORE_COSTS, rentMin, rentWepinkPct: pct, rentWpinkPct: pct };
+      loja.pointType = pointType;
       try {
         const v = buildFinanceView(
           { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null },
@@ -1347,8 +1349,16 @@ describe("buildFinanceView com agregados reais", () => {
         return { v, linha, total, serie };
       } finally {
         loja.custos = antes;
+        loja.pointType = antesPonto;
       }
     };
+
+    it("loja de rua ignora o % gravado", () => {
+      const { linha, total } = rodar(310, 10, "RUA");
+      expect(linha("Aluguel")).toBeCloseTo(20);
+      expect(linha("Aluguel percentual excedente")).toBeUndefined();
+      expect(total).toBeCloseTo(20);
+    });
 
     it("% abaixo do aluguel: paga só o aluguel", () => {
       // Aluguel 3.100/mês = 100/dia → 200 no recorte; 10% de 300 = 30.

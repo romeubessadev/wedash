@@ -311,6 +311,7 @@ function rowToStore(r: {
   rent_wepink_pct?: number | string | null;
   rent_wpink_pct?: number | string | null;
   rent_min_cents?: number | string | null;
+  point_type?: string | null;
   icms_pct?: number | string | null;
   icms_st_pct?: number | string | null;
   cost_table_id?: number | string | null;
@@ -328,7 +329,7 @@ function rowToStore(r: {
     cidade: "",
     uf: "",
     tipo: "F",
-    pointType: "RUA",
+    pointType: r.point_type === "STREET" ? "RUA" : "SHOPPING",
     temWpink: Boolean(r.has_wpink),
     fuso: r.timezone || "America/Campo_Grande",
     horas,
@@ -352,6 +353,7 @@ const STORE_COST_COLUMNS =
   "royalties_wepink_pct, royalties_wpink_pct, marketing_wepink_pct, marketing_wpink_pct, rent_wepink_pct, rent_wpink_pct, rent_min_cents";
 const STORE_TAX_COLUMNS = "icms_pct, icms_st_pct";
 const STORE_COST_TABLE_COLUMN = "cost_table_id";
+const STORE_POINT_TYPE_COLUMN = "point_type";
 
 /**
  * Filtro de marca só faz sentido se alguma loja do escopo tem WPINK.
@@ -395,9 +397,11 @@ export async function hydrateSessionStores(tenantId: string, sessionStoreIds: st
         .order("code");
 
     let { data, error } = await query(
-      `${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}, ${STORE_COST_TABLE_COLUMN}`,
+      `${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}, ${STORE_COST_TABLE_COLUMN}, ${STORE_POINT_TYPE_COLUMN}`,
     );
     // Banco sem as migrations de impostos/custos: segue sem eles em vez de cair no mock.
+    if (error?.code === "42703")
+      ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}, ${STORE_COST_TABLE_COLUMN}`));
     if (error?.code === "42703") ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}`));
     if (error?.code === "42703") ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}`));
     if (error?.code === "42703") ({ data, error } = await query(baseCols));
@@ -508,6 +512,7 @@ export async function updateStoreCostTable(
 export async function updateStoreCosts(
   storeId: string,
   custos: StoreCosts,
+  pointType?: PointType,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const { getSupabase } = await import("@/lib/supabase");
@@ -526,13 +531,14 @@ export async function updateStoreCosts(
         rent_min_cents: custos.rentMin == null ? null : Math.round(custos.rentMin * 100),
         icms_pct: custos.icmsPct,
         icms_st_pct: custos.icmsStPct,
+        ...(pointType ? { point_type: pointType === "RUA" ? "STREET" : "MALL" } : {}),
       })
       .eq("id", storeId);
     if (error) return { ok: false, error: error.message };
 
     const existing = allStores().find((s) => s.id === storeId);
     if (existing) {
-      registerExtraStore({ ...existing, custos });
+      registerExtraStore({ ...existing, custos, ...(pointType ? { pointType } : {}) });
     }
     return { ok: true };
   } catch (e) {

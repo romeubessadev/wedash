@@ -2035,10 +2035,11 @@ function finMonthlyCosts(l: FinMonthly): number {
 /** Custos da loja para dados reais: campo sem configuração = 0 (não inventa R$). */
 function custosDaFilialReal(f: Store) {
   const c = f.custos;
+  const rua = f.pointType === "RUA";
   return {
     aluguelMin: c?.rentMin ?? 0,
-    aluguelWepinkPct: c?.rentWepinkPct ?? 0,
-    aluguelWpinkPct: c?.rentWpinkPct ?? 0,
+    aluguelWepinkPct: rua ? 0 : (c?.rentWepinkPct ?? 0),
+    aluguelWpinkPct: rua ? 0 : (c?.rentWpinkPct ?? 0),
     royaltiesWepinkPct: c?.royaltiesWepinkPct ?? 0,
     royaltiesWpinkPct: c?.royaltiesWpinkPct ?? 0,
     mktWepinkPct: c?.marketingWepinkPct ?? 0,
