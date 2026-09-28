@@ -938,47 +938,6 @@ export async function fetchLatestSeedJob(
   };
 }
 
-export type SeedWaitResult =
-  | { ok: true }
-  | { ok: false; reason: "failed" | "cancelled" | "stuck" | "timeout"; error: string | null };
-
-function isInternalSeedCancel(msg: string | null): boolean {
-  const t = (msg ?? "").toLowerCase();
-  return ["onboarding", "pausado", "reset", "worker reiniciado", "abandonado"].some((k) => t.includes(k));
-}
-
-/**
- * Espera o SEED (Atualizar de hoje) pedido depois de `sinceIso` terminar.
- * `stuck` = ficou na fila sem worker pegar; `cancelled` = cancelado pelo próprio worker (reenfileirar).
- */
-export async function waitForSeedJob(
-  tenantId: string,
-  sinceIso: string,
-  opts: { pollMs?: number; queuedTimeoutMs?: number; timeoutMs?: number } = {},
-): Promise<SeedWaitResult> {
-  const pollMs = opts.pollMs ?? 2_000;
-  const queuedTimeoutMs = opts.queuedTimeoutMs ?? 90_000;
-  const timeoutMs = opts.timeoutMs ?? 5 * 60_000;
-  const since = new Date(sinceIso).getTime();
-  const start = Date.now();
-  for (;;) {
-    const job = await fetchLatestSeedJob(tenantId);
-    const current = job?.createdAt != null && new Date(job.createdAt).getTime() >= since - 5_000;
-    if (current && job) {
-      if (job.status === "SUCCEEDED") return { ok: true };
-      if (job.status === "FAILED") {
-        return { ok: false, reason: isInternalSeedCancel(job.error) ? "cancelled" : "failed", error: job.error };
-      }
-    }
-    const elapsed = Date.now() - start;
-    if ((!current || job?.status === "QUEUED") && elapsed >= queuedTimeoutMs) {
-      return { ok: false, reason: "stuck", error: null };
-    }
-    if (elapsed >= timeoutMs) return { ok: false, reason: "timeout", error: null };
-    await new Promise((r) => setTimeout(r, pollMs));
-  }
-}
-
 /**
  * Libera pós-onboarding só quando:
  * 1) SEED mais recente está SUCCEEDED

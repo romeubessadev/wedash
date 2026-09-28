@@ -59,6 +59,11 @@ function storesLabel(ids: string[], stores: SystemUserStore[]): { text: string; 
   return { text: `${names.length} lojas`, title: names.join(", ") };
 }
 
+/** Convite ainda não aceito não tem nome: mostra o e-mail. */
+function displayName(u: SystemUser): string {
+  return u.name || u.email;
+}
+
 type Editing = { mode: "invite" } | { mode: "edit"; user: SystemUser };
 type Confirming = { action: "suspend" | "revoke"; user: SystemUser };
 
@@ -104,8 +109,8 @@ export function SystemUsersPage() {
     }
     const done = {
       resend: `Convite reenviado para ${user.email}.`,
-      suspend: `Acesso de ${user.name} suspenso.`,
-      reactivate: `Acesso de ${user.name} reativado.`,
+      suspend: `Acesso de ${displayName(user)} suspenso.`,
+      reactivate: `Acesso de ${displayName(user)} reativado.`,
       revoke: "Convite cancelado.",
     }[action];
     show(done, "success");
@@ -116,16 +121,16 @@ export function SystemUsersPage() {
     key: "name",
     header: "Nome",
     sortable: true,
-    sortValue: (u) => u.name.toLowerCase(),
+    sortValue: (u) => displayName(u).toLowerCase(),
     render: (u) => (
       <div className="flex min-w-0 items-center gap-3">
-        <Avatar name={u.name} size="sm" />
+        <Avatar name={displayName(u)} size="sm" />
         <div className="min-w-0">
           <p className="flex items-center gap-2 truncate text-[13px] font-bold text-t0">
-            <span className="truncate">{u.name}</span>
+            <span className="truncate">{displayName(u)}</span>
             {u.isSelf && <Badge variant="neutral">Você</Badge>}
           </p>
-          <p className="truncate text-xs text-t2">{u.email}</p>
+          {u.name && <p className="truncate text-xs text-t2">{u.email}</p>}
         </div>
       </div>
     ),
@@ -315,7 +320,7 @@ export function SystemUsersPage() {
         <p className="text-sm leading-relaxed text-t1">
           {confirming?.action === "revoke"
             ? `O link enviado para ${confirming.user.email} deixa de funcionar.`
-            : `${confirming?.user.name} não consegue mais entrar no WeDash. Você pode reativar depois.`}
+            : `${confirming ? displayName(confirming.user) : ""} não consegue mais entrar no WeDash. Você pode reativar depois.`}
         </p>
       </Modal>
     </Card>
@@ -353,7 +358,6 @@ function UserModal({
   onDone: (message: string, toInvites: boolean) => void | Promise<void>;
 }) {
   const user = editing.mode === "edit" ? editing.user : null;
-  const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [role, setRole] = useState<SystemRole>(user?.role ?? "MANAGER");
   const [allStores, setAllStores] = useState(user ? user.storeIds.length === 0 : false);
@@ -362,8 +366,7 @@ function UserModal({
   const [error, setError] = useState<string | null>(null);
 
   const storeIds = allStores ? [] : [...picked];
-  const valid =
-    name.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && (allStores || picked.size > 0);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && (allStores || picked.size > 0);
 
   function toggle(id: string) {
     setPicked((prev) => {
@@ -381,7 +384,7 @@ function UserModal({
     setError(null);
     const r = user
       ? await updateSystemUser(user.membershipId, role, storeIds)
-      : await inviteSystemUser({ name: name.trim(), email: email.trim(), role, storeIds });
+      : await inviteSystemUser({ email: email.trim(), role, storeIds });
     setSaving(false);
     if (!r.ok) {
       setError(r.message);
@@ -394,7 +397,7 @@ function UserModal({
     <Modal
       open
       onClose={() => !saving && onClose()}
-      title={user ? `Editar acesso · ${user.name}` : "Convidar usuário"}
+      title={user ? `Editar acesso · ${displayName(user)}` : "Convidar usuário"}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={saving}>
@@ -408,19 +411,13 @@ function UserModal({
     >
       <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
         {!user && (
-          <>
-            <FormField label="Nome" required>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nome e sobrenome"
-                autoFocus
-              />
-            </FormField>
-            <FormField label="E-mail" required hint="O convite chega neste e-mail, com o link para criar a senha.">
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" />
-            </FormField>
-          </>
+          <FormField
+            label="E-mail"
+            required
+            hint="O convite chega neste e-mail. A pessoa informa o nome e cria a senha ao abrir o link."
+          >
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" autoFocus />
+          </FormField>
         )}
         <FormField label="Papel" hint={ROLE_HINT[role]}>
           <Segmented options={ROLE_OPTIONS} value={role} onChange={(v) => v && setRole(v)} />

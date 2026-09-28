@@ -24,8 +24,8 @@ export const paths = {
     reset: "/reset",
     invite: (token: string = ":token") => `/invite/${token}`,
     install: "/install",
-    /** Primeiro acesso com senha temporária = "Crie seu acesso" (antes do onboarding). */
-    createPassword: "/create-password",
+    /** Primeiro acesso com senha temporária = "Crie seu acesso" (nome, sobrenome e senha). */
+    createAccess: "/create-access",
   },
   onboarding: "/onboarding",
   /** Pós-onboarding — aguarda SEED antes do Dashboard. */
@@ -64,7 +64,7 @@ export const paths = {
       instalar: "/instalar",
       trocarSenha: "/trocar-senha",
       changePassword: "/change-password",
-      createAccess: "/create-access",
+      createPassword: "/create-password",
     },
     overview: "/dashboard/visao-geral",
     finance: "/dashboard/financeiro",

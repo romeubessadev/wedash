@@ -30,6 +30,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
@@ -285,6 +286,7 @@ export default function FinancePage() {
         }
       />
 
+      <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
       {!loading && (
         <ProductsWithoutCostNotice

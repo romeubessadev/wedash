@@ -4,8 +4,9 @@
  * Ações do Gestor (OWNER/ADMIN_GLOBAL ativo): list · invite · resend · update · suspend · reactivate · revoke.
  * Ações da pessoa convidada (JWT aberto pelo link do e-mail): invite_info · accept.
  *
- * Convite = Supabase Auth `inviteUserByEmail` (SMTP do projeto). identity/membership nascem PENDING;
- * `accept` ativa depois que a pessoa cria a senha. membership_store vazio = todas as lojas.
+ * Convite = Supabase Auth `inviteUserByEmail` (SMTP do projeto), só com o e-mail. identity/membership
+ * nascem PENDING (nome vazio); `accept` grava nome e sobrenome do "Crie seu acesso" e ativa.
+ * membership_store vazio = todas as lojas.
  */
 import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -47,10 +48,10 @@ function latest(a: string | null, b: string | null): string | null {
   return Date.parse(a) >= Date.parse(b) ? a : b;
 }
 
-/** Variáveis do template "Invite user" ({{ .Data.name }}, {{ .Data.company }}, {{ .Data.role }}). */
-async function inviteData(admin: SupabaseClient, tenantId: string, name: string, role: Role) {
+/** Variáveis do template "Invite user" ({{ .Data.company }}, {{ .Data.role }}). */
+async function inviteData(admin: SupabaseClient, tenantId: string, role: Role) {
   const { data: ten } = await admin.from("tenant").select("name").eq("id", tenantId).maybeSingle();
-  return { name: titleName(name), company: ten?.name ?? "", role: ROLE_LABEL[role] };
+  return { company: ten?.name ?? "", role: ROLE_LABEL[role] };
 }
 
 function authErrorCode(e: { message?: string; status?: number; code?: string } | null): string {
@@ -144,12 +145,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
       return json({
         ok: true,
-        name: me.identity.name,
         email: me.identity.email,
         role: pending.role,
         companyName: ten?.name ?? "",
       });
     }
+    const firstName = titleName(typeof body.firstName === "string" ? body.firstName : "");
+    const lastName = titleName(typeof body.lastName === "string" ? body.lastName : "");
+    if (firstName.length < 2 || lastName.length < 2) return fail("invalid_personal_data");
     const now = new Date().toISOString();
     const { error: mErr } = await admin
       .from("membership")
@@ -158,7 +161,13 @@ Deno.serve(async (req) => {
     if (mErr) return fail("accept_failed");
     const { error: iErr } = await admin
       .from("identity")
-      .update({ status: "ACTIVE", temporary_password: false })
+      .update({
+        status: "ACTIVE",
+        temporary_password: false,
+        first_name: firstName,
+        last_name: lastName,
+        name: titleName(`${firstName} ${lastName}`),
+      })
       .eq("id", me.identity.id);
     if (iErr) return fail("accept_failed");
     return json({ ok: true });
@@ -228,10 +237,8 @@ Deno.serve(async (req) => {
   }
 
   if (action === "invite") {
-    const name = typeof body.name === "string" ? titleName(body.name) : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const role = body.role as Role;
-    if (!name || name.length > 120) return fail("invalid_name");
     if (!emailOk(email)) return fail("invalid_email");
     if (!ROLES.includes(role)) return fail("invalid_role");
     const storeIds = parseStoreIds(body, await tenantStoreIds(admin, tenantId));
@@ -250,7 +257,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: invited, error: invErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: await inviteData(admin, tenantId, name, role),
+      data: await inviteData(admin, tenantId, role),
       redirectTo: inviteRedirect(body.origin),
     });
     if (invErr || !invited.user) return fail(authErrorCode(invErr));
@@ -260,7 +267,7 @@ Deno.serve(async (req) => {
     };
     const { data: identity, error: idErr } = await admin
       .from("identity")
-      .insert({ auth_user_id: invited.user.id, email, name, status: "PENDING" })
+      .insert({ auth_user_id: invited.user.id, email, name: "", status: "PENDING" })
       .select("id")
       .single();
     if (idErr || !identity) {
@@ -308,7 +315,7 @@ Deno.serve(async (req) => {
   if (action === "resend") {
     if (target.status !== "PENDING") return fail("not_pending");
     const { error } = await admin.auth.admin.inviteUserByEmail(targetIdentity.email, {
-      data: await inviteData(admin, tenantId, targetIdentity.name, target.role as Role),
+      data: await inviteData(admin, tenantId, target.role as Role),
       redirectTo: inviteRedirect(body.origin),
     });
     if (error) return fail(authErrorCode(error));

@@ -8,6 +8,7 @@ export type SystemUserStatus = "PENDING" | "ACTIVE" | "SUSPENDED";
 
 export interface SystemUser {
   membershipId: string;
+  /** Vazio enquanto o convite não foi aceito (o nome vem do "Crie seu acesso"). */
   name: string;
   email: string;
   role: SystemRole;
@@ -34,7 +35,6 @@ export interface SystemUsersData {
 }
 
 export interface InviteInput {
-  name: string;
   email: string;
   role: SystemRole;
   /** Vazio = todas as lojas (inclusive as que abrirem depois). */
@@ -44,7 +44,6 @@ export interface InviteInput {
 export type ActionResult = { ok: true } | { ok: false; message: string };
 
 const MESSAGES: Record<string, string> = {
-  invalid_name: "Informe o nome.",
   invalid_email: "Informe um e-mail válido.",
   invalid_role: "Escolha o papel.",
   invalid_stores: "Escolha ao menos uma loja.",
@@ -96,7 +95,7 @@ function demoMembers(): SystemUser[] {
     demo = [
       { membershipId: "d-owner", name: "Você", email: "gestor@wedash.app", role: "OWNER", status: "ACTIVE", isOwner: true, isSelf: true, storeIds: [], invitedAt: now, lastSignInAt: now, acceptedAt: now },
       { membershipId: "d-mgr", name: "Marcos Lima", email: "marcos@exemplo.com", role: "MANAGER", status: "ACTIVE", isOwner: false, isSelf: false, storeIds: [demoStores[0]?.id ?? "f1"], invitedAt: now, lastSignInAt: now, acceptedAt: now },
-      { membershipId: "d-inv", name: "Paula Souza", email: "paula@exemplo.com", role: "MANAGER", status: "PENDING", isOwner: false, isSelf: false, storeIds: [demoStores[1]?.id ?? "f2"], invitedAt: now, lastSignInAt: null, acceptedAt: null },
+      { membershipId: "d-inv", name: "", email: "paula@exemplo.com", role: "MANAGER", status: "PENDING", isOwner: false, isSelf: false, storeIds: [demoStores[1]?.id ?? "f2"], invitedAt: now, lastSignInAt: null, acceptedAt: null },
     ];
   }
   return demo;
@@ -130,7 +129,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
   if (!getSupabase()) {
     demoMembers().push({
       membershipId: `d-${Date.now()}`,
-      name: titleName(input.name),
+      name: "",
       email: input.email.trim().toLowerCase(),
       role: input.role,
       status: "PENDING",
@@ -143,7 +142,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
     });
     return { ok: true };
   }
-  const r = await invoke({ action: "invite", ...input, name: titleName(input.name), allStores: input.storeIds.length === 0 });
+  const r = await invoke({ action: "invite", ...input, allStores: input.storeIds.length === 0 });
   return r.ok ? { ok: true } : r;
 }
 
@@ -170,7 +169,6 @@ export async function systemUserAction(action: MemberAction, membershipId: strin
 /* ---------- Pessoa convidada ---------- */
 
 export interface InviteInfo {
-  name: string;
   email: string;
   role: SystemRole;
   companyName: string;
@@ -182,13 +180,15 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   const { data, error } = await sb.functions.invoke("team-members", { body: { action: "invite_info" } });
   const res = data as ({ ok?: boolean; error?: string } & InviteInfo) | null;
   if (error || !res?.ok) return { ok: false, code: res?.error ?? "not_found" };
-  return { ok: true, info: { name: titleName(res.name), email: res.email, role: res.role, companyName: companyNameCase(res.companyName) } };
+  return { ok: true, info: { email: res.email, role: res.role, companyName: companyNameCase(res.companyName) } };
 }
 
-/** Ativa o convite depois que a pessoa criou a senha (nome = o do convite). */
-export async function acceptInvite(): Promise<boolean> {
+/** Ativa o convite gravando o nome e o sobrenome informados no "Crie seu acesso". */
+export async function acceptInvite(personal: { firstName: string; lastName: string }): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return false;
-  const { data, error } = await sb.functions.invoke("team-members", { body: { action: "accept" } });
+  const { data, error } = await sb.functions.invoke("team-members", {
+    body: { action: "accept", firstName: titleName(personal.firstName), lastName: titleName(personal.lastName) },
+  });
   return !error && Boolean((data as { ok?: boolean } | null)?.ok);
 }

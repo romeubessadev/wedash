@@ -1,5 +1,5 @@
 /**
- * Volta um usuário para o "primeiro acesso" (tela Crie sua senha) sem mexer em dados do ERP.
+ * Volta um usuário para o "primeiro acesso" (tela Crie seu acesso) sem mexer em dados do ERP.
  * Marca temporary_password = true; a senha atual vira a "temporária".
  * Com --onboarding (só dono): reabre o onboarding na etapa Integração ERP (onboarding_step = 2).
  * Reconectar com o mesmo usuário Millennium não apaga dados; outro usuário apaga os dados de venda do tenant.

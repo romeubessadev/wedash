@@ -4,13 +4,16 @@ import { paths } from "@/router/paths";
 import {
   AcessoPagina,
   CampoSenha,
+  CamposNome,
   ForcaSenha,
   IconeCard,
   acessoLink,
   acessoSubtitulo,
   acessoTitulo,
+  nomePessoaValido,
+  type NomePessoa,
 } from "./AccessKit";
-import { Skeleton, Button } from "@/components/ui";
+import { Skeleton, Button, useToast } from "@/components/ui";
 import { roleLabel, useSession } from "@/session/SessionProvider";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
@@ -61,7 +64,9 @@ export function Invite() {
   const { token = "" } = useParams();
   const navigate = useNavigate();
   const { applySession } = useSession();
+  const { show } = useToast();
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [nome, setNome] = useState<NomePessoa>({ nome: "", sobrenome: "" });
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -120,9 +125,8 @@ export function Invite() {
   }
 
   const { info } = state;
-  const primeiroNome = info.name.split(/\s+/)[0] ?? info.name;
   const erroConfirma = confirma.length > 0 && confirma !== senha ? "As senhas não coincidem." : null;
-  const pode = senhaValida(senha) && confirma === senha && !carregando;
+  const pode = nomePessoaValido(nome) && senhaValida(senha) && confirma === senha && !carregando;
 
   async function criar(e: FormEvent) {
     e.preventDefault();
@@ -137,7 +141,7 @@ export function Invite() {
       setCarregando(false);
       return;
     }
-    const aceito = await acceptInvite();
+    const aceito = await acceptInvite({ firstName: nome.nome, lastName: nome.sobrenome });
     const session = aceito ? await sessionFromPersistedAuth() : null;
     if (!session) {
       setErro("Não foi possível ativar seu acesso. Tente novamente.");
@@ -145,6 +149,7 @@ export function Invite() {
       return;
     }
     applySession(session);
+    show("Acesso criado.", "success");
     navigate(destinationAfterAuth(session), { replace: true });
   }
 
@@ -155,9 +160,9 @@ export function Invite() {
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
       </IconeCard>
-      <h1 className={acessoTitulo}>Olá, {primeiroNome}.</h1>
+      <h1 className={acessoTitulo}>Crie seu acesso</h1>
       <p className={acessoSubtitulo}>
-        Crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+        Informe seu nome e crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
         {info.companyName ? (
           <>
             {" "}
@@ -167,6 +172,7 @@ export function Invite() {
         .
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
+        <CamposNome valor={nome} onChange={(p) => setNome((n) => ({ ...n, ...p }))} autoFocus />
         {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
         <input type="email" name="username" autoComplete="username" value={info.email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
         <CampoSenha
@@ -186,7 +192,7 @@ export function Invite() {
         />
         <ForcaSenha senha={senha} />
         <Button type="submit" size="lg" fullWidth className="!h-[46px] font-bold" disabled={!pode}>
-          {carregando ? "Aguarde…" : "Criar senha e entrar"}
+          {carregando ? "Salvando…" : "Salvar e entrar"}
         </Button>
       </form>
     </AcessoPagina>

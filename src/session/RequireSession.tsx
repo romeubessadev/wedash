@@ -7,7 +7,7 @@ import { isAwaitingInitialSync } from "./awaitingInitialSync";
 /**
  * Protege rotas. Ordem: senha temporária → onboarding → sync inicial → app.
  */
-export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" | "create-password" }) {
+export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" | "create-access" }) {
   const { session, ready } = useSession();
   const location = useLocation();
 
@@ -19,7 +19,7 @@ export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" |
   const awaitingSync = isAwaitingInitialSync();
   const onSyncing = location.pathname === paths.syncing;
 
-  if (modo === "create-password") {
+  if (modo === "create-access") {
     if (!needsPassword) {
       if (needsOnboarding) return <Navigate to={paths.onboarding} replace />;
       if (awaitingSync) return <Navigate to={paths.syncing} replace />;
@@ -28,7 +28,7 @@ export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" |
     return <Outlet />;
   }
 
-  if (needsPassword) return <Navigate to={paths.access.createPassword} replace />;
+  if (needsPassword) return <Navigate to={paths.access.createAccess} replace />;
 
   if (modo === "app" && needsOnboarding) return <Navigate to={paths.onboarding} replace />;
 

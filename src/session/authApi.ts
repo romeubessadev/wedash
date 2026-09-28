@@ -362,34 +362,52 @@ export async function uploadAvatar(photo: File): Promise<{ ok: true; url: string
   return { ok: true, url: sb.storage.from("avatars").getPublicUrl(path).data.publicUrl };
 }
 
+export type CreateAccessInput = { firstName: string; lastName: string; password: string };
+
 /**
- * Primeiro acesso: troca a senha temporária no Auth e desliga a flag na identity.
- * Sessão permanece (diferente do recovery, que faz signOut).
+ * "Crie seu acesso" (primeiro acesso): grava nome e sobrenome na identity, troca a senha
+ * temporária no Auth e desliga a flag. Sessão permanece (diferente do recovery, que faz signOut).
  */
-export async function createPassword(password: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const check = validarSenha(password);
+export async function createAccess(
+  input: CreateAccessInput,
+): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  const check = validarSenha(input.password);
   if (!check.ok) return { ok: false, error: check.erro };
+
+  const firstName = titleName(input.firstName);
+  const lastName = titleName(input.lastName);
+  const name = titleName(`${firstName} ${lastName}`);
 
   const sb = getSupabase();
   if (!sb) {
     await delay(400);
-    return { ok: true };
+    return { ok: true, name };
   }
 
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo com a senha temporária." };
 
-  const { error } = await sb.auth.updateUser({ password });
+  // Nome antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
+  const { error: idErr } = await sb
+    .from("identity")
+    .update({ first_name: firstName, last_name: lastName, name })
+    .eq("auth_user_id", uid);
+  if (idErr) {
+    console.warn("createAccess identity:", idErr.message);
+    return { ok: false, error: "Não foi possível salvar seus dados. Tente novamente." };
+  }
+
+  const { error } = await sb.auth.updateUser({ password: input.password });
   if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
 
   await sb.from("identity").update({ temporary_password: false }).eq("auth_user_id", uid);
-  return { ok: true };
+  return { ok: true, name };
 }
 
 /** Destino após login / troca de senha / raiz. */
 export function destinationAfterAuth(s: Session, de?: string | null): string {
-  if (s.temporaryPassword) return paths.access.createPassword;
+  if (s.temporaryPassword) return paths.access.createAccess;
   if (s.onboardingStep !== null) return paths.onboarding;
   // Pós-onboarding: não manda pro Dash enquanto a carga inicial não terminou.
   try {

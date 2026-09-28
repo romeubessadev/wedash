@@ -2,48 +2,50 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { WizardSteps, useToast } from "@/components/ui";
 import { BrandMark } from "@/pages/auth/authKit";
-import { CampoSenha, ForcaSenha, acessoBotao } from "@/pages/access/AccessKit";
+import { CampoSenha, CamposNome, ForcaSenha, acessoBotao, nomePessoaValido, type NomePessoa } from "@/pages/access/AccessKit";
 import { ONBOARDING_STEPS } from "@/pages/onboarding/steps";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { senhaValida } from "@/lib/password";
 import { padTopoEBase } from "@/lib/safeArea";
 import { paths } from "@/router/paths";
-import { destinationAfterAuth, createPassword } from "@/session/authApi";
+import { destinationAfterAuth, createAccess } from "@/session/authApi";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 
-const bullets = ["Senha só sua, no lugar da temporária", "Depois: conectar o Millennium (as lojas entram sozinhas)", "Nome e foto você ajusta em Meu perfil"];
+const bullets = ["Seu nome identifica você na WeDash", "Senha só sua, no lugar da temporária", "Depois: conectar o Millennium (as lojas entram sozinhas)"];
 
 /**
- * Primeiro acesso com senha temporária (etapa 1 do onboarding): só a nova senha.
- * Nome vem do cadastro/convite; ajustes pessoais ficam em Meu perfil.
+ * Primeiro acesso com senha temporária = "Crie seu acesso" (etapa 1 do onboarding):
+ * nome, sobrenome (sempre em branco) e a nova senha.
  */
-export function CreatePassword() {
+export function CreateAccess() {
   const session = useActiveSession();
   const { update, signOut } = useSession();
   const navigate = useNavigate();
   const { show } = useToast();
 
+  const [nome, setNome] = useState<NomePessoa>({ nome: "", sobrenome: "" });
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [carregando, setCarregando] = useState(false);
 
   const comOnboarding = session.onboardingStep !== null;
   const erroConfirma = confirma.length > 0 && confirma !== senha ? "As senhas não coincidem." : null;
-  const pode = senhaValida(senha) && confirma === senha && !carregando;
+  const pode = nomePessoaValido(nome) && senhaValida(senha) && confirma === senha && !carregando;
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
     if (!pode) return;
     setCarregando(true);
-    const r = await createPassword(senha);
+    const r = await createAccess({ firstName: nome.nome, lastName: nome.sobrenome, password: senha });
     setCarregando(false);
     if (!r.ok) {
       show(r.error, "danger");
       return;
     }
-    update({ temporaryPassword: false });
-    show("Senha criada com sucesso.", "success");
-    navigate(destinationAfterAuth({ ...session, temporaryPassword: false }), { replace: true });
+    const patch = { temporaryPassword: false, name: r.name };
+    update(patch);
+    show("Acesso criado.", "success");
+    navigate(destinationAfterAuth({ ...session, ...patch }), { replace: true });
   }
 
   return (
@@ -72,10 +74,11 @@ export function CreatePassword() {
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-4">
           {comOnboarding && <WizardSteps steps={ONBOARDING_STEPS} current={1} />}
 
-          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie sua senha</h1>
-          <p className="mb-7 text-sm text-t2">Escolha a senha que você vai usar para entrar na WeDash.</p>
+          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie seu acesso</h1>
+          <p className="mb-7 text-sm text-t2">Informe seu nome e escolha a senha que você vai usar para entrar na WeDash.</p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
+            <CamposNome valor={nome} onChange={(p) => setNome((n) => ({ ...n, ...p }))} autoFocus />
             {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
             <input type="email" name="username" autoComplete="username" value={session.email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
             <CampoSenha
@@ -84,7 +87,6 @@ export function CreatePassword() {
               onChange={setSenha}
               placeholder="Digite sua nova senha"
               autoComplete="new-password"
-              autoFocus
             />
             <CampoSenha
               label="Confirme sua senha"

@@ -24,25 +24,21 @@ export type ErpRascunho = {
 };
 
 /**
- * Etapa 2 (última) — testa o Millennium; ok → a integração é gravada com todas as lojas do usuário
- * e o botão fica "Sincronizando…" até as vendas de hoje chegarem.
+ * Etapa 2 (última) — um clique testa o Millennium (login, lojas, relatórios) e, se passou, conecta
+ * com todas as lojas do usuário. As vendas de hoje chegam depois, já no board.
  */
 export function Step2Credentials({
   membershipId,
   inicial,
   onErpChange,
-  onConcluir,
-  sincronizando = false,
-  erroSync = null,
-  onTentarSync,
+  onConectar,
+  conectando = false,
 }: {
   membershipId: string;
   inicial: ErpRascunho;
   onErpChange: (erp: ErpRascunho) => void;
-  onConcluir: (r: Extract<ErpLoginResult, { ok: true }>) => void;
-  sincronizando?: boolean;
-  erroSync?: string | null;
-  onTentarSync?: () => void;
+  onConectar: (r: Extract<ErpLoginResult, { ok: true }>) => void;
+  conectando?: boolean;
 }) {
   const { show } = useToast();
   const [usuario, setUsuario] = useState(inicial.usuario);
@@ -62,7 +58,7 @@ export function Step2Credentials({
     onErpChange(erp);
   }
 
-  const ocupado = testando || sincronizando;
+  const ocupado = testando || conectando;
   const pode = usuario.trim().length > 0 && senha.length > 0 && aceite && !ocupado;
 
   async function testar() {
@@ -82,7 +78,7 @@ export function Step2Credentials({
       show(toastErro[r.reason], "danger");
       return;
     }
-    onConcluir(r);
+    onConectar(r);
   }
 
   return (
@@ -182,22 +178,9 @@ export function Step2Credentials({
 
         {relatorios && <ErpReportChecks reports={relatorios} username={usuario.trim()} />}
 
-        {erroSync && <div className="rounded-xl border border-bad/30 bg-bad-soft p-4 text-[13px] text-t0">{erroSync}</div>}
-
-        {erroSync && !sincronizando ? (
-          <button type="button" onClick={onTentarSync} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
-            Tentar novamente
-          </button>
-        ) : (
-          <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
-            {sincronizando ? "Sincronizando…" : testando ? "Testando conexão e relatórios…" : "Testar e continuar"}
-          </button>
-        )}
-        {sincronizando && (
-          <p className="text-center text-[12px] text-t2">
-            Buscando as vendas de hoje no Millennium. Os dias anteriores continuam carregando depois que você entrar.
-          </p>
-        )}
+        <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
+          {conectando ? "Conectando…" : testando ? "Testando conexão e relatórios…" : "Testar e conectar"}
+        </button>
       </div>
     </div>
   );

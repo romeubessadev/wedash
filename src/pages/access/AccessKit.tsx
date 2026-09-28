@@ -209,6 +209,47 @@ export function CampoSenha({
   );
 }
 
+export type NomePessoa = { nome: string; sobrenome: string };
+
+export function nomePessoaValido(n: NomePessoa): boolean {
+  return n.nome.trim().length >= 2 && n.sobrenome.trim().length >= 2;
+}
+
+/** Nome · Sobrenome do "Crie seu acesso" (sempre em branco: o convite só traz o e-mail). */
+export function CamposNome({
+  valor,
+  onChange,
+  autoFocus,
+}: {
+  valor: NomePessoa;
+  onChange: (patch: Partial<NomePessoa>) => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <FormField label="Nome">
+        <Input
+          value={valor.nome}
+          onChange={(e) => onChange({ nome: e.target.value })}
+          placeholder="Seu nome"
+          autoComplete="given-name"
+          autoFocus={autoFocus}
+          maxLength={40}
+        />
+      </FormField>
+      <FormField label="Sobrenome">
+        <Input
+          value={valor.sobrenome}
+          onChange={(e) => onChange({ sobrenome: e.target.value })}
+          placeholder="Seu sobrenome"
+          autoComplete="family-name"
+          maxLength={60}
+        />
+      </FormField>
+    </div>
+  );
+}
+
 /** Aviso neutro dentro do card. */
 export function AvisoCard({ tom = "info", children }: { tom?: "info" | "ok" | "bad" | "warn"; children: ReactNode }) {
   const cores = {
