@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { WizardSteps, useToast } from "@/components/ui";
 import { BrandMark } from "@/pages/auth/authKit";
-import { CampoSenha, CamposNome, ForcaSenha, acessoBotao, nomePessoaValido, type NomePessoa } from "@/pages/access/AccessKit";
+import { CampoFoto, CampoSenha, CamposNome, ForcaSenha, acessoBotao, nomePessoaValido, type NomePessoa } from "@/pages/access/AccessKit";
 import { ONBOARDING_STEPS } from "@/pages/onboarding/steps";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { senhaValida, SENHA_REGRA_TEXTO } from "@/lib/password";
@@ -28,6 +28,7 @@ export function CreateAccess() {
   const { show } = useToast();
 
   const [nome, setNome] = useState<NomePessoa>({ nome: "", sobrenome: "" });
+  const [foto, setFoto] = useState<File | null>(null);
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -40,13 +41,13 @@ export function CreateAccess() {
     e.preventDefault();
     if (!pode) return;
     setCarregando(true);
-    const r = await createAccess({ firstName: nome.nome, lastName: nome.sobrenome, password: senha });
+    const r = await createAccess({ firstName: nome.nome, lastName: nome.sobrenome, password: senha, photo: foto });
     setCarregando(false);
     if (!r.ok) {
       show(r.error, "danger");
       return;
     }
-    const patch = { temporaryPassword: false, name: r.name };
+    const patch = { temporaryPassword: false, name: r.name, ...(r.avatarUrl ? { avatarUrl: r.avatarUrl } : {}) };
     update(patch);
     show("Acesso criado.", "success");
     navigate(destinationAfterAuth({ ...session, ...patch }), { replace: true });
@@ -82,6 +83,7 @@ export function CreateAccess() {
           <p className="mb-7 text-sm text-t2">Informe seu nome e crie a senha que você usará para acessar a WeDash.</p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
+            <CampoFoto nome={nome} foto={foto} onChange={setFoto} />
             <CamposNome valor={nome} onChange={(p) => setNome((n) => ({ ...n, ...p }))} autoFocus />
             {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
             <input type="email" name="username" autoComplete="username" value={session.email} readOnly tabIndex={-1} aria-hidden className="sr-only" />

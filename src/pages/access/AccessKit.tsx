@@ -6,6 +6,7 @@ import { Checkbox, FormField, Input } from "@/components/ui";
 import { AuthGlow, BrandMark } from "@/pages/auth/authKit";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
+import { AVATAR_TIPOS } from "@/lib/avatar";
 
 /**
  * Complementos das telas de acesso.
@@ -319,6 +320,87 @@ export function CamposNome({
           maxLength={60}
         />
       </FormField>
+    </div>
+  );
+}
+
+/** Foto de perfil opcional (padrão da aba Profile do template: quadrado com iniciais + botão "+"). */
+export function CampoFoto({
+  nome,
+  foto,
+  onChange,
+}: {
+  nome: NomePessoa;
+  foto: File | null;
+  onChange: (foto: File | null) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!foto) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(foto);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [foto]);
+
+  const iniciais = `${nome.nome.trim().charAt(0)}${nome.sobrenome.trim().charAt(0)}`.toUpperCase();
+  const escolher = () => input.current?.click();
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={escolher}
+          aria-label={foto ? "Trocar foto de perfil" : "Adicionar foto de perfil"}
+          className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[24px] text-[32px] font-extrabold text-white"
+          style={{ background: "linear-gradient(135deg,#7c5cff,#56a8ff)" }}
+        >
+          {preview ? (
+            <img src={preview} alt="" className="h-full w-full object-cover" />
+          ) : iniciais ? (
+            iniciais
+          ) : (
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={escolher}
+          tabIndex={-1}
+          aria-hidden
+          className="absolute -bottom-1 -right-1 flex h-[30px] w-[30px] items-center justify-center rounded-full border-[3px] border-bg-0 bg-acc text-white"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      </div>
+      {foto ? (
+        <button type="button" onClick={() => onChange(null)} className={cn(acessoLink, "mt-2.5")}>
+          Remover foto
+        </button>
+      ) : (
+        <p className="mt-2.5 text-xs text-t2">Foto de perfil (opcional)</p>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept={AVATAR_TIPOS}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          e.target.value = "";
+          if (f) onChange(f);
+        }}
+      />
     </div>
   );
 }

@@ -362,15 +362,16 @@ export async function uploadAvatar(photo: File): Promise<{ ok: true; url: string
   return { ok: true, url: sb.storage.from("avatars").getPublicUrl(path).data.publicUrl };
 }
 
-export type CreateAccessInput = { firstName: string; lastName: string; password: string };
+export type CreateAccessInput = { firstName: string; lastName: string; password: string; photo: File | null };
 
 /**
- * "Crie seu acesso" (primeiro acesso): grava nome e sobrenome na identity, troca a senha
- * temporária no Auth e desliga a flag. Sessão permanece (diferente do recovery, que faz signOut).
+ * "Crie seu acesso" (primeiro acesso): sobe a foto (opcional), grava nome, sobrenome e foto na
+ * identity, troca a senha temporária no Auth e desliga a flag. Sessão permanece (diferente do
+ * recovery, que faz signOut).
  */
 export async function createAccess(
   input: CreateAccessInput,
-): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; name: string; avatarUrl: string | null } | { ok: false; error: string }> {
   const check = validarSenha(input.password);
   if (!check.ok) return { ok: false, error: check.erro };
 
@@ -381,17 +382,24 @@ export async function createAccess(
   const sb = getSupabase();
   if (!sb) {
     await delay(400);
-    return { ok: true, name };
+    return { ok: true, name, avatarUrl: input.photo ? URL.createObjectURL(input.photo) : null };
   }
 
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return { ok: false, error: "Sua sessão expirou. Entre novamente com a senha temporária." };
 
-  // Nome antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
+  let avatarUrl: string | null = null;
+  if (input.photo) {
+    const up = await uploadAvatar(input.photo);
+    if (!up.ok) return up;
+    avatarUrl = up.url;
+  }
+
+  // Nome e foto antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
   const { error: idErr } = await sb
     .from("identity")
-    .update({ first_name: firstName, last_name: lastName, name })
+    .update({ first_name: firstName, last_name: lastName, name, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) })
     .eq("auth_user_id", uid);
   if (idErr) {
     console.warn("createAccess identity:", idErr.message);
@@ -402,7 +410,7 @@ export async function createAccess(
   if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
 
   await sb.from("identity").update({ temporary_password: false }).eq("auth_user_id", uid);
-  return { ok: true, name };
+  return { ok: true, name, avatarUrl };
 }
 
 /** Destino após login / troca de senha / raiz. */
