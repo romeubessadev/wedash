@@ -6,12 +6,18 @@ const STUCK_QUEUED_MS = 90_000;
 /**
  * Busca das vendas de hoje logo após conectar o Millennium (job SEED). O onboarding não espera:
  * o board abre zerado e este estado alimenta o aviso de cima das telas.
- * - `running`: na fila ou rodando.
+ * - `queued`: na fila, ainda sem o worker (sem aviso — com `SYNC_ONBOARDING=off` o worker encerra o job
+ *   assim que pega, e a tela não deve anunciar uma busca que não vai acontecer).
+ * - `running`: o worker está buscando.
  * - `stuck`: parado na fila (worker fora do ar).
  * - `failed`: terminou com erro; `busy` = usuário ERP logado em outro lugar.
  * null = terminou, nunca houve, ou um Atualizar posterior já cobriu (a falha deixa de importar).
  */
-export type InitialSync = { phase: "running" } | { phase: "stuck" } | { phase: "failed"; busy: boolean };
+export type InitialSync =
+  | { phase: "queued" }
+  | { phase: "running" }
+  | { phase: "stuck" }
+  | { phase: "failed"; busy: boolean };
 
 function isBusyError(msg: string | null): boolean {
   const t = (msg ?? "").toLowerCase();
@@ -37,7 +43,7 @@ export async function fetchInitialSync(tenantId: string): Promise<InitialSync | 
   if (!job || job.kind === "FORCE") return null;
   if (job.status === "RUNNING") return { phase: "running" };
   if (job.status === "QUEUED") {
-    return Date.now() - new Date(job.created_at).getTime() > STUCK_QUEUED_MS ? { phase: "stuck" } : { phase: "running" };
+    return Date.now() - new Date(job.created_at).getTime() > STUCK_QUEUED_MS ? { phase: "stuck" } : { phase: "queued" };
   }
   if (job.status === "FAILED") return { phase: "failed", busy: isBusyError(job.error) };
   return null;

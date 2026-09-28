@@ -18,7 +18,8 @@ export function useInitialSync(): { sync: InitialSync | null; retry: () => Promi
 
   const check = useCallback(async () => {
     const next = await fetchInitialSync(tenantId);
-    if (prev.current?.phase === "running" && !next) {
+    const pendente = prev.current?.phase === "queued" || prev.current?.phase === "running";
+    if (pendente && !next) {
       window.dispatchEvent(new Event(SALES_SYNCED_EVENT));
       refreshMonthFill();
     }
@@ -30,7 +31,7 @@ export function useInitialSync(): { sync: InitialSync | null; retry: () => Promi
     void check();
   }, [check]);
 
-  const ativo = sync?.phase === "running" || sync?.phase === "stuck";
+  const ativo = sync !== null && sync.phase !== "failed";
   useEffect(() => {
     if (!ativo) return;
     const id = window.setInterval(() => void check(), POLL_MS);
@@ -47,8 +48,8 @@ export function useInitialSync(): { sync: InitialSync | null; retry: () => Promi
   const retry = useCallback(async () => {
     setRetrying(true);
     await requestTodaySync();
-    prev.current = { phase: "running" };
-    setSync({ phase: "running" });
+    prev.current = { phase: "queued" };
+    setSync({ phase: "queued" });
     setRetrying(false);
   }, []);
 

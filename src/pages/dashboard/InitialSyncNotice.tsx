@@ -8,7 +8,7 @@ import { useInitialSync } from "@/pages/dashboard/useInitialSync";
  */
 export function InitialSyncNotice() {
   const { sync, retry, retrying } = useInitialSync();
-  if (!sync) return null;
+  if (!sync || sync.phase === "queued") return null;
 
   const falhou = sync.phase === "failed";
   const titulo =
