@@ -41,7 +41,6 @@ const navGestor: NavEntry[] = [
       { label: "Equipe", to: paths.team, dot: "var(--info)" },
     ],
   },
-  { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.live.root },
   gestao,
   {
     label: "Configurações da operação",
@@ -67,7 +66,6 @@ const navGerente: NavEntry[] = [
       { label: "Equipe", to: paths.team, dot: "var(--info)" },
     ],
   },
-  { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.live.root },
   gestao,
 ];
 

@@ -7,16 +7,25 @@ const LivePage = lazyPage(() => import("./LivePage"), "default");
 const SharePage = lazyPage(() => import("./SharePage"), "default");
 const TvPage = lazyPage(() => import("./TvPage"), "default");
 
-export const aoVivoRoutes: RouteObject[] = [
+/** Ao vivo fora do ar: vai virar a Visão geral da equipe de vendas. Para religar, trocar `aoVivoRoutes` por estas rotas. */
+export const liveScreenRoutes: RouteObject[] = [
   {
     element: <RequireRole roles={["OWNER", "MANAGER", "ADMIN_GLOBAL"]} />,
     children: [
       { path: paths.live.root, element: <LivePage /> },
       { path: paths.live.share, element: <SharePage /> },
       { path: paths.live.tv, element: <TvPage /> },
-      { path: paths.legacy.live.root, element: <Navigate to={paths.live.root} replace /> },
-      { path: paths.legacy.live.share, element: <Navigate to={paths.live.share} replace /> },
-      { path: paths.legacy.live.tv, element: <Navigate to={paths.live.tv} replace /> },
     ],
   },
 ];
+
+const toOverview = <Navigate to={paths.overview} replace />;
+
+export const aoVivoRoutes: RouteObject[] = [
+  paths.live.root,
+  paths.live.share,
+  paths.live.tv,
+  paths.legacy.live.root,
+  paths.legacy.live.share,
+  paths.legacy.live.tv,
+].map((path) => ({ path, element: toOverview }));

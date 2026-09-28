@@ -37,7 +37,7 @@ const ROLE_OPTIONS: { value: SystemRole; label: string }[] = [
 
 const ROLE_HINT: Record<SystemRole, string> = {
   OWNER: "Vê tudo das lojas escolhidas, inclusive o Financeiro, e gerencia usuários e integrações. Para sócios e administrativo.",
-  MANAGER: "Vê Dashboard (sem Financeiro), Ao vivo, Metas e o horário das lojas escolhidas.",
+  MANAGER: "Vê Dashboard (sem Financeiro), Gestão (metas, turnos e colaboradores) e o horário das lojas escolhidas.",
 };
 
 function fmtAgo(iso: string | null): string {
