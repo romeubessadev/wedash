@@ -74,6 +74,7 @@ import {
 } from "./syncLog.ts";
 import { listaFingerprint, type ListaMemo } from "./listaFingerprint.ts";
 import { createSellerLinker, type LinkerStore, type SellerLinkerDeps } from "./sellerLinker.ts";
+import type { ErpStore } from "./millenniumStores.ts";
 import { AUTO_SESSION_MARK, localClock, parseStoreHours, pendingDays, storePhase } from "./autoRefresh.ts";
 import {
   partitionRowsByFilial,
@@ -1069,7 +1070,9 @@ export type SyncJobKind =
   | "FORCE"
   | "RANGE"
   | "HISTORY"
-  | "CLOSE";
+  | "CLOSE"
+  /** Atualizar cadastros (Integrações): lojas, gerador, colaboradores, produtos e tabelas de custo — nada de venda. */
+  | "REGISTRY";
 
 /** Hora local (fuso da 1ª loja) a partir da qual o fechamento de ontem é enfileirado (`.env CLOSE_HOUR`). */
 export function closeHour(env: Record<string, string | undefined> = process.env): number {
@@ -1366,6 +1369,10 @@ export type SyncJobDeps = {
   setStoresHasWpink: (rows: Array<{ storeId: string; hasWpink: boolean }>) => Promise<void>;
   /** Guarda o gerador da filial (lookup só roda quando falta). */
   setStoresGerador?: (rows: Array<{ storeId: string; geradorId: number }>) => Promise<void>;
+  /** FILIAIS.Lista do usuário ERP (Atualizar cadastros). */
+  fetchErpStores?: (session: string) => Promise<ErpStore[]>;
+  /** Nome, fantasia, CNPJ e inauguração das lojas já cadastradas; `missing` = lojas do ERP que não estão na WeDash. */
+  updateStoresFromErp?: (tenantId: string, stores: ErpStore[]) => Promise<{ updated: number; missing: number }>;
   /** Avança `store.last_closed_day` (nunca volta). */
   markStoresClosed?: (rows: Array<{ storeId: string; day: string }>) => Promise<void>;
   /** `store.last_sync_at` = último Atualizar de hoje ok. */
@@ -2109,6 +2116,125 @@ async function syncOnboardingRegistry(job: SyncJob, deps: SyncJobDeps): Promise<
 }
 
 /**
+ * Atualizar cadastros (Configurações > Integrações): tudo do Millennium que não é venda —
+ * lojas (nome, fantasia, CNPJ, inauguração), gerador de cada loja, colaboradores de cada loja
+ * (consulta todo mundo) e produtos (tipos, catálogo, tabelas de custo e preços), sempre recarregados.
+ * Cada parte segue se outra falhar; alguma falhou → job FAILED com a lista. Sessão caída interrompe.
+ */
+async function runRegistryJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncResult> {
+  if (await deps.hasRunningForCredential(job.credentialId)) return { ok: false, reason: "locked" };
+  await deps.markJobRunning(job.id);
+  const t0 = nowMs();
+  const failed: string[] = [];
+  const finish = async (error?: string): Promise<RunSyncResult> => {
+    await deps.markJobFinished({ jobId: job.id, status: error ? "FAILED" : "SUCCEEDED", ...(error ? { error } : {}) });
+    console.log(`${error ? "ERRO" : "OK"} Atualizar cadastros · ${formatElapsed(t0)}${error ? ` · ${error}` : ""}`);
+    return error ? { ok: false, reason: "other", error } : { ok: true, storesDone: 0 };
+  };
+
+  let session: string;
+  let stores: SyncStore[];
+  try {
+    const cred = await deps.loadCredential(job.credentialId);
+    console.log(`Atualizar cadastros · usuário ERP ${cred.username} · job ${job.id.slice(0, 8)}`);
+    const ensured = await ensureMillenniumSession(cred, deps);
+    if (!ensured.ok) {
+      if (ensured.reason === "password") {
+        await deps.updateCredential({
+          credentialId: cred.id,
+          status: "INVALID",
+          lastError: ensured.raw,
+          lastErrorAt: deps.now(),
+        });
+      }
+      return finish(`login no Millennium falhou (${ensured.reason})`);
+    }
+    session = ensured.session;
+    stores = await deps.listStores(job.tenantId);
+  } catch (e) {
+    return finish(e instanceof Error ? e.message : String(e));
+  }
+
+  /** Roda uma parte; 401 derruba o job, o resto só marca a parte como falha. */
+  const step = async (label: string, run: () => Promise<void>): Promise<boolean> => {
+    try {
+      await run();
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`  AVISO ${label} não atualizou: ${msg}`);
+      if (isSessionDeadError(msg)) throw e;
+      failed.push(label);
+      return false;
+    }
+  };
+
+  try {
+    if (deps.fetchErpStores && deps.updateStoresFromErp) {
+      const { fetchErpStores, updateStoresFromErp } = deps;
+      await step("lojas", async () => {
+        const erp = await fetchErpStores(session);
+        const r = await updateStoresFromErp(job.tenantId, erp);
+        stores = await deps.listStores(job.tenantId);
+        console.log(`  Lojas · ${r.updated} atualizada(s)${r.missing > 0 ? ` · ${r.missing} do ERP fora da WeDash` : ""}`);
+      });
+    }
+
+    if (deps.setStoresGerador) {
+      const setStoresGerador = deps.setStoresGerador;
+      await step("gerador das lojas", async () => {
+        const found = await deps.fetchFilialGeradorMap(session);
+        const rows = stores.flatMap((s) => {
+          const g = found.get(s.code);
+          return g == null || g === s.geradorId ? [] : [{ storeId: s.id, geradorId: g }];
+        });
+        if (rows.length > 0) await setStoresGerador(rows);
+        console.log(`  Gerador · ${rows.length} alterado(s)`);
+      });
+    }
+
+    const { loadSellerDirectory, fetchStoreSellers, syncStoreSellers } = deps;
+    if (loadSellerDirectory && fetchStoreSellers && syncStoreSellers) {
+      const teamFailed: string[] = [];
+      const linker = createSellerLinker({
+        deps: { loadSellerDirectory, fetchStoreSellers, syncStoreSellers },
+        tenantId: job.tenantId,
+        getSession: () => session,
+        now: () => deps.now(),
+        log: (_level, _message, store) => teamFailed.push(store.code),
+        isSessionDead: isSessionDeadError,
+      });
+      for (const store of stores) {
+        console.log(`  Colaboradores · ${store.code}${store.name ? ` · ${store.name}` : ""}`);
+        await linker.syncStore(store, { full: true });
+      }
+      if (teamFailed.length > 0) failed.push(`colaboradores (${teamFailed.join(", ")})`);
+    }
+
+    if (deps.catalog) {
+      const catalog = deps.catalog;
+      await step("produtos e tabelas de custo", async () => {
+        const r = await ensureProductCatalog(catalog, {
+          session,
+          seen: [],
+          guard: { attempted: false },
+          owner: `worker-${process.pid}`,
+          force: true,
+        });
+        if (r.status === "skipped") throw new Error("recarga de produtos em andamento em outro job");
+        if (r.status === "refreshed") {
+          console.log(`  Produtos · ${r.products} produtos · ${r.tables} tabelas de custo (${r.prices} preços) · ${r.calls} chamadas ao ERP`);
+        }
+      });
+    }
+  } catch (e) {
+    return finish(e instanceof Error ? e.message : String(e));
+  }
+
+  return finish(failed.length > 0 ? `não atualizou: ${failed.join(", ")}` : undefined);
+}
+
+/**
  * Claim already happened; runner enforces one RUNNING per credential,
  * sequential stores, always logout after login, busy/password classification.
  */
@@ -2519,6 +2645,7 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
 }
 
 export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncResult> {
+  if (job.kind === "REGISTRY") return runRegistryJob(job, deps);
   if (job.kind === "CLOSE" || job.kind === "SEED") return runDailyForceJob(job, deps);
   if (job.kind === "FORCE" && !job.logKind) return runRefreshJob(job, deps);
   if (await deps.hasRunningForCredential(job.credentialId)) {

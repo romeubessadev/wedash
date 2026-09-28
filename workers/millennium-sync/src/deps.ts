@@ -14,6 +14,7 @@ import { fetchFilialGeradorMap, fetchBrandRevenueReport } from "./millenniumBran
 import { fetchConsultaDetMov, type DetMovLine } from "./millenniumDetMov.ts";
 import type { CouponBrand } from "./brandSplitFromDetalhe.ts";
 import { fetchStoreSellers, type ErpSeller } from "./millenniumSellers.ts";
+import { fetchErpStores } from "./millenniumStores.ts";
 import { mergeNameKeys, type KnownSeller } from "./sellerLinker.ts";
 import { fetchRelatorioMargem } from "./millenniumMargem.ts";
 import { fetchCouponReport } from "./millenniumCouponReport.ts";
@@ -376,6 +377,49 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
         const { error } = await sb.from("store").update({ millennium_gerador_id: r.geradorId }).eq("id", r.storeId);
         if (error) throw error;
       }
+    },
+
+    async fetchErpStores(session) {
+      return fetchErpStores({ session });
+    },
+
+    async updateStoresFromErp(tenantId, erpStores) {
+      const { data, error } = await sb
+        .from("store")
+        .select("id, millennium_store_id, code, name, trade_name, tax_id, opened_at")
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+      const byErpId = new Map(
+        ((data ?? []) as Array<{
+          id: string;
+          millennium_store_id: number;
+          code: string | null;
+          name: string | null;
+          trade_name: string | null;
+          tax_id: string | null;
+          opened_at: string | null;
+        }>).map((r) => [Number(r.millennium_store_id), r]),
+      );
+      let updated = 0;
+      let missing = 0;
+      for (const s of erpStores) {
+        const row = byErpId.get(s.millenniumStoreId);
+        if (!row) {
+          missing++;
+          continue;
+        }
+        const patch: Record<string, string> = {};
+        if (s.code && s.code !== row.code) patch.code = s.code;
+        if (s.name && s.name !== row.name) patch.name = s.name;
+        if (s.tradeName && s.tradeName !== row.trade_name) patch.trade_name = s.tradeName;
+        if (s.taxId && s.taxId !== row.tax_id) patch.tax_id = s.taxId;
+        if (s.openedAt && s.openedAt !== (row.opened_at ? String(row.opened_at).slice(0, 10) : null)) patch.opened_at = s.openedAt;
+        if (Object.keys(patch).length === 0) continue;
+        const { error: upErr } = await sb.from("store").update(patch).eq("id", row.id);
+        if (upErr) throw upErr;
+        updated++;
+      }
+      return { updated, missing };
     },
 
     async markStoresClosed(rows) {
@@ -1461,6 +1505,7 @@ export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Da
 
 /** Ordem na fila: Atualizar/SEED primeiro; HISTORY por último (roda quando não há nada do gestor). */
 const JOB_PRIORITY: Record<string, number> = {
+  REGISTRY: 0,
   FORCE: 0,
   FORCE_LIGHT: 0,
   SEED: 1,
@@ -1789,7 +1834,8 @@ export async function processOneJob(sb: SupabaseClient, erpSecret: string): Prom
     job.kind !== "FORCE" &&
     job.kind !== "FORCE_LIGHT" &&
     job.kind !== "SEED" &&
-    job.kind !== "CLOSE"
+    job.kind !== "CLOSE" &&
+    job.kind !== "REGISTRY"
   ) {
     await sb
       .from("sync_job")

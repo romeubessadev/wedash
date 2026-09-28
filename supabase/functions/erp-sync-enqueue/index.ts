@@ -1,11 +1,12 @@
 /**
- * erp-sync-enqueue — JWT OWNER/MANAGER enfileira SEED | LIGHT | FORCE | RANGE.
+ * erp-sync-enqueue — JWT OWNER/MANAGER enfileira SEED | LIGHT | FORCE | RANGE | REGISTRY.
+ * REGISTRY (Atualizar cadastros, Integrações) = só Gestor (OWNER).
  * Rate limit FORCE: ver FORCE_COOLDOWN_MS (0 = off p/ teste).
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type JobKind = "SEED" | "LIGHT" | "FORCE" | "FORCE_LIGHT" | "RANGE" | "BACKFILL";
+type JobKind = "SEED" | "LIGHT" | "FORCE" | "FORCE_LIGHT" | "RANGE" | "BACKFILL" | "REGISTRY";
 
 /** 0 = off (sem cooldown no Atualizar). Religar: 5 * 60 * 1000. */
 const FORCE_COOLDOWN_MS = 0;
@@ -29,6 +30,8 @@ function mapAction(action: string): JobKind | null {
       return "SEED";
     case "range":
       return "RANGE";
+    case "registry":
+      return "REGISTRY";
     default:
       return null;
   }
@@ -108,6 +111,7 @@ Deno.serve(async (req) => {
     .limit(1)
     .maybeSingle();
   if (memErr || !membership) return json({ error: "forbidden" }, 403);
+  if (kind === "REGISTRY" && membership.role !== "OWNER") return json({ error: "forbidden" }, 403);
 
   const tenantId = membership.tenant_id as string;
 
@@ -248,8 +252,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Avoid duplicate SEED/RANGE while one is already queued/running
-  if (kind === "SEED" || kind === "RANGE") {
+  // Avoid duplicate SEED/RANGE/REGISTRY while one is already queued/running
+  if (kind === "SEED" || kind === "RANGE" || kind === "REGISTRY") {
     const { data: open } = await admin
       .from("sync_job")
       .select("id")

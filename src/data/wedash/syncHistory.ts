@@ -21,7 +21,7 @@ export type SyncJobRow = {
 
 export type SyncHistoryItem = { id: string; at: Date; text: string; ok: boolean };
 
-const KINDS = ["FORCE", "FORCE_LIGHT", "SEED", "CLOSE"];
+const KINDS = ["FORCE", "FORCE_LIGHT", "SEED", "CLOSE", "REGISTRY"];
 
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
@@ -54,6 +54,8 @@ export function syncHistoryItem(row: SyncJobRow): SyncHistoryItem | null {
         ? `Histórico de vendas carregado · ${ddmm(from)} a ${ddmm(to)}`
         : `Histórico de vendas carregado · ${ddmm(to)}`
       : `Vendas de ${ddmm(to)} consolidadas`;
+  } else if (row.kind === "REGISTRY") {
+    text = ok ? "Cadastros atualizados" : "Não foi possível atualizar os cadastros";
   } else {
     if (!ok && p.auto) return null;
     text = ok ? "Vendas atualizadas" : "Não foi possível atualizar as vendas";

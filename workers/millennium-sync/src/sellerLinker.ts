@@ -99,8 +99,8 @@ function unknownMemo(storeId: string, row: Pick<SalesSellerDayAgg, "sellerKey" |
 }
 
 export type SellerLinker = ((store: LinkerStore, rows: SalesSellerDayAgg[]) => Promise<SalesSellerDayAgg[]>) & {
-  /** Sincroniza a equipe da loja agora (carga inicial). 1× por job. */
-  syncStore: (store: LinkerStore) => Promise<void>;
+  /** Sincroniza a equipe da loja agora (carga inicial). 1× por job. `full` = consulta todo mundo (status atualizado). */
+  syncStore: (store: LinkerStore, opts?: { full?: boolean }) => Promise<void>;
 };
 
 export function createSellerLinker(opts: {
@@ -128,7 +128,7 @@ export function createSellerLinker(opts: {
     return loading;
   }
 
-  function syncStore(store: LinkerStore): Promise<void> {
+  function syncStore(store: LinkerStore, full = false): Promise<void> {
     const running = syncing.get(store.id);
     if (running) return running;
     const task = (async () => {
@@ -147,7 +147,7 @@ export function createSellerLinker(opts: {
         const erp = await fetchStoreSellers({
           session,
           millenniumStoreId: store.millenniumStoreId,
-          known: savedRoles,
+          ...(full ? {} : { known: savedRoles }),
         });
         const known = await syncStoreSellers({ tenantId: opts.tenantId, storeId: store.id, sellers: erp });
         sellers = [...sellers.filter((s) => s.storeId !== store.id), ...known];
@@ -209,9 +209,9 @@ export function createSellerLinker(opts: {
   }
 
   return Object.assign(link, {
-    syncStore: async (store: LinkerStore) => {
+    syncStore: async (store: LinkerStore, o?: { full?: boolean }) => {
       await ensureDirectory();
-      await syncStore(store);
+      await syncStore(store, o?.full);
     },
   });
 }

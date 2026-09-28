@@ -113,9 +113,11 @@ export async function ensureProductCatalog(
     zeroCost?: { storeId: string; codes: string[] };
     guard: CatalogGuard;
     owner: string;
+    /** Atualizar cadastros (Integrações): recarrega mesmo sem faltar nada e sem o intervalo de 15 min. */
+    force?: boolean;
   },
 ): Promise<EnsureCatalogResult> {
-  const empty = (await deps.countCatalog()) === 0 || (await deps.countCostTables()) === 0;
+  const empty = args.force || (await deps.countCatalog()) === 0 || (await deps.countCostTables()) === 0;
 
   let unknown: SeenProduct[] = [];
   const ids = [...new Set(args.seen.map((s) => s.erpProductId))];
