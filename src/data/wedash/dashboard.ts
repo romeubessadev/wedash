@@ -1971,10 +1971,13 @@ type FinCosts = {
   royWpink: number;
   mktWepink: number;
   mktWpink: number;
-  /** Custos variáveis da loja (% do faturamento). */
+  /** Custos variáveis da loja (% do faturamento) — hoje sempre 0; volta com a tela de DRE. */
   variaveis: number;
 };
-/** Custos mensais rateados por dia (não seguem o faturamento). */
+/**
+ * Custos mensais rateados por dia (não seguem o faturamento). `fixos`/`outras` hoje sempre 0 por loja
+ * (voltam com a tela de DRE); no eixo por hora `fixos` carrega o rateio dos custos mensais.
+ */
 type FinMonthly = {
   fixos: number;
   outras: number;
@@ -2032,14 +2035,8 @@ function finMonthlyCosts(l: FinMonthly): number {
 /** Custos da loja para dados reais: campo sem configuração = 0 (não inventa R$). */
 function custosDaFilialReal(f: Store) {
   const c = f.custos;
-  const itens = f.custoItens ?? [];
-  const soma = (kind: string, campo: "amount" | "pct") =>
-    itens.filter((i) => i.kind === kind).reduce((s, i) => s + (i[campo] ?? 0), 0);
   return {
     aluguelMin: c?.rentMin ?? 0,
-    fixosMes: soma("FIXED", "amount"),
-    outrasMes: soma("OTHER", "amount"),
-    variaveisPct: soma("VARIABLE", "pct"),
     aluguelWepinkPct: c?.rentWepinkPct ?? 0,
     aluguelWpinkPct: c?.rentWpinkPct ?? 0,
     royaltiesWepinkPct: c?.royaltiesWepinkPct ?? 0,
@@ -2103,9 +2100,9 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       royWpink: (p * c.royaltiesWpinkPct) / 100,
       mktWepink: (w * c.mktWepinkPct) / 100,
       mktWpink: (p * c.mktWpinkPct) / 100,
-      variaveis: (m.rev * c.variaveisPct) / 100,
-      fixos: c.fixosMes / diasMes,
-      outras: c.outrasMes / diasMes,
+      variaveis: 0,
+      fixos: 0,
+      outras: 0,
       aluguelMinBase,
       aluguelMin: Math.max(0, aluguelMinBase - aluguelPct),
       icms: (m.rev * c.icmsPct) / 100,
@@ -2371,9 +2368,6 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
     { rotulo: `Aluguel percentual${rotuloPct(custos.map((c) => c.aluguelWepinkPct))}`, valor: atual.aluguelPct },
     ...(atual.aluguelMin > 0 ? [{ rotulo: "Complemento do aluguel mínimo", valor: atual.aluguelMin }] : []),
     ...linhasMarca,
-    ...(atual.fixos > 0 ? [{ rotulo: "Custos fixos", valor: atual.fixos }] : []),
-    ...(atual.variaveis > 0 ? [{ rotulo: "Custos variáveis", valor: atual.variaveis }] : []),
-    ...(atual.outras > 0 ? [{ rotulo: "Outras despesas", valor: atual.outras }] : []),
     { rotulo: "Total de custos", valor: totalCustos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];

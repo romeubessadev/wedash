@@ -32,13 +32,12 @@ const gestao: NavGroup = {
   ],
 };
 
-/** Custos · Franquia · Aluguel · Produtos e impostos (só Gestor). */
+/** Franquia · Aluguel · Produtos e impostos (só Gestor). */
 const operacao: NavGroup = {
   label: "Configurações",
   description: "Defina os parâmetros usados pela WeDash para calcular custos, margens e resultados.",
   icon: ICONE.config,
   items: [
-    { label: "Custos", to: paths.operation.costs },
     { label: "Franquia", to: paths.operation.franchise },
     { label: "Aluguel", to: paths.operation.rent },
     { label: "Produtos e impostos", to: paths.operation.productsTaxes },

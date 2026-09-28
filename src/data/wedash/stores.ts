@@ -30,21 +30,6 @@ export interface Store {
   custos?: StoreCosts;
   /** Tabela de custo do Millennium: completa o custo de produto que vem zerado na margem. */
   costTableId?: number | null;
-  /** Custos fixos / variáveis / outras despesas (Configurações > Custos). */
-  custoItens?: StoreCostItem[];
-}
-
-/** FIXED e OTHER em R$/mês (rateados por dia); VARIABLE em % do faturamento. */
-export type StoreCostKind = "FIXED" | "VARIABLE" | "OTHER";
-
-export interface StoreCostItem {
-  id?: string;
-  kind: StoreCostKind;
-  name: string;
-  /** R$/mês (FIXED, OTHER). */
-  amount: number | null;
-  /** % do faturamento (VARIABLE). */
-  pct: number | null;
 }
 
 /** Tabela de custo do Millennium (product_cost_table). */
@@ -95,7 +80,7 @@ export function storeOperatingCostsConfigured(s: Store): boolean {
     c.rentWepinkPct,
     c.rentWpinkPct,
     c.rentMin,
-  ].some((v) => v != null) || (s.custoItens?.length ?? 0) > 0;
+  ].some((v) => v != null);
 }
 
 export function storeCostsPending(s: Store): boolean {
@@ -422,8 +407,6 @@ export async function hydrateSessionStores(tenantId: string, sessionStoreIds: st
     }
 
     const out: Store[] = (data as unknown as Parameters<typeof rowToStore>[0][]).map(rowToStore);
-    const itens = await fetchStoreCostItems(tenantId, out.map((s) => s.id));
-    for (const s of out) s.custoItens = itens.get(s.id) ?? [];
     // Substitui o catálogo local: lojas de resets/reseeds antigos (com horário
     // padrão 9–21) não podem continuar entrando em "Todas" e nos eixos de hora.
     try {
@@ -552,85 +535,6 @@ export async function updateStoreCosts(
       registerExtraStore({ ...existing, custos });
     }
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-/** Custos fixos / variáveis / outras despesas por loja. Tabela ausente (migration pendente) ou erro → vazio. */
-export async function fetchStoreCostItems(tenantId: string, storeIds: string[]): Promise<Map<string, StoreCostItem[]>> {
-  const out = new Map<string, StoreCostItem[]>();
-  if (storeIds.length === 0) return out;
-  try {
-    const { getSupabase } = await import("@/lib/supabase");
-    const sb = getSupabase();
-    if (!sb) return out;
-    const { data, error } = await sb
-      .from("store_cost_item")
-      .select("id, store_id, kind, name, amount_cents, pct, position")
-      .eq("tenant_id", tenantId)
-      .in("store_id", storeIds)
-      .order("position");
-    if (error) throw error;
-    for (const r of data ?? []) {
-      const list = out.get(r.store_id) ?? [];
-      list.push({
-        id: r.id,
-        kind: r.kind as StoreCostKind,
-        name: r.name,
-        amount: r.amount_cents == null ? null : Number(r.amount_cents) / 100,
-        pct: r.pct == null ? null : Number(r.pct),
-      });
-      out.set(r.store_id, list);
-    }
-  } catch (e) {
-    console.warn("fetchStoreCostItems:", e);
-  }
-  return out;
-}
-
-/** Substitui os custos da loja pela lista dada (apaga os removidos, grava os demais na ordem). */
-export async function saveStoreCostItems(
-  tenantId: string,
-  storeId: string,
-  items: StoreCostItem[],
-): Promise<{ ok: true; items: StoreCostItem[] } | { ok: false; error: string }> {
-  try {
-    const { getSupabase } = await import("@/lib/supabase");
-    const sb = getSupabase();
-    if (!sb) return { ok: false, error: "Supabase não configurado" };
-
-    const keep = items.map((i) => i.id).filter((id): id is string => Boolean(id));
-    let del = sb.from("store_cost_item").delete().eq("tenant_id", tenantId).eq("store_id", storeId);
-    if (keep.length > 0) del = del.not("id", "in", `(${keep.join(",")})`);
-    const { error: delError } = await del;
-    if (delError) return { ok: false, error: delError.message };
-
-    const rows = items.map((i, position) => ({
-      ...(i.id ? { id: i.id } : {}),
-      tenant_id: tenantId,
-      store_id: storeId,
-      kind: i.kind,
-      name: i.name.trim(),
-      amount_cents: i.kind === "VARIABLE" || i.amount == null ? null : Math.round(i.amount * 100),
-      pct: i.kind === "VARIABLE" ? i.pct : null,
-      position,
-    }));
-    const novos = rows.filter((r) => !("id" in r));
-    const existentes = rows.filter((r) => "id" in r);
-    if (existentes.length > 0) {
-      const { error } = await sb.from("store_cost_item").upsert(existentes);
-      if (error) return { ok: false, error: error.message };
-    }
-    if (novos.length > 0) {
-      const { error } = await sb.from("store_cost_item").insert(novos);
-      if (error) return { ok: false, error: error.message };
-    }
-
-    const saved = (await fetchStoreCostItems(tenantId, [storeId])).get(storeId) ?? [];
-    const existing = allStores().find((s) => s.id === storeId);
-    if (existing) registerExtraStore({ ...existing, custoItens: saved });
-    return { ok: true, items: saved };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

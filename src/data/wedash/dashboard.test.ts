@@ -1330,16 +1330,11 @@ describe("buildFinanceView com agregados reais", () => {
     }
   });
 
-  it("aluguel do mês = maior entre mínimo e %; custos fixos, variáveis e outras despesas no Resultado", () => {
+  it("aluguel do mês = maior entre mínimo e % no Resultado", () => {
     const loja = stores.find((s) => s.id === "f1")!;
-    const antes = { custos: loja.custos, itens: loja.custoItens };
-    // Agosto = 31 dias: mínimo 3.100/mês = 100/dia; fixos 310 = 10/dia; outras 620 = 20/dia.
+    const antes = loja.custos;
+    // Agosto = 31 dias: mínimo 3.100/mês = 100/dia.
     loja.custos = { ...EMPTY_STORE_COSTS, rentMin: 3100, rentWepinkPct: 10, rentWpinkPct: 10 };
-    loja.custoItens = [
-      { kind: "FIXED", name: "Energia", amount: 310, pct: null },
-      { kind: "VARIABLE", name: "Taxa do cartão", amount: null, pct: 2 },
-      { kind: "OTHER", name: "Contador", amount: 620, pct: null },
-    ];
     try {
       const v = buildFinanceView(
         { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null },
@@ -1349,18 +1344,15 @@ describe("buildFinanceView com agregados reais", () => {
       // Aluguel % = 30; mínimo no recorte = 200 → complemento 170.
       expect(linha("Aluguel percentual")).toBeCloseTo(30);
       expect(linha("Complemento do aluguel mínimo")).toBeCloseTo(170);
-      expect(linha("Custos fixos")).toBeCloseTo(20);
-      expect(linha("Custos variáveis")).toBeCloseTo(6);
-      expect(linha("Outras despesas")).toBeCloseTo(40);
-      const total = 30 + 170 + 20 + 6 + 40;
+      expect(linha("Custos fixos")).toBeUndefined();
+      const total = 30 + 170;
       expect(v.custosFixosFranquia.find((l) => l.ehTotal)?.valor).toBeCloseTo(total);
       expect(v.custosFixosFranquia.find((l) => l.ehResultado)?.valor).toBeCloseTo(180 - total);
       // Série por dia soma o mesmo resultado do total.
       expect(v.resultadoOperacional.reduce((s, p) => s + p.resultado, 0)).toBeCloseTo(180 - total);
       expect(v.custosConfigurados).toBe(true);
     } finally {
-      loja.custos = antes.custos;
-      loja.custoItens = antes.itens;
+      loja.custos = antes;
     }
   });
 

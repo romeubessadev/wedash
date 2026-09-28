@@ -55,7 +55,6 @@ const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
     () => import("@/pages/management/StaffPage"),
   ],
   "Configurações": [
-    () => import("@/pages/operation/CostsPage"),
     () => import("@/pages/operation/FranchisePage"),
     () => import("@/pages/operation/RentPage"),
     () => import("@/pages/operation/ProductsTaxesPage"),

@@ -496,9 +496,9 @@ export default function FinancePage() {
             <EmptyBlock
               icon="🧾"
               title="Custos não configurados"
-              description="Configure custos, franquia e aluguel para acompanhar o resultado operacional."
+              description="Configure franquia e aluguel para acompanhar o resultado operacional."
               action={
-                <Button size="sm" onClick={() => navigate(paths.operation.costs)}>
+                <Button size="sm" onClick={() => navigate(paths.operation.franchise)}>
                   Configurar custos
                 </Button>
               }
