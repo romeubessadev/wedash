@@ -1,4 +1,4 @@
-import { useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { padTopoEBase } from "@/lib/safeArea";
 import { cn } from "@/lib/cn";
 import { SENHA_MIN, dicaForcaSenha, senhaTemEspecial } from "@/lib/password";
@@ -71,14 +71,43 @@ function BotaoRevelarSenha({ mostrar, onToggle }: { mostrar: boolean; onToggle: 
   );
 }
 
-/** Ao aceitar a sugestão, o Chrome deixa o valor inteiro selecionado; digitando isso nunca acontece. */
-function soltarSelecaoDoAutofill(el: HTMLInputElement) {
-  requestAnimationFrame(() => {
-    const fim = el.value.length;
-    if (fim > 0 && document.activeElement === el && el.selectionStart === 0 && el.selectionEnd === fim) {
-      el.setSelectionRange(fim, fim);
-    }
-  });
+/**
+ * Ao aceitar a sugestão, o Chrome deixa o valor inteiro selecionado, às vezes
+ * depois do evento de input. Só reage a mudança que não veio do teclado
+ * (preenchimento do navegador não tem inputType de digitação/colagem).
+ */
+function useSoltarSelecaoDoAutofill() {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let mudouEm = -Infinity;
+    const timers: number[] = [];
+    const soltar = () => {
+      const fim = el.value.length;
+      if (fim > 0 && document.activeElement === el && el.selectionStart === 0 && el.selectionEnd === fim) {
+        el.setSelectionRange(fim, fim);
+      }
+    };
+    const aoMudar = (e: Event) => {
+      const tipo = (e as InputEvent).inputType;
+      if (tipo && tipo !== "insertReplacementText") return;
+      mudouEm = performance.now();
+      requestAnimationFrame(soltar);
+      timers.push(window.setTimeout(soltar, 60), window.setTimeout(soltar, 250));
+    };
+    const aoSelecionar = () => {
+      if (performance.now() - mudouEm < 1500) soltar();
+    };
+    el.addEventListener("input", aoMudar);
+    el.addEventListener("select", aoSelecionar);
+    return () => {
+      el.removeEventListener("input", aoMudar);
+      el.removeEventListener("select", aoSelecionar);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  return ref;
 }
 
 /** E-mail — FormField + Input (Vela). */
@@ -95,16 +124,15 @@ export function CampoEmail({
   onChange: (v: string) => void;
   erro?: string | null;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const ref = useSoltarSelecaoDoAutofill();
   return (
     <FormField label={label} error={erro ?? undefined}>
       <Input
         {...props}
+        ref={ref}
         type="text"
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          soltarSelecaoDoAutofill(e.target);
-        }}
+        onChange={(e) => onChange(e.target.value)}
         inputMode="email"
         autoCapitalize="none"
         autoCorrect="off"
