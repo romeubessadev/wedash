@@ -1,16 +1,11 @@
-import type { StoreErp } from "@/data/wedash/erp";
-
-/** Rascunho do onboarding — sobrevive a F5 (localStorage). Senha do ERP só em sessionStorage. */
+/** Rascunho do onboarding (etapa ERP) — sobrevive a F5 (localStorage). Senha do ERP só em sessionStorage. */
 
 export type RascunhoOnboarding = {
-  /** 2 = ERP, 3 = Lojas (a etapa 1, "Seu acesso", acontece antes do onboarding). */
-  etapa: number;
   erp: {
     usuario: string;
     dedicada: boolean;
     aceite: boolean;
   };
-  stores?: StoreErp[];
 };
 
 const PREFIXO = "wedash-onboarding:";
@@ -24,28 +19,22 @@ function chaveSenha(membershipId: string) {
   return `${PREFIXO_SENHA}${membershipId}`;
 }
 
-export function rascunhoVazio(etapa = 2): RascunhoOnboarding {
-  return {
-    etapa,
-    erp: { usuario: "", dedicada: false, aceite: false },
-  };
+export function rascunhoVazio(): RascunhoOnboarding {
+  return { erp: { usuario: "", dedicada: false, aceite: false } };
 }
 
 export function lerRascunho(membershipId: string): RascunhoOnboarding | null {
   try {
     const raw = window.localStorage.getItem(chave(membershipId));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as RascunhoOnboarding;
-    if (!parsed || typeof parsed.etapa !== "number") return null;
+    const parsed = JSON.parse(raw) as Partial<RascunhoOnboarding> | null;
+    if (!parsed) return null;
     return {
-      ...rascunhoVazio(),
       erp: {
         usuario: parsed.erp?.usuario ?? "",
         dedicada: parsed.erp?.dedicada ?? false,
         aceite: parsed.erp?.aceite ?? false,
       },
-      stores: parsed.stores,
-      etapa: Math.min(3, Math.max(2, parsed.etapa)),
     };
   } catch {
     return null;

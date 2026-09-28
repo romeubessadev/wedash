@@ -11,7 +11,7 @@ import { paths } from "@/router/paths";
 import { destinationAfterAuth, createPassword } from "@/session/authApi";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 
-const bullets = ["Senha só sua, no lugar da temporária", "Depois: conectar o Millennium e confirmar as lojas", "Nome e foto você ajusta em Meu perfil"];
+const bullets = ["Senha só sua, no lugar da temporária", "Depois: conectar o Millennium (as lojas entram sozinhas)", "Nome e foto você ajusta em Meu perfil"];
 
 /**
  * Primeiro acesso com senha temporária (etapa 1 do onboarding): só a nova senha.

@@ -9,52 +9,17 @@ import type { StoreErp } from "@/data/wedash/erp";
 import { padTopoEBase } from "@/lib/safeArea";
 import { getSupabase } from "@/lib/supabase";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
-import {
-  saveOnboardingStep,
-  saveMembershipStores,
-  persistErpCredentialAndStores,
-} from "@/session/authApi";
+import { saveOnboardingStep, saveMembershipStores, persistErpCredentialAndStores } from "@/session/authApi";
 import { clearAwaitingInitialSync, markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import { waitForSeedJob, type SeedWaitResult } from "@/data/wedash/salesRepo";
 import { Step2Credentials } from "./Step2Credentials";
 import { ONBOARDING_STEPS } from "./steps";
-import { Step3Stores } from "./Step3Stores";
-import {
-  gravarRascunho,
-  limparRascunho,
-  lerRascunho,
-  lerSenhaErp,
-  rascunhoVazio,
-  type RascunhoOnboarding,
-} from "./draft";
+import { gravarRascunho, limparRascunho, lerRascunho, lerSenhaErp, rascunhoVazio, type RascunhoOnboarding } from "./draft";
 
-const PRIMEIRA_ETAPA = 2;
-const ULTIMA_ETAPA = 3;
+/** Etapa do ERP no indicador e em `membership.onboarding_step` (1 = senha, antes do /onboarding). */
+const ETAPA_ERP = 2;
 
-const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bullets: string[] }> = {
-  2: {
-    titulo: (
-      <>
-        Dados do Millennium,
-        <br />
-        direto na WeDash.
-      </>
-    ),
-    texto: "A conexão mantém vendas, custos, estoque e cadastros sincronizados automaticamente.",
-    bullets: ["Sincronização automática dos dados", "Senha protegida no servidor", "Conexão testada antes de continuar"],
-  },
-  3: {
-    titulo: (
-      <>
-        Confirme
-        <br />
-        suas lojas
-      </>
-    ),
-    texto: "São as lojas que o seu usuário enxerga no Millennium.",
-    bullets: ["Lista vinda do Millennium", "Confirme para entrar no painel", "Equipe você sincroniza depois"],
-  },
-};
+const bullets = ["Conexão e relatórios testados antes de continuar", "Lojas do usuário adicionadas automaticamente", "Senha protegida no servidor"];
 
 function mensagemErroSync(r: Exclude<SeedWaitResult, { ok: true }>): string {
   const t = (r.error ?? "").toLowerCase();
@@ -67,50 +32,28 @@ function mensagemErroSync(r: Exclude<SeedWaitResult, { ok: true }>): string {
   return "Não foi possível buscar as vendas de hoje no Millennium. Tente novamente.";
 }
 
-function etapaInicial(sessaoEtapa: number | null, draft: RascunhoOnboarding | null): number {
-  const daSessao = sessaoEtapa ?? PRIMEIRA_ETAPA;
-  const doDraft = draft?.etapa ?? PRIMEIRA_ETAPA;
-  return Math.min(ULTIMA_ETAPA, Math.max(PRIMEIRA_ETAPA, daSessao, doDraft));
-}
-
-/** Onboarding — shell RegisterSplit: form à esquerda, hero à direita. */
+/** Onboarding — shell RegisterSplit: form à esquerda, hero à direita. Única etapa = Integração ERP. */
 export function Onboarding() {
   const session = useActiveSession();
   const { update, signOut } = useSession();
   const navigate = useNavigate();
   const membershipId = session.membershipId;
 
-  const [draft, setDraft] = useState<RascunhoOnboarding>(() => {
-    const salvo = lerRascunho(membershipId);
-    if (salvo) return salvo;
-    return rascunhoVazio(etapaInicial(session.onboardingStep, null));
-  });
-
-  const [erpSession, setErpSession] = useState<string | undefined>();
-  const [atual, setAtual] = useState(() => etapaInicial(session.onboardingStep, draft));
-  const [concluindo, setConcluindo] = useState(false);
+  const [draft, setDraft] = useState<RascunhoOnboarding>(() => lerRascunho(membershipId) ?? rascunhoVazio());
   const [sincronizando, setSincronizando] = useState(false);
   const [erroSync, setErroSync] = useState<string | null>(null);
   const entrarAposSync = useRef<(() => void) | null>(null);
 
-  const hero = heroPorEtapa[atual] ?? heroPorEtapa[PRIMEIRA_ETAPA];
-
   useEffect(() => {
-    gravarRascunho(membershipId, { ...draft, etapa: atual });
-  }, [atual, draft, membershipId]);
+    gravarRascunho(membershipId, draft);
+  }, [draft, membershipId]);
 
-  // Espelha progresso local → sessão. Não reabre se já concluiu (null).
+  // Legado (1 = antiga Empresa, 3 = antiga Lojas) → ERP.
   useEffect(() => {
-    if (concluindo || session.onboardingStep === null) return;
-    if (session.onboardingStep !== atual) {
-      update({ onboardingStep: atual });
-      void saveOnboardingStep(membershipId, atual);
-    }
-  }, [atual, update, concluindo, session.onboardingStep, membershipId]);
-
-  function patchDraft(patch: Partial<RascunhoOnboarding>) {
-    setDraft((d) => ({ ...d, ...patch }));
-  }
+    if (session.onboardingStep === null || session.onboardingStep === ETAPA_ERP) return;
+    update({ onboardingStep: ETAPA_ERP });
+    void saveOnboardingStep(membershipId, ETAPA_ERP);
+  }, [session.onboardingStep, update, membershipId]);
 
   /** Pede o Atualizar de hoje (SEED) e espera terminar; o resto do mês carrega depois, por trás. */
   async function sincronizarHoje() {
@@ -141,62 +84,53 @@ export function Onboarding() {
     setErroSync(mensagemErroSync(r));
   }
 
-  async function irPara(etapa: number | null, filiaisConfirmadas?: StoreErp[]) {
-    if (etapa === null) {
-      setConcluindo(true);
-      const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
-      const password = lerSenhaErp(membershipId);
-      let ids = storeIdsFromErp(confirmed);
-      let semSync = false;
-      if (draft.erp.usuario && password && confirmed.length > 0) {
-        const persisted = await persistErpCredentialAndStores({
-          tenantId: session.tenantId,
-          membershipId,
-          username: draft.erp.usuario,
-          password,
-          dedicated: draft.erp.dedicada,
-          stores: confirmed,
-          // Token do Step2 — worker reusa sem novo login (evita busy no Millennium).
-          millenniumSession: erpSession,
-        });
-        if (persisted.ok) {
-          ids = persisted.storeIds;
-        } else {
-          console.warn("persistErpCredentialAndStores:", persisted.error);
-          await saveMembershipStores(membershipId, ids);
-          semSync = true;
-        }
+  /** Grava credencial + todas as lojas do usuário (token do teste — worker reusa sem novo login) e sincroniza hoje. */
+  async function concluir(stores: StoreErp[], millenniumSession: string | undefined) {
+    setSincronizando(true);
+    setErroSync(null);
+    const password = lerSenhaErp(membershipId);
+    let ids = storeIdsFromErp(stores);
+    let semSync = false;
+    if (draft.erp.usuario && password) {
+      const persisted = await persistErpCredentialAndStores({
+        tenantId: session.tenantId,
+        membershipId,
+        username: draft.erp.usuario.trim(),
+        password,
+        dedicated: draft.erp.dedicada,
+        stores,
+        millenniumSession,
+      });
+      if (persisted.ok) {
+        ids = persisted.storeIds;
       } else {
+        console.warn("persistErpCredentialAndStores:", persisted.error);
         await saveMembershipStores(membershipId, ids);
         semSync = true;
       }
+    } else {
+      await saveMembershipStores(membershipId, ids);
+      semSync = true;
+    }
 
-      const entrar = () => {
-        clearAwaitingInitialSync();
-        limparRascunho(membershipId);
-        update({
-          onboardingStep: null,
-          stores: ids,
-        });
-        navigate(`${paths.overview}?periodo=hoje`, { replace: true });
-      };
+    const entrar = () => {
+      clearAwaitingInitialSync();
+      limparRascunho(membershipId);
+      update({ onboardingStep: null, stores: ids });
+      navigate(`${paths.overview}?periodo=hoje`, { replace: true });
+    };
 
-      // Onboarding fecha no banco ANTES do SEED (o worker cancela jobs com onboarding aberto).
-      // A sessão local só muda no fim — a tela fica na etapa 3 com o botão "Sincronizando…".
-      // F5 no meio: a flag leva para /sincronizando, que continua esperando.
-      markAwaitingInitialSync();
-      await saveOnboardingStep(membershipId, null);
-      if (semSync) {
-        entrar();
-        return;
-      }
-      entrarAposSync.current = entrar;
-      await sincronizarHoje();
+    // Onboarding fecha no banco ANTES do SEED (o worker cancela jobs com onboarding aberto).
+    // A sessão local só muda no fim — a tela fica no ERP com o botão "Sincronizando…".
+    // F5 no meio: a flag leva para /sincronizando, que continua esperando.
+    markAwaitingInitialSync();
+    await saveOnboardingStep(membershipId, null);
+    if (semSync) {
+      entrar();
       return;
     }
-    setAtual(etapa);
-    patchDraft({ etapa });
-    window.scrollTo({ top: 0 });
+    entrarAposSync.current = entrar;
+    await sincronizarHoje();
   }
 
   function sairOnboarding() {
@@ -226,56 +160,16 @@ export function Onboarding() {
         </div>
 
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-4">
-          <WizardSteps steps={ONBOARDING_STEPS} current={atual} />
-
-          {atual === 2 && (
-            <Step2Credentials
-              membershipId={membershipId}
-              inicial={draft.erp}
-              onErpChange={(erp) => patchDraft({ erp })}
-              onConcluir={(r) => {
-                void (async () => {
-                  setErpSession(r.session);
-                  patchDraft({ stores: r.stores });
-                  const password = lerSenhaErp(membershipId);
-                  const username = draft.erp.usuario.trim();
-                  if (username && password && r.session) {
-                    const persisted = await persistErpCredentialAndStores({
-                      tenantId: session.tenantId,
-                      membershipId,
-                      username,
-                      password,
-                      dedicated: draft.erp.dedicada,
-                      stores: [],
-                      millenniumSession: r.session,
-                    });
-                    if (!persisted.ok) {
-                      console.warn("persist ERP Step2:", persisted.error);
-                    }
-                  }
-                  void irPara(3);
-                })();
-              }}
-            />
-          )}
-          {atual === 3 && (
-            <Step3Stores
-              session={erpSession}
-              filiaisPre={draft.stores}
-              sincronizando={sincronizando}
-              erroSync={erroSync}
-              onTentarSync={() => void sincronizarHoje()}
-              onConcluir={(confirmadas) => {
-                // Confirma lojas + Atualizar de hoje (SEED); não faz logout Millennium.
-                void irPara(null, confirmadas).finally(() => setErpSession(undefined));
-              }}
-              onVoltar={() => {
-                // Voltar: libera sessão em memória; Edge logout no Step3.
-                setErpSession(undefined);
-                void irPara(2);
-              }}
-            />
-          )}
+          <WizardSteps steps={ONBOARDING_STEPS} current={ETAPA_ERP} />
+          <Step2Credentials
+            membershipId={membershipId}
+            inicial={draft.erp}
+            onErpChange={(erp) => setDraft((d) => ({ ...d, erp }))}
+            onConcluir={(r) => void concluir(r.stores, r.session)}
+            sincronizando={sincronizando}
+            erroSync={erroSync}
+            onTentarSync={() => void sincronizarHoje()}
+          />
         </div>
       </div>
 
@@ -288,10 +182,16 @@ export function Onboarding() {
           style={{ background: "radial-gradient(70% 60% at 25% 80%,rgba(86,168,255,.35),transparent 60%)" }}
         />
         <div className="relative">
-          <h2 className="mb-6 text-[26px] font-extrabold leading-[1.3] tracking-tight text-white">{hero.titulo}</h2>
-          <p className="mb-6 max-w-[380px] text-[15px] leading-relaxed text-white/70">{hero.texto}</p>
+          <h2 className="mb-6 text-[26px] font-extrabold leading-[1.3] tracking-tight text-white">
+            Dados do Millennium,
+            <br />
+            direto na WeDash.
+          </h2>
+          <p className="mb-6 max-w-[380px] text-[15px] leading-relaxed text-white/70">
+            A conexão mantém vendas, custos, estoque e cadastros sincronizados automaticamente.
+          </p>
           <div className="flex flex-col gap-4">
-            {hero.bullets.map((b) => (
+            {bullets.map((b) => (
               <div key={b} className="flex items-center gap-3">
                 <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px]" style={{ background: "rgba(255,255,255,.12)" }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

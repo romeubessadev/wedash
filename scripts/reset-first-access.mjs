@@ -1,15 +1,18 @@
 /**
  * Volta um usuário para o "primeiro acesso" (tela Crie sua senha) sem mexer em dados do ERP.
- * Marca temporary_password = true; a senha atual vira a "temporária". Onboarding (ERP/Lojas) não muda.
+ * Marca temporary_password = true; a senha atual vira a "temporária".
+ * Com --onboarding (só dono): reabre o onboarding na etapa Integração ERP (onboarding_step = 2).
+ * Reconectar com o mesmo usuário Millennium não apaga dados; outro usuário apaga os dados de venda do tenant.
  * Usa a service role de workers/millennium-sync/.env.
  *
- *   npx tsx scripts/reset-first-access.mjs email@exemplo.com
+ *   node scripts/reset-first-access.mjs email@exemplo.com [--onboarding]
  */
 import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 const EMAIL = process.argv[2];
+const REOPEN_ONBOARDING = process.argv.includes("--onboarding");
 if (!EMAIL) {
   console.error("uso: npx tsx scripts/reset-first-access.mjs email@exemplo.com");
   process.exit(1);
@@ -50,8 +53,12 @@ if (error || !data?.length) {
 }
 console.log(data);
 
-const { data: memb } = await sb
-  .from("membership")
-  .select("role, status, is_owner, onboarding_step")
-  .eq("identity_id", data[0].id);
+const membQuery = sb.from("membership");
+const { data: memb } = REOPEN_ONBOARDING
+  ? await membQuery
+      .update({ onboarding_step: 2 })
+      .eq("identity_id", data[0].id)
+      .eq("is_owner", true)
+      .select("role, status, is_owner, onboarding_step")
+  : await membQuery.select("role, status, is_owner, onboarding_step").eq("identity_id", data[0].id);
 console.log("membership:", memb);

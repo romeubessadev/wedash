@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FormField, Input, useToast } from "@/components/ui";
-import { testErpLogin, type ErpLoginResult, type ErpReportCheck } from "@/data/wedash/erp";
+import { logoutErp, testErpLogin, type ErpLoginResult, type ErpReportCheck } from "@/data/wedash/erp";
 import { ErpReportChecks } from "@/components/wedash/ErpReportChecks";
 import { gravarSenhaErp, lerSenhaErp } from "./draft";
 import { noAutofill, secretStyle } from "@/lib/noAutofill";
@@ -23,18 +23,26 @@ export type ErpRascunho = {
   aceite: boolean;
 };
 
+/**
+ * Etapa 2 (última) — testa o Millennium; ok → a integração é gravada com todas as lojas do usuário
+ * e o botão fica "Sincronizando…" até as vendas de hoje chegarem.
+ */
 export function Step2Credentials({
   membershipId,
   inicial,
   onErpChange,
   onConcluir,
-  onVoltar,
+  sincronizando = false,
+  erroSync = null,
+  onTentarSync,
 }: {
   membershipId: string;
   inicial: ErpRascunho;
   onErpChange: (erp: ErpRascunho) => void;
   onConcluir: (r: Extract<ErpLoginResult, { ok: true }>) => void;
-  onVoltar?: () => void;
+  sincronizando?: boolean;
+  erroSync?: string | null;
+  onTentarSync?: () => void;
 }) {
   const { show } = useToast();
   const [usuario, setUsuario] = useState(inicial.usuario);
@@ -54,13 +62,20 @@ export function Step2Credentials({
     onErpChange(erp);
   }
 
-  const pode = usuario.trim().length > 0 && senha.length > 0 && aceite && !testando;
+  const ocupado = testando || sincronizando;
+  const pode = usuario.trim().length > 0 && senha.length > 0 && aceite && !ocupado;
 
   async function testar() {
     if (!pode) return;
     setTestando(true);
     setRelatorios(null);
     const r = await testErpLogin(usuario, senha);
+    if (r.ok && r.stores.length === 0) {
+      await logoutErp(r.session);
+      setTestando(false);
+      show("Este usuário não tem lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente de novo.", "danger");
+      return;
+    }
     setTestando(false);
     if (!r.ok) {
       if (r.reason === "reports" && r.reports) setRelatorios(r.reports);
@@ -74,7 +89,8 @@ export function Step2Credentials({
     <div>
       <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Conecte o Millennium</h1>
       <p className="mb-7 text-sm text-t2">
-        A WeDash usa essa conexão para sincronizar vendas, custos, estoque e cadastros. Informe um usuário e uma senha do ERP para continuar.
+        A WeDash usa essa conexão para sincronizar vendas, custos, estoque e cadastros. As lojas que este usuário enxerga no
+        Millennium entram automaticamente.
       </p>
 
       <div className="flex flex-col gap-3.5">
@@ -166,13 +182,21 @@ export function Step2Credentials({
 
         {relatorios && <ErpReportChecks reports={relatorios} username={usuario.trim()} />}
 
-        <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
-          {testando ? "Testando conexão e relatórios…" : "Testar e continuar"}
-        </button>
-        {onVoltar && (
-          <button type="button" onClick={onVoltar} disabled={testando} className="text-center text-[13px] font-semibold text-t2 hover:text-t0 disabled:opacity-60">
-            Voltar
+        {erroSync && <div className="rounded-xl border border-bad/30 bg-bad-soft p-4 text-[13px] text-t0">{erroSync}</div>}
+
+        {erroSync && !sincronizando ? (
+          <button type="button" onClick={onTentarSync} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
+            Tentar novamente
           </button>
+        ) : (
+          <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
+            {sincronizando ? "Sincronizando…" : testando ? "Testando conexão e relatórios…" : "Testar e continuar"}
+          </button>
+        )}
+        {sincronizando && (
+          <p className="text-center text-[12px] text-t2">
+            Buscando as vendas de hoje no Millennium. Os dias anteriores continuam carregando depois que você entrar.
+          </p>
         )}
       </div>
     </div>
