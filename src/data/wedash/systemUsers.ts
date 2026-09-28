@@ -185,9 +185,17 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   return { ok: true, info: { name: titleName(res.name), email: res.email, role: res.role, companyName: companyNameCase(res.companyName) } };
 }
 
-export async function acceptInvite(): Promise<boolean> {
+/** Ativa o convite gravando os dados pessoais da tela "Crie seu acesso". */
+export async function acceptInvite(personal: { firstName: string; lastName: string; phone: string }): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return false;
-  const { data, error } = await sb.functions.invoke("team-members", { body: { action: "accept" } });
+  const { data, error } = await sb.functions.invoke("team-members", {
+    body: {
+      action: "accept",
+      firstName: titleName(personal.firstName),
+      lastName: titleName(personal.lastName),
+      phone: personal.phone.replace(/\D/g, ""),
+    },
+  });
   return !error && Boolean((data as { ok?: boolean } | null)?.ok);
 }

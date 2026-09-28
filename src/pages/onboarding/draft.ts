@@ -1,11 +1,10 @@
 import type { StoreErp } from "@/data/wedash/erp";
-import { rascunhoEmpresaVazio, type RascunhoEmpresa } from "./Step1Company";
 
 /** Rascunho do onboarding — sobrevive a F5 (localStorage). Senha do ERP só em sessionStorage. */
 
 export type RascunhoOnboarding = {
+  /** 2 = ERP, 3 = Lojas (a etapa 1, "Seu acesso", acontece antes do onboarding). */
   etapa: number;
-  empresa: RascunhoEmpresa;
   erp: {
     usuario: string;
     dedicada: boolean;
@@ -25,10 +24,9 @@ function chaveSenha(membershipId: string) {
   return `${PREFIXO_SENHA}${membershipId}`;
 }
 
-export function rascunhoVazio(etapa = 1): RascunhoOnboarding {
+export function rascunhoVazio(etapa = 2): RascunhoOnboarding {
   return {
     etapa,
-    empresa: { ...rascunhoEmpresaVazio },
     erp: { usuario: "", dedicada: false, aceite: false },
   };
 }
@@ -41,14 +39,13 @@ export function lerRascunho(membershipId: string): RascunhoOnboarding | null {
     if (!parsed || typeof parsed.etapa !== "number") return null;
     return {
       ...rascunhoVazio(),
-      empresa: { ...rascunhoEmpresaVazio, nome: parsed.empresa?.nome ?? "" },
       erp: {
         usuario: parsed.erp?.usuario ?? "",
         dedicada: parsed.erp?.dedicada ?? false,
         aceite: parsed.erp?.aceite ?? false,
       },
       stores: parsed.stores,
-      etapa: Math.min(3, Math.max(1, parsed.etapa)),
+      etapa: Math.min(3, Math.max(2, parsed.etapa)),
     };
   } catch {
     return null;

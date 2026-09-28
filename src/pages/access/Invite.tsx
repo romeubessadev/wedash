@@ -4,11 +4,15 @@ import { paths } from "@/router/paths";
 import {
   AcessoPagina,
   CampoSenha,
+  CamposPessoais,
   ForcaSenha,
   IconeCard,
   acessoLink,
   acessoSubtitulo,
   acessoTitulo,
+  dadosPessoaisValidos,
+  separarNome,
+  type DadosPessoais,
 } from "./AccessKit";
 import { Skeleton, Button } from "@/components/ui";
 import { roleLabel, useSession } from "@/session/SessionProvider";
@@ -62,6 +66,7 @@ export function Invite() {
   const navigate = useNavigate();
   const { applySession } = useSession();
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [dados, setDados] = useState<DadosPessoais>({ nome: "", sobrenome: "", telefone: "" });
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -77,8 +82,10 @@ export function Invite() {
       }
       const r = await fetchInviteInfo();
       if (!ativo) return;
-      if (r.ok) setState({ kind: "form", info: r.info });
-      else setState({ kind: r.code === "already_active" ? "active" : "invalid" });
+      if (r.ok) {
+        setDados((d) => ({ ...d, ...separarNome(r.info.name) }));
+        setState({ kind: "form", info: r.info });
+      } else setState({ kind: r.code === "already_active" ? "active" : "invalid" });
     })();
     return () => {
       ativo = false;
@@ -122,7 +129,7 @@ export function Invite() {
   const { info } = state;
   const primeiroNome = info.name.split(/\s+/)[0] ?? info.name;
   const erroConfirma = confirma.length > 0 && confirma !== senha ? "As senhas não coincidem." : null;
-  const pode = senhaValida(senha) && confirma === senha && !carregando;
+  const pode = dadosPessoaisValidos(dados) && senhaValida(senha) && confirma === senha && !carregando;
 
   async function criar(e: FormEvent) {
     e.preventDefault();
@@ -137,7 +144,8 @@ export function Invite() {
       setCarregando(false);
       return;
     }
-    const session = (await acceptInvite()) ? await sessionFromPersistedAuth() : null;
+    const aceito = await acceptInvite({ firstName: dados.nome, lastName: dados.sobrenome, phone: dados.telefone });
+    const session = aceito ? await sessionFromPersistedAuth() : null;
     if (!session) {
       setErro("Não foi possível ativar seu acesso. Tente novamente.");
       setCarregando(false);
@@ -156,23 +164,23 @@ export function Invite() {
       </IconeCard>
       <h1 className={acessoTitulo}>Olá, {primeiroNome}.</h1>
       <p className={acessoSubtitulo}>
-        Crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+        Confira seus dados e crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
         {info.companyName ? (
           <>
             {" "}
             da <span className="font-bold text-t0">{info.companyName}</span>
           </>
         ) : null}
-        . Seu login é <span className="font-bold text-t0">{info.email}</span>.
+        .
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
+        <CamposPessoais valor={dados} onChange={(p) => setDados((d) => ({ ...d, ...p }))} email={info.email} />
         <CampoSenha
           label="Nova senha"
           value={senha}
           onChange={setSenha}
           placeholder={SENHA_REGRA_TEXTO}
           autoComplete="new-password"
-          autoFocus
         />
         <CampoSenha
           label="Confirme sua senha"

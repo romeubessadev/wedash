@@ -281,7 +281,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   const { data: ident } = await sb
     .from("identity")
-    .select("id, name, email, cpf, status, temporary_password")
+    .select("id, name, email, cpf, phone, status, temporary_password")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
@@ -323,6 +323,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
     name: titleName(ident.name),
     cpf: ident.cpf ?? "",
     email: ident.email,
+    phone: ident.phone ?? "",
     role: memb.role as Session["role"],
     isOwner: memb.is_owner,
     stores: storeIds,
@@ -335,29 +336,48 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
   };
 }
 
+export type PersonalAccessInput = { firstName: string; lastName: string; phone: string; password: string };
+
 /**
- * Troca a senha no Auth e limpa `temporary_password` na identity.
+ * "Crie seu acesso": troca a senha temporária no Auth e grava nome, sobrenome e celular na identity.
  * Sessão permanece (diferente do recovery, que faz signOut).
  */
-export async function changeTemporaryPassword(novaSenha: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const check = validarSenha(novaSenha);
+export async function createPersonalAccess(
+  input: PersonalAccessInput,
+): Promise<{ ok: true; name: string; phone: string } | { ok: false; error: string }> {
+  const check = validarSenha(input.password);
   if (!check.ok) return { ok: false, error: check.erro };
+
+  const firstName = titleName(input.firstName);
+  const lastName = titleName(input.lastName);
+  const name = titleName(`${firstName} ${lastName}`);
+  const phone = input.phone.replace(/\D/g, "");
 
   const sb = getSupabase();
   if (!sb) {
     await delay(400);
-    return { ok: true };
+    return { ok: true, name, phone };
   }
-
-  const { error } = await sb.auth.updateUser({ password: novaSenha });
-  if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
 
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
-  if (uid) {
-    await sb.from("identity").update({ temporary_password: false }).eq("auth_user_id", uid);
+  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo com a senha temporária." };
+
+  // Dados antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
+  const { error: idErr } = await sb
+    .from("identity")
+    .update({ first_name: firstName, last_name: lastName, name, phone })
+    .eq("auth_user_id", uid);
+  if (idErr) {
+    console.warn("createPersonalAccess identity:", idErr.message);
+    return { ok: false, error: "Não foi possível salvar seus dados. Tente novamente." };
   }
-  return { ok: true };
+
+  const { error } = await sb.auth.updateUser({ password: input.password });
+  if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
+
+  await sb.from("identity").update({ temporary_password: false }).eq("auth_user_id", uid);
+  return { ok: true, name, phone };
 }
 
 /** Destino após login / troca de senha / raiz. */
@@ -487,16 +507,6 @@ export async function touchLastSeen(): Promise<void> {
   if (!sb) return;
   const { error } = await sb.rpc("touch_last_seen");
   if (error) console.warn("touch_last_seen:", error.message);
-}
-
-/** Grava o nome da empresa (etapa 1 do onboarding) no tenant. */
-export async function saveCompanyName(tenantId: string, companyName: string): Promise<void> {
-  const sb = getSupabase();
-  if (!sb) return;
-  const name = companyNameCase(companyName);
-  if (!name) return;
-  const { error } = await sb.from("tenant").update({ name }).eq("id", tenantId);
-  if (error) console.warn("saveCompanyName:", error.message);
 }
 
 /** Para seed/manual: monta Session a partir de User fixture. */

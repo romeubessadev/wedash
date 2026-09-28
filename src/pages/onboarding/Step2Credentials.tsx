@@ -34,7 +34,7 @@ export function Step2Credentials({
   inicial: ErpRascunho;
   onErpChange: (erp: ErpRascunho) => void;
   onConcluir: (r: Extract<ErpLoginResult, { ok: true }>) => void;
-  onVoltar: () => void;
+  onVoltar?: () => void;
 }) {
   const { show } = useToast();
   const [usuario, setUsuario] = useState(inicial.usuario);
@@ -169,9 +169,11 @@ export function Step2Credentials({
         <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
           {testando ? "Testando conexão e relatórios…" : "Testar e continuar"}
         </button>
-        <button type="button" onClick={onVoltar} disabled={testando} className="text-center text-[13px] font-semibold text-t2 hover:text-t0 disabled:opacity-60">
-          Voltar
-        </button>
+        {onVoltar && (
+          <button type="button" onClick={onVoltar} disabled={testando} className="text-center text-[13px] font-semibold text-t2 hover:text-t0 disabled:opacity-60">
+            Voltar
+          </button>
+        )}
       </div>
     </div>
   );

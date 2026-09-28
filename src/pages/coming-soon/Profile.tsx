@@ -3,6 +3,7 @@ import { Avatar, Badge, Button, Card, CardTitle, PageHeader } from "@/components
 import { paths } from "@/router/paths";
 import { stores } from "@/data/wedash/stores";
 import { mascararCpf } from "@/lib/cpf";
+import { mascararTelefone } from "@/lib/phone";
 import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvider";
 
 export function Profile() {
@@ -25,6 +26,10 @@ export function Profile() {
             </div>
           </div>
           <div className="mt-5 flex flex-col gap-2 text-[13px]">
+            <div className="flex items-center justify-between border-t border-line pt-3">
+              <span className="text-t2">Celular</span>
+              <span className="font-bold text-t0">{session.phone ? mascararTelefone(session.phone) : "—"}</span>
+            </div>
             <div className="flex items-center justify-between border-t border-line pt-3">
               <span className="text-t2">Empresa</span>
               <span className="font-bold text-t0">{session.companyName || "—"}</span>

@@ -7,18 +7,15 @@ import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { storeIdsFromErp } from "@/data/wedash/stores";
 import type { StoreErp } from "@/data/wedash/erp";
 import { padTopoEBase } from "@/lib/safeArea";
-import { companyNameCase } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 import {
   saveOnboardingStep,
   saveMembershipStores,
-  saveCompanyName,
   persistErpCredentialAndStores,
 } from "@/session/authApi";
 import { clearAwaitingInitialSync, markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import { waitForSeedJob, type SeedWaitResult } from "@/data/wedash/salesRepo";
-import { Step1Company, type RascunhoEmpresa } from "./Step1Company";
 import { Step2Credentials } from "./Step2Credentials";
 import { Step3Stores } from "./Step3Stores";
 import {
@@ -30,24 +27,20 @@ import {
   type RascunhoOnboarding,
 } from "./draft";
 
+/**
+ * Etapa 1 = "Seu acesso" (dados pessoais + senha), feita antes em /change-password — aparece sempre concluída.
+ * `onboarding_step` no banco: 2 = ERP, 3 = Lojas (1 é legado da antiga etapa Empresa → vai para ERP).
+ */
+const PRIMEIRA_ETAPA = 2;
+const ULTIMA_ETAPA = 3;
+
 const etapas = [
-  { num: 1, label: "Empresa" },
+  { num: 1, label: "Seu acesso" },
   { num: 2, label: "ERP" },
   { num: 3, label: "Lojas" },
 ];
 
 const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bullets: string[] }> = {
-  1: {
-    titulo: (
-      <>
-        Sua rede inteira,
-        <br />
-        em um só painel.
-      </>
-    ),
-    texto: "Comece pelo nome da empresa. Depois conectamos o Millennium e confirmamos suas lojas.",
-    bullets: ["Leva poucos minutos", "Sua equipe entra pelo mesmo endereço da WeDash", "Convites por e-mail com o nome da empresa"],
-  },
   2: {
     titulo: (
       <>
@@ -84,9 +77,9 @@ function mensagemErroSync(r: Exclude<SeedWaitResult, { ok: true }>): string {
 }
 
 function etapaInicial(sessaoEtapa: number | null, draft: RascunhoOnboarding | null): number {
-  const daSessao = sessaoEtapa !== null && sessaoEtapa >= 1 ? Math.min(3, sessaoEtapa) : 1;
-  const doDraft = draft?.etapa ?? 1;
-  return Math.min(3, Math.max(daSessao, doDraft));
+  const daSessao = sessaoEtapa ?? PRIMEIRA_ETAPA;
+  const doDraft = draft?.etapa ?? PRIMEIRA_ETAPA;
+  return Math.min(ULTIMA_ETAPA, Math.max(PRIMEIRA_ETAPA, daSessao, doDraft));
 }
 
 /** Onboarding — shell RegisterSplit: form à esquerda, hero à direita. */
@@ -109,7 +102,7 @@ export function Onboarding() {
   const [erroSync, setErroSync] = useState<string | null>(null);
   const entrarAposSync = useRef<(() => void) | null>(null);
 
-  const hero = heroPorEtapa[atual] ?? heroPorEtapa[1];
+  const hero = heroPorEtapa[atual] ?? heroPorEtapa[PRIMEIRA_ETAPA];
 
   useEffect(() => {
     gravarRascunho(membershipId, { ...draft, etapa: atual });
@@ -126,10 +119,6 @@ export function Onboarding() {
 
   function patchDraft(patch: Partial<RascunhoOnboarding>) {
     setDraft((d) => ({ ...d, ...patch }));
-  }
-
-  function patchEmpresa(patch: Partial<RascunhoEmpresa>) {
-    setDraft((d) => ({ ...d, empresa: { ...d.empresa, ...patch } }));
   }
 
   /** Pede o Atualizar de hoje (SEED) e espera terminar; o resto do mês carrega depois, por trás. */
@@ -165,10 +154,6 @@ export function Onboarding() {
     if (etapa === null) {
       setConcluindo(true);
       const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
-      const empresa = draft.empresa;
-      const companyName = companyNameCase(empresa.nome.trim() || session.companyName);
-      await saveCompanyName(session.tenantId, companyName);
-
       const password = lerSenhaErp(membershipId);
       let ids = storeIdsFromErp(confirmed);
       let semSync = false;
@@ -201,7 +186,6 @@ export function Onboarding() {
         update({
           onboardingStep: null,
           stores: ids,
-          companyName,
         });
         navigate(`${paths.overview}?periodo=hoje`, { replace: true });
       };
@@ -253,9 +237,6 @@ export function Onboarding() {
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-4">
           <WizardSteps steps={etapas} current={atual} />
 
-          {atual === 1 && (
-            <Step1Company valor={draft.empresa} onChange={patchEmpresa} onConcluir={() => void irPara(2)} />
-          )}
           {atual === 2 && (
             <Step2Credentials
               membershipId={membershipId}
@@ -284,7 +265,6 @@ export function Onboarding() {
                   void irPara(3);
                 })();
               }}
-              onVoltar={() => void irPara(1)}
             />
           )}
           {atual === 3 && (

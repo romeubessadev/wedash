@@ -6,6 +6,7 @@ import { Checkbox, FormField, Input } from "@/components/ui";
 import { AuthGlow, BrandMark } from "@/pages/auth/authKit";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
+import { celularValido, mascararTelefone } from "@/lib/phone";
 
 /**
  * Complementos das telas de acesso.
@@ -162,6 +163,59 @@ export function CampoSenha({
         <BotaoRevelarSenha mostrar={mostrar} onToggle={() => setMostrar((m) => !m)} />
       </div>
     </FormField>
+  );
+}
+
+export type DadosPessoais = { nome: string; sobrenome: string; telefone: string };
+
+export function dadosPessoaisValidos(d: DadosPessoais): boolean {
+  return d.nome.trim().length >= 2 && d.sobrenome.trim().length >= 2 && celularValido(d.telefone);
+}
+
+/** Separa um nome completo em nome (1ª palavra) + sobrenome (resto) para pré-preencher. */
+export function separarNome(completo: string): Pick<DadosPessoais, "nome" | "sobrenome"> {
+  const [nome = "", ...resto] = completo.trim().split(/\s+/);
+  return { nome, sobrenome: resto.join(" ") };
+}
+
+/** Nome · Sobrenome · Celular · E-mail (só leitura) — cadastro pessoal do primeiro acesso. */
+export function CamposPessoais({
+  valor,
+  onChange,
+  email,
+  autoFocus,
+}: {
+  valor: DadosPessoais;
+  onChange: (patch: Partial<DadosPessoais>) => void;
+  email: string;
+  autoFocus?: boolean;
+}) {
+  const digitos = valor.telefone.replace(/\D/g, "");
+  const erroTelefone = digitos.length === 11 && !celularValido(valor.telefone) ? "Informe um celular válido com DDD." : null;
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <FormField label="Nome" required>
+          <Input value={valor.nome} onChange={(e) => onChange({ nome: e.target.value })} autoComplete="given-name" autoFocus={autoFocus} maxLength={40} />
+        </FormField>
+        <FormField label="Sobrenome" required>
+          <Input value={valor.sobrenome} onChange={(e) => onChange({ sobrenome: e.target.value })} autoComplete="family-name" maxLength={60} />
+        </FormField>
+      </div>
+      <FormField label="Celular" required error={erroTelefone ?? undefined}>
+        <Input
+          value={valor.telefone}
+          onChange={(e) => onChange({ telefone: mascararTelefone(e.target.value) })}
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder="(00) 00000-0000"
+          className={cn(erroTelefone && inputErro)}
+        />
+      </FormField>
+      <FormField label="E-mail" hint="É o seu login. Não pode ser alterado aqui.">
+        <Input value={email} readOnly disabled type="email" />
+      </FormField>
+    </>
   );
 }
 

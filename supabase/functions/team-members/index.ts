@@ -150,6 +150,12 @@ Deno.serve(async (req) => {
         companyName: ten?.name ?? "",
       });
     }
+    const firstName = titleName(typeof body.firstName === "string" ? body.firstName : "");
+    const lastName = titleName(typeof body.lastName === "string" ? body.lastName : "");
+    const phone = typeof body.phone === "string" ? body.phone.replace(/\D/g, "") : "";
+    if (firstName.length < 2 || lastName.length < 2 || !/^[1-9][1-9]9\d{8}$/.test(phone)) {
+      return fail("invalid_personal_data");
+    }
     const now = new Date().toISOString();
     const { error: mErr } = await admin
       .from("membership")
@@ -158,7 +164,14 @@ Deno.serve(async (req) => {
     if (mErr) return fail("accept_failed");
     const { error: iErr } = await admin
       .from("identity")
-      .update({ status: "ACTIVE", temporary_password: false })
+      .update({
+        status: "ACTIVE",
+        temporary_password: false,
+        first_name: firstName,
+        last_name: lastName,
+        name: titleName(`${firstName} ${lastName}`),
+        phone,
+      })
       .eq("id", me.identity.id);
     if (iErr) return fail("accept_failed");
     return json({ ok: true });
