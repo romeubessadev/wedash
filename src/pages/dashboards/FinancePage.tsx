@@ -254,7 +254,7 @@ export default function FinancePage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos e margem da operação."
+        subtitle="Acompanhe receita, custos, margens e resultado da operação."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -362,7 +362,7 @@ export default function FinancePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <CardTitle>CMV, lucro e margem</CardTitle>
-                      <TipHelp label="Mostra quanto do faturamento vira custo, lucro bruto e margem." />
+                      <TipHelp label="Veja como o faturamento se distribui entre custo dos produtos, lucro bruto e margem." />
                     </div>
                     <div className="shrink-0">
                       <BadgeVsAnterior delta={deltaLucro} />
@@ -417,8 +417,8 @@ export default function FinancePage() {
           const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
           const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
           const tipResultado = view.resultadoRateado
-            ? "Em períodos curtos, os custos mensais são rateados por dia ou por hora."
-            : "Valor que permanece após descontar os custos da operação do lucro bruto.";
+            ? "Em períodos curtos, os custos mensais são distribuídos proporcionalmente por dia ou por hora."
+            : "Valor que permanece após descontar do lucro bruto os custos da operação.";
           return (
             <Card padding="lg" className="flex flex-col">
               <div className="mb-4">
@@ -487,14 +487,14 @@ export default function FinancePage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Custos da operação</CardTitle>
-              <TipHelp label="Detalha os custos descontados do lucro bruto para chegar ao resultado operacional." />
+              <TipHelp label="Veja os custos descontados do lucro bruto para chegar ao resultado operacional." />
             </div>
           </CardHeader>
           {!view.custosConfigurados ? (
             <EmptyBlock
               icon="🧾"
               title="Custos não configurados"
-              description="Informe royalties, marketing e aluguel da loja para ver o resultado operacional."
+              description="Configure royalties, marketing e aluguel para acompanhar o resultado operacional."
               action={
                 <Button
                   size="sm"

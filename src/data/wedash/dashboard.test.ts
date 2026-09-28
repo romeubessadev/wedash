@@ -1234,7 +1234,7 @@ describe("buildFinanceView com agregados reais", () => {
       { dayAggs: [day("2026-07-05", 999, 0), day("2026-07-10", 200, 80), day("2026-08-11", 100, 40)] },
     );
     expect(v.mostrarEvolucaoMensal).toBe(true);
-    expect(v.evolucaoMensal.map((r) => r.mes)).toEqual(["julho (10 a 31)", "agosto"]);
+    expect(v.evolucaoMensal.map((r) => r.mes)).toEqual(["julho · 10 a 31", "agosto"]);
     expect(v.evolucaoMensal.map((r) => r.faturamento)).toEqual([200, 100]);
     expect(v.rotuloEvolucaoMensal).toBe("10/07 a 31/08");
   });
@@ -1321,7 +1321,7 @@ describe("buildFinanceView com agregados reais", () => {
       const lucro = v.kpis.find((k) => k.label === "Lucro bruto");
       // 200 − 80 − ICMS 20 (10% de 200) − ICMS ST 16 (20% de 80)
       expect(lucro?.valor).toMatch(/^R\$\s84,00$/);
-      expect(lucro?.sub).toMatch(/^Impostos R\$\s36,00$/);
+      expect(lucro?.sub).toMatch(/^Impostos: R\$\s36,00$/);
       expect(v.custosFixosFranquia[0]).toMatchObject({ rotulo: "Lucro bruto", valor: 84 });
       // Sem royalties/marketing/aluguel configurados: resultado = lucro bruto.
       expect(v.custosFixosFranquia.find((l) => l.ehResultado)?.valor).toBeCloseTo(84);

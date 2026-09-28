@@ -58,8 +58,10 @@ export function ProductsWithoutCostNotice({
         <p className="flex min-w-0 items-center gap-2">
           <AlertTriangleIcon size={16} className="shrink-0 text-warn" />
           <span>
-            <span className="font-semibold">{n === 1 ? "1 produto sem custo" : `${n} produtos sem custo`} no Millennium</span>
-            <span className="text-t1"> · CMV e margem ficam acima do real</span>
+            <span className="font-semibold">
+              {n === 1 ? "1 produto está sem custo no Millennium." : `${n} produtos estão sem custo no Millennium.`}
+            </span>
+            <span className="text-t1"> Isso pode deixar o CMV e a margem incorretos.</span>
           </span>
         </p>
         <div className="flex shrink-0 items-center gap-3 text-[12px] font-semibold">
@@ -71,7 +73,7 @@ export function ProductsWithoutCostNotice({
               type="button"
               onClick={() => void atualizarCustos()}
               disabled={atualizando}
-              title="Depois de cadastrar o custo no Millennium, busca de novo a tabela de custo e a margem das lojas."
+              title="Depois de cadastrar os custos no Millennium, atualize para buscar os novos valores."
               className="text-t0 underline-offset-2 hover:underline disabled:cursor-default disabled:text-t2 disabled:no-underline"
             >
               {atualizando ? "Atualizando…" : "Atualizar custos"}
@@ -85,7 +87,7 @@ export function ProductsWithoutCostNotice({
             <li key={p.codigo} className="flex items-center justify-between gap-3 py-1.5">
               <span className="min-w-0 truncate">
                 <span className="font-mono text-t2">{p.codigo}</span>
-                {p.nome ? <span className="ml-2">{p.nome}</span> : null}
+                {p.nome ? <span> · {p.nome}</span> : null}
               </span>
               <span className="shrink-0 tabular-nums text-t1">
                 {num(p.itens)} {p.itens === 1 ? "item" : "itens"} · {brlCent(p.faturamento)}

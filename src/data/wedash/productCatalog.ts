@@ -9,12 +9,12 @@ async function client() {
 }
 
 const SYNC_PRODUCTS_ERRORS: Record<string, string> = {
-  credential_missing: "Conecte o Millennium em Configurações > Integrações.",
-  credential_invalid: "Senha do Millennium inválida. Reconecte em Configurações > Integrações.",
-  integration_paused: "Integração desconectada. Conecte o Millennium em Configurações > Integrações.",
-  erp_busy: "Millennium ocupado (limite de sessões). Tente de novo em instantes.",
-  busy: "Os produtos já estão sendo atualizados. Tente de novo em alguns minutos.",
-  forbidden: "Seu perfil não pode atualizar os custos.",
+  credential_missing: "Não foi possível acessar o Millennium. Verifique os dados da integração.",
+  credential_invalid: "Não foi possível acessar o Millennium. Verifique os dados da integração.",
+  integration_paused: "A conexão com o Millennium está desconectada. Verifique a integração para continuar.",
+  erp_busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
+  busy: "Os produtos já estão sendo atualizados. Tente novamente em alguns minutos.",
+  forbidden: "Você não tem permissão para atualizar os custos.",
   invalid_table: "Tabela de custo inválida.",
   invalid_period: "Período inválido.",
 };
@@ -50,6 +50,10 @@ export async function syncProductsNow(
   if (body?.ok === true) return { ok: true, fixed: body.fixed ?? 0, missing: body.missing ?? 0 };
   return {
     ok: false,
-    message: SYNC_PRODUCTS_ERRORS[body?.error ?? ""] ?? "Não foi possível buscar os custos no Millennium. Tente de novo.",
+    message:
+      SYNC_PRODUCTS_ERRORS[body?.error ?? ""] ??
+      (request.scope === "costs"
+        ? "Não foi possível atualizar os custos. Tente novamente."
+        : "Não foi possível buscar os custos no Millennium. Tente novamente."),
   };
 }

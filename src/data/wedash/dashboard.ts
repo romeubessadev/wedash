@@ -1583,7 +1583,7 @@ function rotuloMesEvolucao(mes: string, meses: string[], ini?: string, fim?: str
   const nome = mesAno(`${mes}-01`);
   const base = meses[0]!.slice(0, 4) === meses[meses.length - 1]!.slice(0, 4) ? nome.split(" de ")[0]! : nome;
   if (!ini || !fim || (ini === `${mes}-01` && fim === fimDoMes(`${mes}-01`))) return base;
-  return `${base} (${ini.slice(8)} a ${fim.slice(8)})`;
+  return `${base} · ${ini.slice(8)} a ${fim.slice(8)}`;
 }
 
 function rotuloEvolucao(periodo: ResolvedPeriod, comAnteriores: boolean): string {
@@ -1650,7 +1650,7 @@ function agregadoMes(fs: Store[], mes: string, divisao: Division | null): Aggreg
 }
 
 const TIP_LUCRO_BRUTO =
-  "Faturamento − CMV − impostos (ICMS sobre o faturamento e ICMS ST sobre o CMV, configurados em cada loja). Royalties, marketing e aluguel entram depois, no Resultado operacional.";
+  "Valor que permanece após descontar do faturamento o CMV e os impostos considerados pela operação.";
 
 export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): FinanceView {
   if (aggs) return buildFinanceViewFromAggs(escopo, aggs);
@@ -1695,7 +1695,7 @@ export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): 
       sub: `${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}% do faturamento`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Percentual do faturamento consumido pelo custo dos produtos vendidos.",
+      tooltip: "Percentual do faturamento utilizado para cobrir o custo dos produtos vendidos.",
     },
     {
       label: "Lucro bruto",
@@ -1709,7 +1709,7 @@ export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): 
       valor: pct(margemAtual),
       delta: temComp ? kpiDeltaPp(margemAtual, margemAnterior, vsRotulo) : undefined,
       serie: serieMargem,
-      tooltip: "Percentual do faturamento que permanece como lucro bruto após o CMV.",
+      tooltip: "Percentual do faturamento que permanece como lucro bruto após CMV e impostos.",
     },
   ];
 
@@ -2169,12 +2169,12 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       valor: temCmv ? brlCent(atual.cmv) : "—",
       sub: temCmv ? `${(divSeguro(atual.cmv, atual.rev) * 100).toFixed(0)}% do faturamento` : undefined,
       delta: cmvComparavel ? kpiDelta(atualCmp.cmv, antCmp.cmv, vsCmv) : undefined,
-      tooltip: "Percentual do faturamento consumido pelo custo dos produtos vendidos.",
+      tooltip: "Percentual do faturamento utilizado para cobrir o custo dos produtos vendidos.",
     },
     {
       label: "Lucro bruto",
       valor: temCmv ? brlCent(lucroAtual) : "—",
-      sub: temCmv && impostosAtual > 0 ? `Impostos ${brlCent(impostosAtual)}` : undefined,
+      sub: temCmv && impostosAtual > 0 ? `Impostos: ${brlCent(impostosAtual)}` : undefined,
       delta: cmvComparavel ? kpiDelta(lucroAtualCmp, lucroAnteriorCmp, vsCmv) : undefined,
       tooltip: TIP_LUCRO_BRUTO,
     },
@@ -2182,7 +2182,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       label: "Margem",
       valor: temCmv ? pct(margemAtual) : "—",
       delta: cmvComparavel ? kpiDeltaPp(margemAtualCmp, margemAnteriorCmp, vsCmv) : undefined,
-      tooltip: "Percentual do faturamento que permanece como lucro bruto após o CMV e os impostos.",
+      tooltip: "Percentual do faturamento que permanece como lucro bruto após CMV e impostos.",
     },
   ];
 
@@ -3317,24 +3317,24 @@ function buildFinanceWpinkKpis(p: {
     {
       label: "CMV WPINK",
       valor: cmv != null ? brlCent(cmv) : "—",
-      sub: cmv != null && atual.fat > 0 ? `${Math.round((cmv / atual.fat) * 100)}% do faturamento` : undefined,
-      tooltip: "Percentual do faturamento WPINK consumido pelo custo dos produtos vendidos.",
+      sub: cmv != null && atual.fat > 0 ? `${Math.round((cmv / atual.fat) * 100)}% do faturamento WPINK` : undefined,
+      tooltip: "Percentual do faturamento WPINK utilizado para cobrir o custo dos produtos vendidos.",
       tint: "warn",
       delta: cmvComp ? kpiDelta(cmvA, cmvB, c.vsRotulo) : undefined,
     },
     {
       label: "Lucro bruto WPINK",
       valor: cmv != null ? brlCent(lucro) : "—",
-      sub: cmv != null && atual.impostos > 0 ? `Impostos ${brlCent(atual.impostos)}` : undefined,
+      sub: cmv != null && atual.impostos > 0 ? `Impostos: ${brlCent(atual.impostos)}` : undefined,
       tooltip:
-        "Faturamento WPINK − CMV WPINK − impostos (ICMS e ICMS ST da loja). Royalties, marketing e aluguel entram depois, no Resultado operacional.",
+        "Valor que permanece do faturamento WPINK após descontar CMV e impostos.",
       tint: "ok",
       delta: cmvComp ? kpiDelta(lucroA, lucroB, c.vsRotulo) : undefined,
     },
     {
       label: "Margem WPINK",
       valor: cmv != null ? pct(margem) : "—",
-      tooltip: "Percentual do faturamento WPINK que permanece como lucro bruto após o CMV e os impostos.",
+      tooltip: "Percentual do faturamento WPINK que permanece como lucro bruto após CMV e impostos.",
       tint: "info",
       delta: cmvComp ? kpiDeltaPp(margemA, margemB, c.vsRotulo) : undefined,
     },
