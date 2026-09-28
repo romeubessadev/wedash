@@ -476,7 +476,8 @@ export default function OverviewPage() {
                   </span>
                 </Tooltip>
               </div>
-              {(view.evolucao[view.evolucao.length - 1]?.realizado ?? 0) + (view.evolucao[view.evolucao.length - 1]?.meta ?? 0) > 0 && (
+              {view.gauges.length > 0 &&
+                (view.evolucao[view.evolucao.length - 1]?.realizado ?? 0) + (view.evolucao[view.evolucao.length - 1]?.meta ?? 0) > 0 && (
               <>
               <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
               <div className="mt-2.5 flex flex-wrap gap-5">
@@ -500,9 +501,18 @@ export default function OverviewPage() {
               </>
               )}
             </div>
-            <BadgeVsAnterior delta={view.deltaFaturamento} />
+            {view.gauges.length > 0 && <BadgeVsAnterior delta={view.deltaFaturamento} />}
           </div>
           {(() => {
+            if (view.gauges.length === 0) {
+              return (
+                <EmptyBlock
+                  icon="🎯"
+                  title="Meta não configurada"
+                  description="Cadastre a meta do mês para comparar o faturamento de cada hora e dia com a meta."
+                />
+              );
+            }
             // evolucao vem acumulada; o gráfico mostra o valor de cada hora/dia/mês.
             const serie = view.evolucao
               .map((e, i) => {
