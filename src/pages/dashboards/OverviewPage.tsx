@@ -510,6 +510,11 @@ export default function OverviewPage() {
                   icon="🎯"
                   title="Meta não configurada"
                   description="Cadastre a meta do mês para comparar o faturamento de cada hora e dia com a meta."
+                  action={
+                    <Button size="sm" onClick={() => navigate(paths.goals)}>
+                      Criar meta
+                    </Button>
+                  }
                 />
               );
             }
