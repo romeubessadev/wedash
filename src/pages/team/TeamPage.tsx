@@ -129,7 +129,7 @@ function partesTurno(turno?: string): { nome: string; horario?: string } {
 /** Loja principal (+N) — só com mais de 1 loja no escopo. */
 function rotuloLojas(lojas: string[]): string | null {
   if (lojas.length === 0) return null;
-  return lojas.length > 1 ? `${lojas[0]} +${lojas.length - 1}` : lojas[0]!;
+  return lojas.length > 1 ? `${lojas[0]} · +${lojas.length - 1}` : lojas[0]!;
 }
 
 /**
@@ -378,7 +378,7 @@ export function TeamPage() {
               <CardHeader>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Faturamento por turno</CardTitle>
-                  <TipHelp label="Soma o faturamento da equipe pelo turno de cada pessoa." />
+                  <TipHelp label="Mostra quanto cada turno representa no faturamento da equipe." />
                 </div>
               </CardHeader>
               {!temVendasEquipe ? (
@@ -443,7 +443,7 @@ export function TeamPage() {
               <CardHeader>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Composição do faturamento</CardTitle>
-                  <TipHelp label="Mostra quanto do faturamento das lojas foi vendido pela equipe de vendas e quanto veio de vendas sem vendedor ou de gerência, que ficam fora do ranking." />
+                  <TipHelp label="Mostra quanto do faturamento das lojas foi realizado pela equipe de vendas e quanto veio de vendas sem vendedor identificado ou realizadas pela gerência." />
                 </div>
               </CardHeader>
               {view.composicao.total <= 0 ? (
@@ -495,7 +495,7 @@ export function TeamPage() {
           <Card className="mt-4 min-w-0 overflow-hidden" padding="lg">
             <div className="mb-4 flex items-center gap-1.5">
               <CardTitle>Desempenho da equipe</CardTitle>
-              <TipHelp label={"Ranking, desafios e metas de cada pessoa da equipe no período.\n\nVendas sem vendedor ou de gerência ficam fora do ranking."} />
+              <TipHelp label={"Acompanhe ranking, desafios e metas individuais da equipe no período.\n\nVendas sem vendedor identificado ou realizadas pela gerência não entram no ranking."} />
             </div>
             <Tabs
               variant="accent"
@@ -601,7 +601,7 @@ export function TeamPage() {
                             <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
                             {loja &&
                               (p.lojas.length > 1 ? (
-                                <Tooltip label={p.lojas.join(" · ")}>
+                                <Tooltip label={p.lojas.slice(1).join(" · ")}>
                                   <p className="truncate text-[11px] text-t2">{loja}</p>
                                 </Tooltip>
                               ) : (
