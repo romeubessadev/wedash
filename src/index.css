@@ -214,6 +214,25 @@
     outline-offset: 2px;
     border-radius: 6px;
   }
+
+  /* Preenchimento automático do navegador: o Chrome força fundo e texto
+     próprios com !important; a sombra interna cobre o fundo com o do tema. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: var(--t0);
+    caret-color: var(--t0);
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-inset) inset;
+    box-shadow: 0 0 0 1000px var(--bg-inset) inset;
+    transition: background-color 9999s ease-out 0s;
+  }
+  input:autofill {
+    -webkit-text-fill-color: var(--t0);
+    box-shadow: 0 0 0 1000px var(--bg-inset) inset;
+  }
 }
 
 /* Native <select> dropdowns: replace the platform arrow with a consistent,
