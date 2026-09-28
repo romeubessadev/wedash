@@ -116,36 +116,68 @@ const CAMPOS_DE_TEXTO = new Set(["text", "email", "password", "tel", "search", "
  * Sugestão do navegador que deixa o formulário completo → foco no botão de envio (Enter/toque envia).
  * Nunca envia sozinho: conta errada escolhida, ou "Enviar código" para o e-mail errado, seriam irreversíveis.
  * Digitação e colagem não contam (têm inputType); preenchimento do navegador não tem.
+ * No celular (PWA) a senha pode chegar depois do e-mail e às vezes só vem `change` — por isso tenta
+ * de novo por ~1,5s e aceita `change` de campo que não foi digitado.
  */
 export function useFocoNoEnvioAposAutofill() {
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     const form = ref.current;
     if (!form) return;
-    let timer = 0;
+    const timers: number[] = [];
+    const digitados = new WeakSet<EventTarget>();
+    const cancelar = () => {
+      timers.forEach(clearTimeout);
+      timers.length = 0;
+    };
     const focar = () => {
       const botao = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       if (!botao || botao.disabled) return;
       const ativo = document.activeElement;
+      if (ativo === botao) return cancelar();
       if (ativo && ativo !== document.body && !form.contains(ativo)) return;
       const campos = Array.from(form.querySelectorAll<HTMLInputElement>("input")).filter(
         (i) => CAMPOS_DE_TEXTO.has(i.type) && !i.readOnly && !i.disabled,
       );
       if (campos.some((i) => i.value.trim() === "")) return;
+      cancelar();
+      if (ativo instanceof HTMLInputElement) {
+        const fim = ativo.value.length;
+        try {
+          ativo.setSelectionRange(fim, fim);
+        } catch {
+          // type="email" não aceita seleção programática em alguns navegadores
+        }
+        ativo.blur();
+      }
       botao.focus();
     };
-    const aoMudar = (e: Event) => {
+    const agendar = () => {
+      cancelar();
+      for (const ms of [120, 350, 800, 1500]) timers.push(window.setTimeout(focar, ms));
+    };
+    const aoDigitar = (e: Event) => {
       const alvo = e.target as HTMLInputElement;
       if (!CAMPOS_DE_TEXTO.has(alvo.type)) return;
       const tipo = (e as InputEvent).inputType;
-      if (tipo && tipo !== "insertReplacementText") return;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(focar, 120);
+      if (tipo && tipo !== "insertReplacementText") {
+        digitados.add(alvo);
+        cancelar();
+        return;
+      }
+      agendar();
     };
-    form.addEventListener("input", aoMudar);
+    const aoConfirmar = (e: Event) => {
+      const alvo = e.target as HTMLInputElement;
+      if (!CAMPOS_DE_TEXTO.has(alvo.type) || digitados.has(alvo)) return;
+      agendar();
+    };
+    form.addEventListener("input", aoDigitar);
+    form.addEventListener("change", aoConfirmar);
     return () => {
-      form.removeEventListener("input", aoMudar);
-      window.clearTimeout(timer);
+      form.removeEventListener("input", aoDigitar);
+      form.removeEventListener("change", aoConfirmar);
+      cancelar();
     };
   }, []);
   return ref;
