@@ -16,8 +16,10 @@ export interface DropdownItem {
   trailing?: ReactNode;
   /** Não fecha o menu ao clicar (toggles). */
   keepOpen?: boolean;
-  /** Texto na cor primária sem fundo (ex.: notificação não lida). */
+  /** Card em destaque na cor primária: borda, fundo suave e sombra (ex.: notificação não lida). */
   highlight?: boolean;
+  /** Classes extras da opção (sem conflitar com cor/fundo — `cn` não resolve conflitos). */
+  className?: string;
 }
 
 export interface DropdownProps {
@@ -110,11 +112,13 @@ export function Dropdown({ trigger, items, align = "right", menuClassName, porta
                     ? "cursor-not-allowed text-t2 opacity-50"
                     : item.active
                       ? "bg-acc-soft text-acc"
-                      : item.danger
-                        ? "text-bad hover:bg-bg-3"
-                        : item.highlight
-                          ? "text-acc hover:bg-bg-3"
-                          : "text-t0 hover:bg-bg-3",
+                      : cn(
+                          item.danger ? "text-bad" : item.highlight ? "text-acc" : "text-t0",
+                          item.highlight
+                            ? "border border-acc/40 bg-acc-soft shadow-[0_2px_8px_-2px_color-mix(in_srgb,var(--acc)_40%,transparent)]"
+                            : "hover:bg-bg-3",
+                        ),
+                  item.className,
                 )}
               >
                 {item.icon}
