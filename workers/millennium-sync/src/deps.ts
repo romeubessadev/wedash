@@ -42,7 +42,6 @@ import {
   hourInTz,
   isCloseWindow,
   runSyncJob,
-  syncOnboardingOff,
   ymdInTz,
   type SyncCredential,
   type SyncJob,
@@ -50,6 +49,7 @@ import {
   type SyncJobKind,
   type SyncStore,
 } from "./runSyncJob.ts";
+import { deepHistorySpan, spanStart, syncOnboardingOff } from "./syncConfig.ts";
 import type {
   SalesDayAgg,
   SalesHourAgg,
@@ -1325,17 +1325,14 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
 
 /**
  * Carga funda do histórico na madrugada (todas as lojas fechadas): 1 mês por vez, a cada 15 min,
- * do mais recente que falta até a inauguração da loja (teto 24 meses). Não enfileira com outro job
- * na fila da credencial, onboarding aberto ou integração pausada. Mês que falhou só volta na
- * próxima madrugada. Terminou → grava 1 aviso "histórico completo" (sino de Notificações).
+ * do mais recente que falta até a inauguração da loja (teto = `.env DEEP_HISTORY`, ex.: 24m; off =
+ * desligado). Não enfileira com outro job na fila da credencial, onboarding aberto ou integração
+ * pausada. Mês que falhou só volta na próxima madrugada. Terminou → grava 1 aviso "histórico
+ * completo" (sino de Notificações).
  */
-/** Carga funda desligada por padrão (enquanto telas/KPIs ainda mudam); `.env DEEP_HISTORY=1` liga. */
-export function deepHistoryEnabled(): boolean {
-  return process.env.DEEP_HISTORY?.trim() === "1";
-}
-
 export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
-  if (syncOnboardingOff()) return 0;
+  const span = deepHistorySpan();
+  if (span === "off" || syncOnboardingOff()) return 0;
   const { data: creds, error } = await sb.from("erp_credential").select("id, tenant_id, sync_paused").eq("status", "VALID");
   if (error) throw error;
   let n = 0;
@@ -1391,6 +1388,7 @@ export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Da
     if (lastDeep?.status === "FAILED" && minutesAgo(lastDeep.finished_at) < DEEP_FAIL_WAIT_H * 60) continue;
 
     const today = ymdInTz(now, stores[0]!.timezone);
+    const cap = spanStart(span, today);
     const deepStores: DeepStore[] = [];
     for (const s of stores) {
       const { data: oldestRow, error: oldErr } = await sb
@@ -1415,7 +1413,7 @@ export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Da
         if (tailErr) throw tailErr;
         emptyTail = (tail ?? []).every((r) => Number(r.revenue_cents ?? 0) === 0);
       }
-      deepStores.push({ id: s.id, oldestDay, floor: deepHistoryFloor(s.openedAt, today), emptyTail });
+      deepStores.push({ id: s.id, oldestDay, floor: deepHistoryFloor(s.openedAt, cap), emptyTail });
     }
 
     const plan = planDeepHistory(deepStores);

@@ -50,6 +50,7 @@ import type {
   SalesProductCostDayAgg,
   SalesSellerDayAgg,
 } from "../../../src/data/wedash/salesTypes.ts";
+import { onboardingHistoryUntil, SYNC_OFF_NOTE, syncOnboardingOff } from "./syncConfig.ts";
 import { formatElapsed, nowMs, StepTimings } from "./syncTiming.ts";
 import {
   brDay,
@@ -1057,7 +1058,7 @@ async function syncCouponProductsForDays(
 }
 
 /**
- * SEED = hoje (onboarding) + carga do histórico por trás (SYNC_HISTORY). HISTORY/RANGE = só manual. FORCE = Atualizar.
+ * SEED = hoje (onboarding) + carga do histórico por trás (SYNC_ONBOARDING). HISTORY/RANGE = só manual. FORCE = Atualizar.
  * CLOSE = fechamento noturno: mesmo fluxo do FORCE para os dias `payload.from → to` (ontem; + anteontem se a noite anterior falhou).
  */
 export type SyncJobKind =
@@ -1122,59 +1123,8 @@ export function closeWindow(todayIso: string, previousClosed: boolean): { from: 
   return { from: previousClosed ? to : addDaysIso(todayIso, -2), to };
 }
 
-/** Teto máximo do histórico em meses, mesmo que o .env peça mais. */
+/** Limite do HISTORY manual (`scripts/history-months.ts`), em meses antes do atual. */
 export const HISTORY_CAP_MONTHS = 24;
-
-/**
- * O que entra depois do onboarding (`.env SYNC_ONBOARDING`; `SYNC_HISTORY` = nome antigo), sempre
- * com hoje incluído: `off` = nada · `hoje` (ou `0`) = só hoje · `Nd` = hoje + N dias anteriores
- * (1d = hoje + ontem) · `Nm` = mês atual + N−1 meses anteriores (1m = este mês). Vazio/inválido = `1m`.
- * Devolve o dia mais antigo do histórico (antes de hoje), ou null quando é só hoje / off.
- */
-export function syncHistoryUntil(
-  todayIso: string,
-  env: Record<string, string | undefined> = process.env,
-): string | null {
-  const parsed = parseSyncHistory(env);
-  if (!parsed || parsed === "off") return null;
-  if (parsed.unit === "d") return addDaysIso(todayIso, -parsed.n);
-  const [y, m] = todayIso.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - parsed.n, 1)).toISOString().slice(0, 10);
-}
-
-/**
- * `SYNC_ONBOARDING=off`: nada automático — SEED (vendas de hoje ao conectar) termina sem ir ao ERP,
- * sem carga do histórico, sem atualização automática nem fechamento da madrugada. O Atualizar manual
- * continua funcionando.
- */
-export function syncOnboardingOff(env: Record<string, string | undefined> = process.env): boolean {
-  return parseSyncHistory(env) === "off";
-}
-
-/** Anotação do SEED pulado (sync_job.error com status SUCCEEDED; o sino ignora). */
-export const SYNC_OFF_NOTE = "sync desligado (SYNC_ONBOARDING=off)";
-
-/** Texto do que entra depois do onboarding (linha de início do worker). */
-export function describeSyncHistory(env: Record<string, string | undefined> = process.env): string {
-  const parsed = parseSyncHistory(env);
-  if (parsed === "off") return "desligado (nada automático; só o Atualizar manual)";
-  if (!parsed) return "só hoje";
-  if (parsed.unit === "d") return parsed.n === 1 ? "hoje + ontem" : `hoje + ${parsed.n} dias anteriores`;
-  return parsed.n === 1 ? "mês atual" : `mês atual + ${parsed.n - 1} anterior(es)`;
-}
-
-function parseSyncHistory(
-  env: Record<string, string | undefined>,
-): { n: number; unit: "d" | "m" } | "off" | null {
-  const raw = (env.SYNC_ONBOARDING ?? env.SYNC_HISTORY ?? "").trim().toLowerCase();
-  if (raw === "off") return "off";
-  if (raw === "0" || raw === "hoje") return null;
-  const match = /^(\d+)\s*([dm])$/.exec(raw);
-  const n = match ? Number(match[1]) : 0;
-  if (!match || n === 0) return { n: 1, unit: "m" };
-  const unit = match[2] as "d" | "m";
-  return unit === "d" ? { n: Math.min(n, HISTORY_CAP_MONTHS * 31), unit } : { n: Math.min(n, HISTORY_CAP_MONTHS), unit };
-}
 
 export type SyncJobPayload = {
   /** Inclusive ISO day YYYY-MM-DD (store TZ calendar). */
@@ -2091,7 +2041,8 @@ async function ensureMillenniumSession(
  * - CLOSE (fechamento noturno): payload.from/to; dia que falha derruba o job; não mexe em
  *   "Atualizado às…".
  * - SEED (onboarding): só **hoje** (o usuário entra no dashboard em segundos); grava "Atualizado às…"
- *   e enfileira a carga do histórico (CLOSE com `fillUntil`), de ontem até `SYNC_HISTORY`.
+ *   e enfileira a carga do histórico (CLOSE com `fillUntil`), de ontem até o início de `SYNC_ONBOARDING`
+ *   (off = SEED termina sem ir ao ERP).
  * - Carga do histórico (CLOSE com `fillUntil`): 1 dia por job; terminou (ou falhou sem ser senha) →
  *   enfileira o dia anterior. Entre um dia e outro o Atualizar (prioridade na fila) passa na frente.
  */
@@ -2326,7 +2277,7 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
     console.log(`✓ ${runLabel} · ${daysOk} dias · ${storesDone} loja(s) · ${formatElapsed(tJob)} no total`);
   }
   if (isSeed) {
-    const until = syncHistoryUntil(seedToday);
+    const until = onboardingHistoryUntil(seedToday);
     if (until) await chainMonthFill(seedToday, until);
   } else if (fillUntil) {
     await chainMonthFill(yieldedAt ?? minIso(from, to), fillUntil);

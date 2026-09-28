@@ -25,10 +25,10 @@ describe("isDeepHistoryWindow", () => {
 });
 
 describe("deepHistoryFloor", () => {
-  it("inauguração, com teto de 24 meses antes do mês atual", () => {
-    expect(deepHistoryFloor("2025-03-10", "2026-09-25")).toBe("2025-03-10");
-    expect(deepHistoryFloor("2019-01-01", "2026-09-25")).toBe("2024-09-01");
-    expect(deepHistoryFloor(null, "2026-09-25")).toBe("2024-09-01");
+  it("inauguração, sem passar do teto", () => {
+    expect(deepHistoryFloor("2025-03-10", "2024-10-01")).toBe("2025-03-10");
+    expect(deepHistoryFloor("2019-01-01", "2024-10-01")).toBe("2024-10-01");
+    expect(deepHistoryFloor(null, "2024-10-01")).toBe("2024-10-01");
     expect(addMonths("2026-01-15", -1)).toBe("2025-12-01");
   });
 });

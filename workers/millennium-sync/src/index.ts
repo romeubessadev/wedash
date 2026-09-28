@@ -13,9 +13,10 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { installAsciiConsole } from "./consoleAscii.ts";
-import { createAdminClient, deepHistoryEnabled, disconnectTenantSessions, enqueueDueAutoRefreshJobs, enqueueDueCloseJobs, enqueueDueDeepHistoryJobs, enqueueDueLightJobs, processOneJob, purgeOldSyncLogs, recoverOnStartup, SYNC_LOG_RETENTION_DAYS, recoverStaleRunningJobs } from "./deps.ts";
+import { createAdminClient, disconnectTenantSessions, enqueueDueAutoRefreshJobs, enqueueDueCloseJobs, enqueueDueDeepHistoryJobs, enqueueDueLightJobs, processOneJob, purgeOldSyncLogs, recoverOnStartup, SYNC_LOG_RETENTION_DAYS, recoverStaleRunningJobs } from "./deps.ts";
 import { logoutMillennium } from "./millenniumAuth.ts";
-import { closeHour, dailyCloseEnabled, describeSyncHistory, releaseActiveMillenniumSession, syncOnboardingOff } from "./runSyncJob.ts";
+import { closeHour, dailyCloseEnabled, releaseActiveMillenniumSession } from "./runSyncJob.ts";
+import { assertSyncConfig, deepHistorySpan, describeSpan, onboardingSpan } from "./syncConfig.ts";
 import { isWorkerPaused } from "./workerPause.ts";
 import { acquireWorkerLock, releaseWorkerLock } from "./workerLock.ts";
 
@@ -70,20 +71,24 @@ async function main() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY (Dashboard → Settings → API → service_role)");
   }
+  assertSyncConfig();
 
   const sb = createAdminClient();
   await recoverOnStartup(sb);
   console.log("Worker Millennium");
-  const syncOff = syncOnboardingOff();
-  console.log(`  Pós-onboarding           : ${describeSyncHistory()} (SYNC_ONBOARDING)`);
+  const onboarding = onboardingSpan();
+  const deep = deepHistorySpan();
+  const syncOff = onboarding === "off";
+  const offByOnboarding = "desligado (SYNC_ONBOARDING=off)";
   console.log(
-    `  Fechamento de ontem      : ${syncOff ? "desligado (SYNC_ONBOARDING=off)" : dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
+    `  Pós-onboarding           : ${syncOff ? "desligado — nada automático, só o Atualizar manual" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
   );
   console.log(
-    `  Atualização automática   : ${syncOff ? "desligada (SYNC_ONBOARDING=off)" : "a cada 30 min com a loja aberta"}`,
+    `  Fechamento de ontem      : ${syncOff ? offByOnboarding : dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
   );
+  console.log(`  Atualização automática   : ${syncOff ? offByOnboarding : "a cada 30 min com a loja aberta"}`);
   console.log(
-    `  Histórico antigo         : ${deepHistoryEnabled() ? "ligado na madrugada, até a inauguração (DEEP_HISTORY=1)" : "desligado (DEEP_HISTORY=1 liga)"}`,
+    `  Histórico antigo         : ${deep === "off" ? "desligado (DEEP_HISTORY=off)" : syncOff ? offByOnboarding : `${describeSpan(deep)}, até a inauguração, na madrugada (DEEP_HISTORY)`}`,
   );
   if (process.env.LIGHT_AUTO === "1") console.log("  Sync automático (LIGHT)  : ligado (LIGHT_AUTO=1)");
   if (isWorkerPaused()) {
@@ -129,7 +134,7 @@ async function main() {
   };
   let lastDeepScan = 0;
   const enqueueDeepIfDue = async () => {
-    if (!deepHistoryEnabled() || Date.now() - lastDeepScan < 60_000) return 0;
+    if (deep === "off" || Date.now() - lastDeepScan < 60_000) return 0;
     lastDeepScan = Date.now();
     try {
       return await enqueueDueDeepHistoryJobs(sb);

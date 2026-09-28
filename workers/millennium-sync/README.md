@@ -21,7 +21,8 @@ npm start
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Bypass RLS for upserts / claim |
 | `MILLENNIUM_API_BASE` | yes | e.g. `http://host:6017/api` |
 | `ERP_SECRET_KEY` | yes | Decrypt `erp_credential.password_ciphertext` |
-| `SYNC_HISTORY` | no | Histórico carregado depois do onboarding: `1d` só ontem · `7d` · `1m` mês atual (padrão) · `2m`/`3m`… mês atual + anteriores · `0` nenhum |
+| `SYNC_ONBOARDING` | no | O que entra depois do onboarding: `off` nada automático (só o Atualizar manual) · `Nd` N dias contando hoje (`1d` só hoje, `2d` hoje e ontem) · `Nm` N meses contando o atual (`1m` padrão) |
+| `DEEP_HISTORY` | no | Histórico antigo na madrugada até a inauguração: `off` (padrão) · `Nm` N meses contando o atual (ex.: `24m`) |
 | `CLOSE_HOUR` | no | Hora local (1ª loja) em que começa o fechamento de ontem (janela de 6h). Padrão `3`; `off` desliga |
 | `SYNC_LOG_VERBOSE` | no | `1` = mostra cada etapa do sync no terminal |
 
@@ -35,7 +36,7 @@ Also reads the repo-root `.env` (maps `VITE_SUPABASE_URL` → `SUPABASE_URL` if 
 
 | `sync_job.kind` | Window | Notes |
 | --------------- | ------ | ----- |
-| `SEED` | hoje | Onboarding (= Atualizar de hoje). Ao terminar enfileira a carga do histórico (`CLOSE` com `fillUntil`), 1 dia por job, de ontem até `SYNC_HISTORY` |
+| `SEED` | hoje | Onboarding (= Atualizar de hoje). Ao terminar enfileira a carga do histórico (`CLOSE` com `fillUntil`), de ontem até o início de `SYNC_ONBOARDING` (`off` = termina sem ir ao ERP) |
 | `HISTORY` | 1 mês fechado atrás do mais antigo no banco | Só manual (`scripts/history-months.ts`); na fila é descartado |
 | `CLOSE` | ontem (+ anteontem se a noite anterior não fechou) ou 1 dia da carga do histórico | Fechamento: 1×/dia na janela `CLOSE_HOUR`…+6h. Mesmo fluxo do FORCE, dia a dia, relógio em 23:59 do dia; não mexe em "Atualizado às…" |
 | `LIGHT` | hoje (calendário da loja) | Cron quando `light_interval_min` venceu |

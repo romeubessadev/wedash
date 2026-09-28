@@ -19,9 +19,6 @@ import {
   shouldBuildProductBrandMap,
   splitFailedWindow,
   storeFetchConcurrency,
-  syncHistoryUntil,
-  syncOnboardingOff,
-  describeSyncHistory,
   type SyncJob,
   type SyncJobDeps,
   type SyncStore,
@@ -158,32 +155,6 @@ describe("fechamento noturno (CLOSE)", () => {
 describe("seedWindow / missingDays / history", () => {
   it("SEED window is current month start → today", () => {
     expect(seedWindow("2026-09-19")).toEqual({ from: "2026-09-01", to: "2026-09-19" });
-  });
-
-  it("SYNC_HISTORY: Nd = N dias atrás; Nm = mês atual + N-1 anteriores; 0 = nenhum; vazio = 1m", () => {
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "1d" })).toBe("2026-09-24");
-    expect(syncHistoryUntil("2026-09-01", { SYNC_HISTORY: "1d" })).toBe("2026-08-31");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "7d" })).toBe("2026-09-18");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "1m" })).toBe("2026-09-01");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "2m" })).toBe("2026-08-01");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "3M" })).toBe("2026-07-01");
-    expect(syncHistoryUntil("2026-01-15", { SYNC_HISTORY: "2m" })).toBe("2025-12-01");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "0" })).toBeNull();
-    expect(syncHistoryUntil("2026-09-25", {})).toBe("2026-09-01");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_HISTORY: "abc" })).toBe("2026-09-01");
-    expect(describeSyncHistory({ SYNC_HISTORY: "1d" })).toBe("hoje + ontem");
-    expect(describeSyncHistory({ SYNC_HISTORY: "3m" })).toBe("mês atual + 2 anterior(es)");
-    expect(describeSyncHistory({ SYNC_HISTORY: "0" })).toBe("só hoje");
-  });
-
-  it("SYNC_ONBOARDING: substitui SYNC_HISTORY; hoje = só hoje; off = nada automático", () => {
-    expect(syncHistoryUntil("2026-09-25", { SYNC_ONBOARDING: "2m", SYNC_HISTORY: "1d" })).toBe("2026-08-01");
-    expect(syncHistoryUntil("2026-09-25", { SYNC_ONBOARDING: "hoje" })).toBeNull();
-    expect(syncHistoryUntil("2026-09-25", { SYNC_ONBOARDING: "off" })).toBeNull();
-    expect(syncOnboardingOff({ SYNC_ONBOARDING: "OFF" })).toBe(true);
-    expect(syncOnboardingOff({ SYNC_ONBOARDING: "hoje" })).toBe(false);
-    expect(syncOnboardingOff({})).toBe(false);
-    expect(describeSyncHistory({ SYNC_ONBOARDING: "hoje" })).toBe("só hoje");
     expect(seedWindow("2026-01-01")).toEqual({ from: "2026-01-01", to: "2026-01-01" });
   });
 

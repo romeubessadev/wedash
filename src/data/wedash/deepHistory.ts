@@ -1,12 +1,10 @@
 /**
- * Carga funda do histórico (madrugada): depois da carga do onboarding (mês atual + anterior),
- * volta mês a mês até a inauguração da loja (teto 24 meses), só com todas as lojas fechadas.
+ * Carga funda do histórico (madrugada): depois da carga do onboarding, volta mês a mês até a
+ * inauguração da loja (teto = `.env DEEP_HISTORY` do worker), só com todas as lojas fechadas.
  * Regras puras — o worker (`enqueueDueDeepHistoryJobs`) consulta o banco e aplica.
  */
 import { addDays, minutesUntilOpen, storePhase, type WeekHours } from "./autoRefresh.ts";
 
-/** Teto: meses fechados antes do mês atual. */
-export const DEEP_HISTORY_MONTHS = 24;
 /** Intervalo entre um mês e o próximo. */
 export const DEEP_HISTORY_SPACING_MIN = 15;
 /** Para esse tempo antes da abertura da primeira loja. */
@@ -39,9 +37,8 @@ export function isDeepHistoryWindow(stores: Array<{ hours: WeekHours; timezone: 
   });
 }
 
-/** Dia mais antigo a carregar: inauguração, sem passar de 24 meses antes do mês atual. */
-export function deepHistoryFloor(openedAt: string | null | undefined, todayIso: string): string {
-  const cap = addMonths(monthStart(todayIso), -DEEP_HISTORY_MONTHS);
+/** Dia mais antigo a carregar: inauguração, sem passar do teto (`cap`, 1º dia do mês mais antigo). */
+export function deepHistoryFloor(openedAt: string | null | undefined, cap: string): string {
   const opened = openedAt ? openedAt.slice(0, 10) : null;
   return opened && opened > cap ? opened : cap;
 }
