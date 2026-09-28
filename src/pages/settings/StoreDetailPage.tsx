@@ -22,7 +22,7 @@ const DOWS: Dow[] = [0, 1, 2, 3, 4, 5, 6];
 
 /**
  * Administração > Lojas > detalhe — funcionamento (fuso + horário).
- * Custos ficam em Configurações da operação; turnos e equipe em Gestão.
+ * Custos ficam em Configurações; turnos e equipe em Gestão.
  */
 export function StoreDetailPage() {
   const { id } = useParams();

@@ -33,12 +33,12 @@ function toDrafts(items: StoreCostItem[]): Draft[] {
 
 const snapshot = (ds: Draft[]) => JSON.stringify(ds.map(({ id, kind, name, value }) => ({ id, kind, name: name.trim(), value: value.trim() })));
 
-/** Configurações da operação > Custos — custos fixos, variáveis e outras despesas de cada loja. */
+/** Configurações > Custos — custos fixos, variáveis e outras despesas de cada loja. */
 export function CostsPage() {
   const { session, lojas, loading, refresh } = useScopedStores();
   return (
     <StoreCardsPage
-      section="Configurações da operação"
+      section="Configurações"
       title="Custos"
       subtitle="Configure os custos fixos, variáveis e outras despesas de cada loja."
       loading={loading}

@@ -22,12 +22,12 @@ const RENT_FIELDS: CostField[] = [
   },
 ];
 
-/** Configurações da operação > Aluguel — mínimo mensal e percentual do faturamento. */
+/** Configurações > Aluguel — mínimo mensal e percentual do faturamento. */
 export function RentPage() {
   const { lojas, loading, refresh } = useScopedStores();
   return (
     <StoreCardsPage
-      section="Configurações da operação"
+      section="Configurações"
       title="Aluguel"
       subtitle="A WeDash considera o maior valor entre o aluguel mínimo e o percentual sobre o faturamento."
       loading={loading}

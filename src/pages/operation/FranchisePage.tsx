@@ -16,12 +16,12 @@ function franchiseFields(loja: Store): CostField[] {
   ];
 }
 
-/** Configurações da operação > Franquia — royalties e taxa de marketing por marca. */
+/** Configurações > Franquia — royalties e taxa de marketing por marca. */
 export function FranchisePage() {
   const { lojas, loading, refresh } = useScopedStores();
   return (
     <StoreCardsPage
-      section="Configurações da operação"
+      section="Configurações"
       title="Franquia"
       subtitle="Configure royalties e taxa de marketing pagos à franqueadora."
       loading={loading}

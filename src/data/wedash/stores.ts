@@ -30,7 +30,7 @@ export interface Store {
   custos?: StoreCosts;
   /** Tabela de custo do Millennium: completa o custo de produto que vem zerado na margem. */
   costTableId?: number | null;
-  /** Custos fixos / variáveis / outras despesas (Configurações da operação > Custos). */
+  /** Custos fixos / variáveis / outras despesas (Configurações > Custos). */
   custoItens?: StoreCostItem[];
 }
 

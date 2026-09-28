@@ -11,7 +11,7 @@ const TAX_FIELDS: CostField[] = [
   pctField("icmsStPct", "ICMS ST", "Percentual sobre o custo dos produtos (CMV)."),
 ];
 
-/** Configurações da operação > Produtos e impostos — tabela de custo do Millennium, ICMS e ICMS ST. */
+/** Configurações > Produtos e impostos — tabela de custo do Millennium, ICMS e ICMS ST. */
 export function ProductsTaxesPage() {
   const { show } = useToast();
   const { lojas, loading, refresh } = useScopedStores();
@@ -39,7 +39,7 @@ export function ProductsTaxesPage() {
 
   return (
     <StoreCardsPage
-      section="Configurações da operação"
+      section="Configurações"
       title="Produtos e impostos"
       subtitle="Configure a tabela de custo dos produtos e os impostos de cada loja."
       actions={

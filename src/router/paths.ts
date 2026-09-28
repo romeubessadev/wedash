@@ -46,7 +46,7 @@ export const paths = {
     shifts: "/management/shifts",
     staff: "/management/staff",
   },
-  /** Configurações da operação: parâmetros de custo por loja usados no Financeiro. */
+  /** Configurações: parâmetros de custo por loja usados no Financeiro. */
   operation: {
     costs: "/operation/costs",
     franchise: "/operation/franchise",

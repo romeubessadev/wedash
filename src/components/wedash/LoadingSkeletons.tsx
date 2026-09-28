@@ -606,7 +606,7 @@ export function ShiftRowsSkeleton({ rows = 2 }: { rows?: number }) {
 }
 
 /**
- * Telas de Gestão / Configurações da operação: 1 card por loja (ícone + fantasia + CNPJ).
+ * Telas de Gestão / Configurações: 1 card por loja (ícone + fantasia + CNPJ).
  * `fields` = grade de campos; `rows` = linhas editáveis (Custos); `shifts` = Turnos; `team` = Colaboradores.
  */
 export function StoreCardsSkeleton({

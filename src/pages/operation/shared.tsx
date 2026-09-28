@@ -39,11 +39,11 @@ export function useScopedStores() {
   return { session, lojas, loading, refresh: () => setTick((n) => n + 1) };
 }
 
-export type SectionName = "Gestão" | "Configurações da operação";
+export type SectionName = "Gestão" | "Configurações";
 
 const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
   Gestão: managementTabs,
-  "Configurações da operação": operationTabs,
+  "Configurações": operationTabs,
 };
 
 /** Código das outras abas da seção — baixado junto para a troca de aba não esperar o download. */
@@ -54,7 +54,7 @@ const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
     () => import("@/pages/management/ShiftsPage"),
     () => import("@/pages/management/StaffPage"),
   ],
-  "Configurações da operação": [
+  "Configurações": [
     () => import("@/pages/operation/CostsPage"),
     () => import("@/pages/operation/FranchisePage"),
     () => import("@/pages/operation/RentPage"),

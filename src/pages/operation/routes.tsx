@@ -9,7 +9,7 @@ const FranchisePage = lazyPage(() => import("./FranchisePage"), "FranchisePage")
 const RentPage = lazyPage(() => import("./RentPage"), "RentPage");
 const ProductsTaxesPage = lazyPage(() => import("./ProductsTaxesPage"), "ProductsTaxesPage");
 
-/** Configurações da operação — só Gestor (custos alimentam o Financeiro). */
+/** Configurações — só Gestor (custos alimentam o Financeiro). */
 export const operationRoutes: RouteObject[] = [
   {
     element: <RequireRole roles={GESTOR_ROLES} />,

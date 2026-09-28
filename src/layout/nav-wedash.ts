@@ -34,7 +34,7 @@ const gestao: NavGroup = {
 
 /** Custos · Franquia · Aluguel · Produtos e impostos (só Gestor). */
 const operacao: NavGroup = {
-  label: "Configurações da operação",
+  label: "Configurações",
   description: "Defina os parâmetros usados pela WeDash para calcular custos, margens e resultados.",
   icon: ICONE.config,
   items: [
@@ -64,7 +64,7 @@ const navGestor: NavEntry[] = [
   operacao,
 ];
 
-/** Gerente: sem Financeiro nem Configurações da operação. Lojas fica no menu do avatar. */
+/** Gerente: sem Financeiro nem Configurações. Lojas fica no menu do avatar. */
 const navGerente: NavEntry[] = [
   {
     label: "Dashboard",
@@ -78,7 +78,7 @@ const navGerente: NavEntry[] = [
   gestao,
 ];
 
-/** Telas só do Gestor (Financeiro, Configurações da operação, Usuários, Integrações, Logs). */
+/** Telas só do Gestor (Financeiro, Configurações, Usuários, Integrações, Logs). */
 export const GESTOR_ROLES: Role[] = ["OWNER", "ADMIN_GLOBAL"];
 
 export function isGestor(role: Role): boolean {
