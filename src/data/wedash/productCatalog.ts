@@ -21,6 +21,7 @@ const SYNC_PRODUCTS_ERRORS: Record<string, string> = {
 
 export type ProductsSyncScope =
   | { scope: "tables" }
+  | { scope: "registry" }
   | { scope: "table"; tableId: number }
   | { scope: "costs"; storeIds: string[]; from: string; to: string };
 
@@ -56,6 +57,8 @@ export async function syncProductsNow(
         ? "Não foi possível atualizar os custos. Tente novamente."
         : request.scope === "tables"
           ? "Não foi possível atualizar as tabelas de custo. Tente novamente."
-          : "Não foi possível buscar os custos no Millennium. Tente novamente."),
+          : request.scope === "registry"
+            ? "Não foi possível atualizar os cadastros. Tente novamente."
+            : "Não foi possível buscar os custos no Millennium. Tente novamente."),
   };
 }

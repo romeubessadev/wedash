@@ -3,6 +3,8 @@
  * O catálogo de produtos não passa por aqui: o worker recarrega sozinho quando precisa.
  * - `scope: "tables"` (padrão; Atualizar do card Custo dos produtos da loja): só a lista de tabelas de custo (1 chamada).
  * - `scope: "table", tableId` (Salvar do card): preços só dessa tabela (1 chamada, ~3s).
+ * - `scope: "registry"` (Atualizar do card Millennium em Integrações): lista de tabelas de custo + dados das
+ *   lojas do tenant (FILIAIS.Lista; loja nova no ERP não entra). 2 chamadas, sem lease.
  * - `scope: "costs", storeIds, from, to` (Atualizar custos do aviso de produtos sem custo): preços da tabela
  *   de cada loja afetada + margem do período por loja; grava o custo que o Millennium passou a devolver.
  * Custo fica por tabela (product_cost_table_price), nunca no catálogo: o catálogo é da rede inteira e cada
@@ -12,7 +14,7 @@
  */
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
-import { loginMillennium } from "../_shared/millennium.ts";
+import { listMillenniumStores, loginMillennium } from "../_shared/millennium.ts";
 import { MillenniumHttpError } from "../_shared/millenniumSellers.ts";
 import { fetchMargemUnitCosts } from "../_shared/millenniumMargem.ts";
 import { fetchCostTablePrices, fetchCostTables } from "../_shared/millenniumProducts.ts";
@@ -66,9 +68,9 @@ async function savePrices(admin: SupabaseClient, tableId: number, prices: Map<st
   if (error) throw error;
 }
 
-type Scope = "tables" | "table" | "costs";
+type Scope = "tables" | "table" | "costs" | "registry";
 type CostsRequest = { storeIds: string[]; from: string; to: string };
-type RefreshResult = { tables?: number; prices?: number; fixed?: number; missing?: number };
+type RefreshResult = { tables?: number; stores?: number; prices?: number; fixed?: number; missing?: number };
 type ZeroRow = { store_id: string; day: string; product_code: string; item_count: number };
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -92,6 +94,34 @@ async function refreshTableList(admin: SupabaseClient, session: string): Promise
   );
   if (error) throw error;
   return tables.length;
+}
+
+/** Lojas do tenant que o ERP devolve: atualiza código, nome, fantasia, CNPJ e inauguração. Loja nova não entra. */
+async function refreshStores(admin: SupabaseClient, session: string, tenantId: string): Promise<number> {
+  const erp = await listMillenniumStores(session);
+  const { data, error } = await admin
+    .from("store")
+    .select("id, millennium_store_id, code, name, trade_name, tax_id, opened_at")
+    .eq("tenant_id", tenantId);
+  if (error) throw error;
+  const byErpId = new Map((data ?? []).map((r) => [Number(r.millennium_store_id), r]));
+  let updated = 0;
+  for (const s of erp) {
+    const row = byErpId.get(s.storeId);
+    if (!row) continue;
+    const opened = /^\d{4}-\d{2}-\d{2}/.test(s.openedAt ?? "") ? s.openedAt.slice(0, 10) : "";
+    const patch: Record<string, string> = {};
+    if (s.code && s.code !== row.code) patch.code = s.code;
+    if (s.name && s.name !== row.name) patch.name = s.name;
+    if (s.tradeName && s.tradeName !== row.trade_name) patch.trade_name = s.tradeName;
+    if (s.taxId?.trim() && s.taxId.trim() !== row.tax_id) patch.tax_id = s.taxId.trim();
+    if (opened && opened !== (row.opened_at ? String(row.opened_at).slice(0, 10) : "")) patch.opened_at = opened;
+    if (Object.keys(patch).length === 0) continue;
+    const { error: upErr } = await admin.from("store").update(patch).eq("id", row.id);
+    if (upErr) throw upErr;
+    updated++;
+  }
+  return updated;
 }
 
 async function refreshTablePrices(admin: SupabaseClient, session: string, tableId: number): Promise<number> {
@@ -234,6 +264,11 @@ async function refresh(
 ): Promise<RefreshResult> {
   if (scope === "costs") return refreshCosts(admin, session, tenantId, costs!);
   if (scope === "table") return { prices: await refreshTablePrices(admin, session, tableId!) };
+  if (scope === "registry") {
+    // Tabelas primeiro: sessão caída vira MillenniumHttpError 401 (relogin) antes da lista de lojas.
+    const tables = await refreshTableList(admin, session);
+    return { tables, stores: await refreshStores(admin, session, tenantId) };
+  }
   return { tables: await refreshTableList(admin, session) };
 }
 
@@ -266,6 +301,7 @@ Deno.serve(async (req) => {
       scope = "table";
       tableId = Number(body.tableId);
     }
+    if (body?.scope === "registry") scope = "registry";
     if (body?.scope === "costs") {
       scope = "costs";
       costs = {
@@ -339,16 +375,22 @@ Deno.serve(async (req) => {
   };
 
   const owner = `app-${crypto.randomUUID()}`;
-  const { data: claimed, error: claimErr } = await admin.rpc("claim_product_catalog_refresh", {
-    p_owner: owner,
-    p_lease_seconds: LEASE_SEC,
-    p_min_interval_seconds: 0,
-  });
-  if (claimErr) {
-    console.error("erp-products-sync claim", claimErr.message);
-    return json({ ok: false, error: "erp_request_failed" });
+  const leased = scope !== "registry";
+  const release = async (error: string | null) => {
+    if (leased) await admin.rpc("release_product_catalog_refresh", { p_owner: owner, p_ok: false, p_error: error });
+  };
+  if (leased) {
+    const { data: claimed, error: claimErr } = await admin.rpc("claim_product_catalog_refresh", {
+      p_owner: owner,
+      p_lease_seconds: LEASE_SEC,
+      p_min_interval_seconds: 0,
+    });
+    if (claimErr) {
+      console.error("erp-products-sync claim", claimErr.message);
+      return json({ ok: false, error: "erp_request_failed" });
+    }
+    if (claimed !== true) return json({ ok: false, error: "busy" });
   }
-  if (claimed !== true) return json({ ok: false, error: "busy" });
 
   let session = (cred.millennium_session as string | null)?.trim() || null;
   let reused = session != null;
@@ -356,7 +398,7 @@ Deno.serve(async (req) => {
     if (!session) {
       const s = await login();
       if (typeof s !== "string") {
-        await admin.rpc("release_product_catalog_refresh", { p_owner: owner, p_ok: false, p_error: s.error });
+        await release(s.error);
         return json({ ok: false, error: s.error });
       }
       session = s;
@@ -369,18 +411,18 @@ Deno.serve(async (req) => {
       reused = false;
       const s = await login();
       if (typeof s !== "string") {
-        await admin.rpc("release_product_catalog_refresh", { p_owner: owner, p_ok: false, p_error: s.error });
+        await release(s.error);
         return json({ ok: false, error: s.error });
       }
       result = await refresh(admin, s, tenantId, scope, tableId, costs);
     }
     // p_ok=false + p_error=null libera sem mexer em refreshed_at (só a recarga do catálogo no worker atualiza).
-    await admin.rpc("release_product_catalog_refresh", { p_owner: owner, p_ok: false, p_error: null });
+    await release(null);
     return json({ ok: true, ...result });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("erp-products-sync", msg);
-    await admin.rpc("release_product_catalog_refresh", { p_owner: owner, p_ok: false, p_error: msg.slice(0, 500) });
+    await release(msg.slice(0, 500));
     return json({ ok: false, error: "erp_request_failed" });
   }
 });

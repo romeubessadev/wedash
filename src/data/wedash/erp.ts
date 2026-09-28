@@ -7,7 +7,7 @@ import { stores, type Store } from "./stores";
 import { getSupabase } from "@/lib/supabase";
 import { persistErpCredentialAndStores } from "@/session/authApi";
 import { parseStoreHours, type WeekHours } from "./autoRefresh";
-import { waitForSyncJob } from "./salesRepo";
+import { syncProductsNow } from "./productCatalog";
 
 function esperar(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
@@ -225,37 +225,17 @@ export async function setAutoRefreshEnabled(tenantId: string, enabled: boolean):
   return !error;
 }
 
-const REGISTRY_ERRORS: Record<string, string> = {
-  credential_invalid: "A senha do Millennium está inválida. Conecte de novo para atualizar os cadastros.",
-  integration_paused: "O Millennium está desconectado. Conecte de novo para atualizar os cadastros.",
-  forbidden: "Só o gestor pode atualizar os cadastros.",
-};
-const REGISTRY_FAIL = "Não foi possível atualizar os cadastros. Tente novamente.";
-
 /**
- * Atualizar cadastros: lojas, colaboradores, produtos e tabelas de custo do Millennium (nada de venda).
- * Enfileira o job REGISTRY e espera o worker terminar (clique repetido acompanha o job aberto).
+ * Atualizar do card Millennium: lojas do tenant + opções de tabela de custo do ERP (nada de venda).
+ * Síncrono (Edge `erp-products-sync`, `scope: "registry"`), sem passar pela fila do worker.
  */
 export async function refreshErpRegistry(): Promise<{ ok: true } | { ok: false; message: string }> {
-  const sb = getSupabase();
-  if (!sb) {
+  if (!getSupabase()) {
     await esperar(1200);
     return { ok: true };
   }
-  const { data, error } = await sb.functions.invoke("erp-sync-enqueue", { body: { action: "registry" } });
-  let body = data as { ok?: boolean; error?: string; job?: { id?: string } } | null;
-  if ((!body || typeof body !== "object") && error && typeof error === "object") {
-    const ctx = (error as { context?: Response }).context;
-    if (ctx && typeof ctx.json === "function") body = await ctx.json().catch(() => null);
-  }
-  const jobId = body?.job?.id;
-  if (!body?.ok || !jobId) return { ok: false, message: REGISTRY_ERRORS[body?.error ?? ""] ?? REGISTRY_FAIL };
-  const r = await waitForSyncJob(jobId, { timeoutMs: 10 * 60 * 1000 });
-  if (r.status === "SUCCEEDED") return { ok: true };
-  if (r.status === "TIMEOUT") {
-    return { ok: false, message: "O sincronizador não respondeu. Os cadastros serão atualizados quando ele voltar." };
-  }
-  return { ok: false, message: REGISTRY_FAIL };
+  const r = await syncProductsNow({ scope: "registry" });
+  return r.ok ? { ok: true } : r;
 }
 
 export type StoreSyncState = {
