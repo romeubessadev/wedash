@@ -372,6 +372,19 @@ export function ProductsSkeleton() {
   );
 }
 
+export function TeamSkeleton() {
+  return (
+    <Busy>
+      <KpiRowSkeleton />
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DonutCardSkeleton rows={3} withSub lg />
+        <DonutCardSkeleton rows={2} withSub lg />
+      </div>
+      <WideTableSkeleton cols={9} rows={8} actions />
+    </Busy>
+  );
+}
+
 /* ---------------- Configurações ---------------- */
 
 type TableCell = "person" | "text" | "short" | "pill" | "select" | "menu";

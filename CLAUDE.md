@@ -645,6 +645,13 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - **Config do Supabase (Auth):** template **Invite user** com link `{{ .SiteURL }}/invite/{{ .TokenHash }}` (abre direto na tela de senha); se ficar o link padrão, incluir `https://<app>/invite/link` em Redirect URLs. Validade do link = "Email OTP expiration".
  - Suspender não derruba uma sessão já aberta até o próximo carregamento do app.
  - **Último acesso = uso real do app** (2026-09-26, migration `20260926160000_identity_last_seen`): `identity.last_seen_at`, gravado pela RPC `touch_last_seen()` (no máx. 1x a cada 5 min) que o `AppShell` chama ao abrir, a cada 5 min com a aba visível e ao voltar para o app. A Edge mostra o mais recente entre isso e o último login do Auth (a sessão fica salva por dias, então só o login ficava desatualizado).
+
+42. ✅ **Dashboard > Equipe em dados reais** (2026-09-28) — `buildTeamDashboardView(escopo, aggs)` (`dashboard.ts`); a fixture de metas/escada/desafios saiu da tela (`teamViews.ts` / `blocos.tsx` seguem só para o Ao vivo). **Metas, escada e desafios entram quando os módulos existirem.** Mesmo padrão das demais telas: filtros = só Período + Exportar (sem Marca, sem Grupo), "Última atualização", avisos da carga, `TeamSkeleton`, vazio por card, `brlCent`, recarrega com o Atualizar do Topbar.
+ - Fonte: `sales_seller_day_agg` (já sem gerência / conta de freelancer, #36) + `sales_day_agg` ALL (faturamento das lojas) + `fetchSellerShifts` (turno). Pessoa = código da funcionária, senão nome (igual Destaques da equipe).
+ - **KPIs:** Faturamento da equipe (sub "N pessoas · média de R$ X"; tooltip: não inclui vendas sem vendedor ou de gerência) · Nº de vendas (sub itens vendidos) · Ticket médio · P.A. ("—" se algum dia com venda não tem itens — nada estimado).
+ - **Comparativo sem hora** (não há dado por pessoa/hora): período terminando hoje compara até ontem nos dois lados ("…, até o mesmo dia"); **Hoje = sem badge**. Sem venda no período → sem badge.
+ - **Cards:** Faturamento por turno (donut; "Sem turno definido" por último, cinza; sem nenhum turno cadastrado nas lojas → 🕒 "Turnos não configurados" + "Configurar turnos" → detalhe da loja / lista, só Gestor/Gerente) · Composição do faturamento (Equipe de vendas × Sem vendedor ou gerência) · Desempenho da equipe (tabela: # · Nome [+ loja principal com >1 loja] · Turno · Faturamento · Nº de vendas · Ticket médio · P.A. · Participação · Variação; busca por nome, Exportar CSV, Total do filtro, paginação "pessoas", card por pessoa no celular).
+ - Turno da pessoa = `sellerShiftResolver` (compartilhado com o popover do Destaques da equipe).
 ---
 
 ## Ordem de construção das subtelas (DECIDIDO)

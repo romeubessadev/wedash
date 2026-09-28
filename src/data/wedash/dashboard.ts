@@ -2780,6 +2780,271 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
   };
 }
 
+/**
+ * Turno da pessoa (Configurações > Lojas): liga pelo código da funcionária → gerador → nome,
+ * na ordem das lojas recebida (maior venda primeiro). Rótulo "Manhã · 09:00–15:00".
+ */
+function sellerShiftResolver(shifts: import("./salesTypes").SellerShiftRef[] = []) {
+  const porFunc = new Map<string, string>();
+  const porGerador = new Map<number, string>();
+  const porNome = new Map<string, string>();
+  for (const s of shifts) {
+    const label = `${s.name} · ${s.start}–${s.end}`;
+    if (s.employeeId != null) porFunc.set(`${s.storeId}|${s.employeeId}`, label);
+    if (s.geradorId != null) porGerador.set(s.geradorId, label);
+    for (const k of s.nameKeys) porNome.set(`${s.storeId}|${k}`, label);
+  }
+  return (p: { employeeId: number | null; geradorId: number | null; sellerKeys: Set<string>; lojas: string[] }): string | undefined => {
+    for (const loja of p.lojas) {
+      const f = p.employeeId != null ? porFunc.get(`${loja}|${p.employeeId}`) : undefined;
+      if (f) return f;
+    }
+    if (p.geradorId != null && porGerador.has(p.geradorId)) return porGerador.get(p.geradorId);
+    for (const loja of p.lojas) {
+      for (const k of p.sellerKeys) {
+        const n = porNome.get(`${loja}|${k}`);
+        if (n) return n;
+      }
+    }
+    return undefined;
+  };
+}
+
+/* ================================================================
+ * TELA EQUIPE — camada de dados (agregados reais do sync)
+ * ================================================================ */
+
+export interface TeamKpi {
+  label: string;
+  valor: string;
+  sub?: string;
+  delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string };
+  tooltip?: string;
+}
+
+export interface TeamMemberRow {
+  key: string;
+  nome: string;
+  /** Lojas onde vendeu no período, da que mais faturou para a que menos. */
+  lojas: string[];
+  /** "Manhã · 09:00–15:00"; ausente = sem turno definido. */
+  turno?: string;
+  faturamento: number;
+  vendas: number;
+  itens: number;
+  ticketMedio: number;
+  /** Itens por venda; null se algum dia com venda não tem itens gravados (nada estimado). */
+  pa: number | null;
+  participacaoPct: number;
+  /** Faturamento vs período anterior (sem hora: terminando hoje, até ontem nos dois lados). */
+  variacaoPct: number | null;
+}
+
+export interface TeamShiftSlice {
+  nome: string;
+  faturamento: number;
+  pessoas: number;
+}
+
+export interface TeamDashboardView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
+  kpis: TeamKpi[];
+  pessoas: TeamMemberRow[];
+  /** Maior faturamento primeiro; "Sem turno definido" sempre por último. */
+  turnos: TeamShiftSlice[];
+  /** Alguma pessoa das lojas do escopo tem turno cadastrado. */
+  turnosConfigurados: boolean;
+  /** Faturamento das lojas = equipe + vendas sem vendedor ou de gerência. */
+  composicao: { equipe: number; fora: number; total: number };
+  vsVariacao: string;
+  /** Mais de 1 loja no escopo → mostra a loja de cada pessoa. */
+  multiLoja: boolean;
+}
+
+export type TeamAggInput = {
+  dayAggs: import("./salesTypes").SalesDayAgg[];
+  sellerDayAggs?: import("./salesTypes").SalesSellerDayAgg[];
+  sellerShifts?: import("./salesTypes").SellerShiftRef[];
+};
+
+export const TEAM_SEM_TURNO = "Sem turno definido";
+
+/**
+ * Equipe a partir dos agregados do sync (sales_seller_day_agg, sem gerência / conta de freelancer).
+ * Sem dado por hora: período terminando hoje compara até ontem nos dois lados; em "Hoje" fica sem badge.
+ */
+export function buildTeamDashboardView(escopo: Scope, input: TeamAggInput = { dayAggs: [] }): TeamDashboardView {
+  const esc: Scope = { ...escopo, divisao: null };
+  const periodo = resolvePeriod(esc.periodo, calendarTodayIso());
+  const fs = storesInScope(esc);
+  const storeIds = new Set(fs.map((f) => f.id));
+  const nomeLoja = new Map(fs.map((f) => [f.id, f.fantasia]));
+
+  const ant = previousPeriod(periodo, calendarCurrentHour());
+  const cortaHoje = ant.horaMax != null;
+  const fimCmp = cortaHoje ? somarDias(periodo.fim, -1) : periodo.fim;
+  const antFimCmp = cortaHoje ? somarDias(ant.fim, -1) : ant.fim;
+  const vsCmp = cortaHoje ? `${ant.rotulo}, até o mesmo dia` : ant.rotulo;
+  const noAtual = (d: string) => d >= periodo.inicio && d <= periodo.fim;
+  const noAtualCmp = (d: string) => d >= periodo.inicio && d <= fimCmp;
+  const noAntCmp = (d: string) => d >= ant.inicio && d <= antFimCmp;
+
+  type Tot = { fat: number; vendas: number; itens: number; semItens: boolean };
+  const novoTot = (): Tot => ({ fat: 0, vendas: 0, itens: 0, semItens: false });
+  const somar = (t: Tot, r: import("./salesTypes").SalesSellerDayAgg) => {
+    t.fat += r.revenueCents / 100;
+    t.vendas += r.salesCount;
+    t.itens += r.itemCount ?? 0;
+    if (r.salesCount > 0 && !(r.itemCount && r.itemCount > 0)) t.semItens = true;
+  };
+
+  type Acc = {
+    nome: string;
+    nomeDia: string;
+    atual: Tot;
+    fatCmp: number;
+    fatAnt: number;
+    fatPorLoja: Map<string, number>;
+    employeeId: number | null;
+    geradorId: number | null;
+    sellerKeys: Set<string>;
+  };
+  const acc = new Map<string, Acc>();
+  const totAtual = novoTot();
+  const totCmp = novoTot();
+  const totAnt = novoTot();
+  for (const r of input.sellerDayAggs ?? []) {
+    if (!storeIds.has(r.storeId)) continue;
+    const key = r.sellerEmployeeId != null ? `e:${r.sellerEmployeeId}` : `n:${r.sellerKey}`;
+    const a = acc.get(key) ?? {
+      nome: r.sellerName,
+      nomeDia: r.day,
+      atual: novoTot(),
+      fatCmp: 0,
+      fatAnt: 0,
+      fatPorLoja: new Map<string, number>(),
+      employeeId: r.sellerEmployeeId ?? null,
+      geradorId: null,
+      sellerKeys: new Set<string>(),
+    };
+    a.sellerKeys.add(r.sellerKey);
+    if (r.sellerGeradorId != null) a.geradorId = r.sellerGeradorId;
+    if (r.day > a.nomeDia) {
+      a.nome = r.sellerName;
+      a.nomeDia = r.day;
+    }
+    if (noAtual(r.day)) {
+      somar(a.atual, r);
+      somar(totAtual, r);
+      a.fatPorLoja.set(r.storeId, (a.fatPorLoja.get(r.storeId) ?? 0) + r.revenueCents);
+    }
+    if (noAtualCmp(r.day)) {
+      a.fatCmp += r.revenueCents / 100;
+      somar(totCmp, r);
+    }
+    if (noAntCmp(r.day)) {
+      a.fatAnt += r.revenueCents / 100;
+      somar(totAnt, r);
+    }
+    acc.set(key, a);
+  }
+
+  const turnoDe = sellerShiftResolver(input.sellerShifts);
+  const pessoas: TeamMemberRow[] = [...acc.entries()]
+    .filter(([, a]) => a.atual.fat > 0 || a.atual.vendas > 0)
+    .map(([key, a]) => {
+      const lojasIds = [...a.fatPorLoja.entries()].sort((x, y) => y[1] - x[1]).map(([id]) => id);
+      return {
+        key,
+        nome: a.nome,
+        lojas: lojasIds.map((id) => nomeLoja.get(id)).filter((n): n is string => Boolean(n)),
+        turno: turnoDe({ employeeId: a.employeeId, geradorId: a.geradorId, sellerKeys: a.sellerKeys, lojas: lojasIds }),
+        faturamento: a.atual.fat,
+        vendas: a.atual.vendas,
+        itens: a.atual.itens,
+        ticketMedio: divSeguro(a.atual.fat, a.atual.vendas),
+        pa: a.atual.semItens || a.atual.vendas === 0 ? null : a.atual.itens / a.atual.vendas,
+        participacaoPct: divSeguro(a.atual.fat, totAtual.fat) * 100,
+        variacaoPct: a.fatAnt > 0 && a.fatCmp > 0 ? ((a.fatCmp - a.fatAnt) / a.fatAnt) * 100 : null,
+      };
+    })
+    .sort((x, y) => y.faturamento - x.faturamento || x.nome.localeCompare(y.nome, "pt-BR"));
+
+  // Turnos: soma por rótulo; sem turno por último.
+  const porTurno = new Map<string, TeamShiftSlice>();
+  for (const p of pessoas) {
+    const nome = p.turno ?? TEAM_SEM_TURNO;
+    const s = porTurno.get(nome) ?? { nome, faturamento: 0, pessoas: 0 };
+    s.faturamento += p.faturamento;
+    s.pessoas += 1;
+    porTurno.set(nome, s);
+  }
+  const turnos = [...porTurno.values()]
+    .filter((s) => s.faturamento > 0)
+    .sort((a, b) => {
+      if (a.nome === TEAM_SEM_TURNO) return 1;
+      if (b.nome === TEAM_SEM_TURNO) return -1;
+      return b.faturamento - a.faturamento;
+    });
+  const turnosConfigurados = (input.sellerShifts ?? []).some((s) => storeIds.has(s.storeId));
+
+  const totalLojas = input.dayAggs
+    .filter((r) => r.brand === "ALL" && storeIds.has(r.storeId) && noAtual(r.day))
+    .reduce((s, r) => s + r.revenueCents / 100, 0);
+  const fora = Math.max(0, totalLojas - totAtual.fat);
+
+  // Comparativos: só com venda no período atual (nunca −100%) e dado nos dois lados.
+  const comparavel = totAtual.fat > 0 && totCmp.vendas > 0 && totAnt.vendas > 0;
+  const ticketCmp = divSeguro(totCmp.fat, totCmp.vendas);
+  const ticketAnt = divSeguro(totAnt.fat, totAnt.vendas);
+  const deltaEquipe = comparavel ? kpiDelta(totCmp.fat, totAnt.fat, vsCmp) : undefined;
+  const n = pessoas.length;
+  const ticket = divSeguro(totAtual.fat, totAtual.vendas);
+  const pa = totAtual.semItens || totAtual.vendas === 0 ? null : totAtual.itens / totAtual.vendas;
+  const paComparavel = comparavel && !totCmp.semItens && !totAnt.semItens;
+
+  const kpis: TeamKpi[] = [
+    {
+      label: "Faturamento da equipe",
+      valor: brlCent(totAtual.fat),
+      sub: n > 0 ? `${n} ${n === 1 ? "pessoa" : "pessoas"} · média de ${brlCent(totAtual.fat / n)}` : undefined,
+      delta: deltaEquipe,
+      tooltip: "Vendas feitas pela equipe de vendas. Não inclui vendas sem vendedor ou de gerência.",
+    },
+    {
+      label: "Nº de vendas",
+      valor: num(totAtual.vendas),
+      sub: totAtual.vendas > 0 && !totAtual.semItens ? `${num(totAtual.itens)} itens vendidos` : undefined,
+      delta: comparavel ? kpiDelta(totCmp.vendas, totAnt.vendas, vsCmp, false) : undefined,
+    },
+    {
+      label: "Ticket médio",
+      valor: brlCent(ticket),
+      delta: comparavel ? kpiDelta(ticketCmp, ticketAnt, vsCmp) : undefined,
+    },
+    {
+      label: "P.A.",
+      valor: pa == null ? (totAtual.vendas > 0 ? "—" : num(0, 2)) : num(pa, 2),
+      sub: "Itens por venda",
+      delta: paComparavel ? kpiDelta(totCmp.itens / totCmp.vendas, totAnt.itens / totAnt.vendas, vsCmp, false) : undefined,
+      tooltip: pa == null && totAtual.vendas > 0 ? "O P.A. não está disponível para este período." : "Média de itens por venda.",
+    },
+  ];
+
+  return {
+    escopo: esc,
+    periodo,
+    kpis,
+    pessoas,
+    turnos,
+    turnosConfigurados,
+    composicao: { equipe: totAtual.fat, fora, total: totAtual.fat + fora },
+    vsVariacao: vsCmp,
+    multiLoja: fs.length > 1,
+  };
+}
+
 /* ================================================================
  * TELA GRUPOS — camada de dados (montarGruposView)
  * ================================================================ */
@@ -3530,7 +3795,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
           valor: wpink.vendasIncompletas ? "—" : brlCent(wpinkTicket),
           sub:
             wpinkVendas > 0
-              ? `P.A. ${divSeguro(wpinkItens, wpinkVendas).toFixed(2)}`
+              ? `P.A. ${num(divSeguro(wpinkItens, wpinkVendas), 2)}`
               : undefined,
           tint: "info",
         },
@@ -3663,7 +3928,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     {
       label: "Ticket médio",
       valor: brlCent(ticket),
-      sub: atendimentos > 0 ? `P.A. ${divSeguro(itens, atendimentos).toFixed(2)}` : undefined,
+      sub: atendimentos > 0 ? `P.A. ${num(divSeguro(itens, atendimentos), 2)}` : undefined,
       delta: temComp && ticket > 0 ? kpiDelta(ticket, antTicket, vsRotulo) : undefined,
     },
   ];
@@ -3915,31 +4180,14 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
       .map(([id]) => nomeLoja.get(id))
       .filter((n): n is string => Boolean(n));
 
-  // Turno (Configurações > Lojas): liga pelo código da funcionária → gerador → nome, loja de maior venda primeiro.
-  const turnoPorFunc = new Map<string, string>();
-  const turnoPorGerador = new Map<number, string>();
-  const turnoPorNome = new Map<string, string>();
-  for (const s of input.sellerShifts ?? []) {
-    const label = `${s.name} · ${s.start}–${s.end}`;
-    if (s.employeeId != null) turnoPorFunc.set(`${s.storeId}|${s.employeeId}`, label);
-    if (s.geradorId != null) turnoPorGerador.set(s.geradorId, label);
-    for (const k of s.nameKeys) turnoPorNome.set(`${s.storeId}|${k}`, label);
-  }
-  const turnoDaVendedora = (v: VendAcc): string | undefined => {
-    const lojas = [...v.fatPorLoja.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
-    for (const loja of lojas) {
-      const porFunc = v.employeeId != null ? turnoPorFunc.get(`${loja}|${v.employeeId}`) : undefined;
-      if (porFunc) return porFunc;
-    }
-    if (v.geradorId != null && turnoPorGerador.has(v.geradorId)) return turnoPorGerador.get(v.geradorId);
-    for (const loja of lojas) {
-      for (const k of v.sellerKeys) {
-        const porNome = turnoPorNome.get(`${loja}|${k}`);
-        if (porNome) return porNome;
-      }
-    }
-    return undefined;
-  };
+  const turnoDe = sellerShiftResolver(input.sellerShifts);
+  const turnoDaVendedora = (v: VendAcc): string | undefined =>
+    turnoDe({
+      employeeId: v.employeeId,
+      geradorId: v.geradorId,
+      sellerKeys: v.sellerKeys,
+      lojas: [...v.fatPorLoja.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id),
+    });
 
   const topVendedoras: TopSeller[] = [...vendMap.values()]
     .sort((a, b) => b.fat - a.fat)
@@ -4078,7 +4326,7 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
           valor: brlCent(wpinkTicketFix),
           sub:
             wpinkAgg.atendimentos > 0
-              ? `P.A. ${divSeguro(wpinkAgg.itens, wpinkAgg.atendimentos).toFixed(2)}`
+              ? `P.A. ${num(divSeguro(wpinkAgg.itens, wpinkAgg.atendimentos), 2)}`
               : undefined,
           tint: "info",
         },
@@ -4130,7 +4378,7 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
     {
       label: "Ticket médio",
       valor: brlCent(ticketAtual),
-      sub: `P.A. ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
+      sub: `P.A. ${num(divSeguro(atual.itens, atual.atendimentos), 2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
     },
   ];

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildStoreView, buildOverviewView, buildFinanceView, buildProductsView, monthlyEvolutionMonths, previousPeriod, resolvePeriod, revenueCurve, seriesAxisForPeriod, type ComparisonView, type Period, type Scope, type TrackStatus } from "./dashboard";
+import { buildStoreView, buildOverviewView, buildFinanceView, buildProductsView, buildTeamDashboardView, TEAM_SEM_TURNO, monthlyEvolutionMonths, previousPeriod, resolvePeriod, revenueCurve, seriesAxisForPeriod, type ComparisonView, type Period, type Scope, type TrackStatus } from "./dashboard";
 import { goalOfStore } from "./goals";
 import { EMPTY_STORE_COSTS, stores, storeById } from "./stores";
 import { TODAY_ISO } from "./clock";
@@ -1455,5 +1455,54 @@ describe("buildProductsView com agregados reais", () => {
       expect(hoje.deltaCategorias).toBeUndefined();
       expect(hoje.produtos[0]?.variacaoPct).toBeNull();
     });
+  });
+});
+
+describe("buildTeamDashboardView com agregados reais", () => {
+  const vend = (d: string, nome: string, rev: number, vendas: number, itens: number, extra: Record<string, unknown> = {}) => ({
+    tenantId: "t1", storeId: "f1", day: d, sellerKey: nome.toUpperCase(), sellerName: nome, brand: "ALL" as const,
+    revenueCents: rev * 100, salesCount: vendas, itemCount: itens, ...extra,
+  });
+  const dia = (d: string, rev: number) => ({
+    tenantId: "t1", storeId: "f1", day: d, brand: "ALL" as const, revenueCents: rev * 100, salesCount: 1, itemCount: 1,
+  });
+  const esc = { filialIds: ["f1"], periodo: { tipo: "personalizado" as const, inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null };
+
+  it("KPIs, ranking com variação, turnos e composição com vendas fora da equipe", () => {
+    const v = buildTeamDashboardView(esc, {
+      dayAggs: [dia("2026-08-10", 400), dia("2026-08-11", 200)],
+      sellerDayAggs: [
+        vend("2026-08-10", "Ana", 300, 3, 6, { sellerEmployeeId: 10 }),
+        vend("2026-08-11", "Bia", 200, 2, 0),
+        vend("2026-08-08", "Ana", 150, 2, 3, { sellerEmployeeId: 10 }),
+        vend("2026-08-09", "Bia", 100, 1, 1),
+      ],
+      sellerShifts: [{ storeId: "f1", employeeId: 10, geradorId: null, nameKeys: [], name: "Manhã", start: "09:00", end: "15:00" }],
+    });
+    expect(v.kpis.map((k) => k.label)).toEqual(["Faturamento da equipe", "Nº de vendas", "Ticket médio", "P.A."]);
+    expect(v.kpis[0]?.valor).toMatch(/500,00$/);
+    expect(v.kpis[0]?.delta).toMatchObject({ value: "100%", positive: true });
+    expect(v.kpis[1]?.valor).toBe("5");
+    // Bia vendeu sem itens gravados → P.A. da equipe "—" (nada estimado).
+    expect(v.kpis[3]?.valor).toBe("—");
+
+    const [ana, bia] = v.pessoas;
+    expect(ana).toMatchObject({ nome: "Ana", faturamento: 300, vendas: 3, ticketMedio: 100, pa: 2, variacaoPct: 100, turno: "Manhã · 09:00–15:00" });
+    expect(ana?.participacaoPct).toBeCloseTo(60);
+    expect(bia).toMatchObject({ nome: "Bia", pa: null, turno: undefined, variacaoPct: 100 });
+
+    expect(v.turnosConfigurados).toBe(true);
+    expect(v.turnos.map((t) => [t.nome, t.faturamento, t.pessoas])).toEqual([
+      ["Manhã · 09:00–15:00", 300, 1],
+      [TEAM_SEM_TURNO, 200, 1],
+    ]);
+    expect(v.composicao).toEqual({ equipe: 500, fora: 100, total: 600 });
+  });
+
+  it("sem venda no período: sem badge e sem pessoas", () => {
+    const v = buildTeamDashboardView(esc, { dayAggs: [], sellerDayAggs: [vend("2026-08-08", "Ana", 150, 2, 3)] });
+    expect(v.pessoas).toEqual([]);
+    expect(v.kpis.every((k) => k.delta === undefined)).toBe(true);
+    expect(v.composicao.total).toBe(0);
   });
 });
