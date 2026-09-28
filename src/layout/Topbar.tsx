@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/cn";
 import { padTopo } from "@/lib/safeArea";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Avatar, Dropdown } from "@/components/ui";
@@ -38,7 +37,6 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
           label: n.text,
           danger: !n.ok,
           highlight: !n.read,
-          className: cn("mb-1 last:mb-0", n.read && "border border-transparent"),
           keepOpen: true,
           onClick: () => historico.markRead(n.id),
           icon: <span className={`h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-acc"}`} />,
@@ -126,7 +124,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
             </button>
           }
           items={notificacoes}
-          menuClassName="max-h-[228px] overflow-y-auto"
+          menuClassName="max-h-[196px] overflow-y-auto"
         />
 
         <Dropdown
