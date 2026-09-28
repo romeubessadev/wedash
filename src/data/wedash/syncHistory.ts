@@ -42,7 +42,7 @@ export function syncHistoryItem(row: SyncJobRow): SyncHistoryItem | null {
     if (p.deepDone) {
       const since = p.since?.slice(0, 10);
       text = since
-        ? `Histórico de vendas completo (desde ${since.slice(5, 7)}/${since.slice(0, 4)})`
+        ? `Histórico de vendas completo · desde ${since.slice(5, 7)}/${since.slice(0, 4)}`
         : "Histórico de vendas completo";
       return { id: row.id, at: new Date(row.finished_at), text, ok };
     }
@@ -51,9 +51,9 @@ export function syncHistoryItem(row: SyncJobRow): SyncHistoryItem | null {
     if (!to) return null;
     text = p.fillUntil
       ? from && from !== to
-        ? `Histórico de vendas carregado (${ddmm(from)} a ${ddmm(to)})`
-        : `Histórico de vendas carregado (${ddmm(to)})`
-      : `Vendas do dia ${ddmm(to)} fechadas`;
+        ? `Histórico de vendas carregado · ${ddmm(from)} a ${ddmm(to)}`
+        : `Histórico de vendas carregado · ${ddmm(to)}`
+      : `Vendas de ${ddmm(to)} consolidadas`;
   } else {
     if (!ok && p.auto) return null;
     text = ok ? "Vendas atualizadas" : "Não foi possível atualizar as vendas";

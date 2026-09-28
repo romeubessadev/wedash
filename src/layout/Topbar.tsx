@@ -23,7 +23,7 @@ function quando(d: Date): string {
   return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
 }
 
-export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; onToggleCollapse: () => void; onOpenPalette: () => void }) {
+export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; collapsed: boolean; onToggleCollapse: () => void; onOpenPalette: () => void }) {
   const { theme, toggleTheme } = useTheme();
   const session = useActiveSession();
   const { signOut } = useSession();
@@ -81,7 +81,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
         </svg>
       </button>
 
-      <button onClick={onToggleCollapse} aria-label="Recolher menu" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:flex">
+      <button onClick={onToggleCollapse} aria-label={collapsed ? "Expandir menu" : "Recolher menu"} className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:flex">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
@@ -97,7 +97,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <span className="hidden truncate text-[12.5px] sm:inline">Buscar telas...</span>
+          <span className="hidden truncate text-[12.5px] sm:inline">Buscar no WeDash...</span>
           <span className="ml-auto hidden shrink-0 rounded-md border border-line-2 px-1.5 py-0.5 text-[10px] font-bold text-t2 sm:inline">Ctrl K</span>
         </button>
       )}
@@ -131,7 +131,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
               <Avatar name={session.name} src={session.avatarUrl} size="sm" />
               <span className="hidden text-left leading-tight md:block">
                 <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.name}</span>
-                <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</span>
+                <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · titular da conta" : ""}</span>
               </span>
             </button>
           }

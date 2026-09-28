@@ -51,7 +51,7 @@ export function sessionFromUser(u: User): Session {
 }
 
 export const roleLabel: Record<Role, string> = {
-  ADMIN_GLOBAL: "Admin",
+  ADMIN_GLOBAL: "Administrador",
   OWNER: "Gestor",
   MANAGER: "Gerente",
   SELLER: "Equipe de vendas",

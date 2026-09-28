@@ -31,7 +31,7 @@ export function Profile() {
             </div>
             <div className="flex items-center justify-between border-t border-line pt-3">
               <span className="text-t2">Role</span>
-              <Badge variant="accent">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</Badge>
+              <Badge variant="accent">{roleLabel[session.role]}{session.isOwner ? " · titular da conta" : ""}</Badge>
             </div>
             <div className="flex items-start justify-between border-t border-line pt-3">
               <span className="text-t2">Lojas</span>

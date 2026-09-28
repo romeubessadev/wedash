@@ -22,7 +22,7 @@ import { calendarTodayIso } from "@/data/wedash/clock";
 /** Disparado no `window` quando um Atualizar (FORCE) termina — telas com dados do ERP recarregam. */
 export const SALES_SYNCED_EVENT = "wedash:sales-synced";
 
-const DISCONNECTED_MSG = "Integração com o Millennium desconectada. Conecte em Configurações > Integrações.";
+const DISCONNECTED_MSG = "A conexão com o Millennium está desconectada. Verifique a integração para continuar.";
 
 export type ForceRefreshState = {
   canForce: boolean;
@@ -73,10 +73,10 @@ export function useForceRefresh({
     async (wait: Awaited<ReturnType<typeof waitForSyncJob>>, ids: string[]) => {
       clearPendingForce(session.tenantId);
       if (wait.status === "FAILED") {
-        setForceError("Falha ao atualizar — tente de novo em alguns minutos");
+        setForceError("Não foi possível atualizar os dados. Tente novamente em alguns minutos.");
         console.warn("FORCE job failed:", wait.error);
       } else if (wait.status === "TIMEOUT") {
-        setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
+        setForceError("A atualização está demorando mais que o normal. Os dados podem aparecer em instantes.");
       } else if (wait.status === "CANCELLED") {
         setRefreshing(false);
         return;
@@ -178,13 +178,13 @@ export function useForceRefresh({
         setForceAtMap(recordForceAt(session.tenantId, storeIds, at));
         setForceError(null);
       } else if (result.error === "forbidden") {
-        setForceError("Sem permissão para atualizar");
+        setForceError("Você não tem permissão para atualizar os dados.");
       } else if (result.error === "integration_paused") {
         setForceError(DISCONNECTED_MSG);
       } else if (result.error === "credential_missing" || result.error === "credential_invalid") {
-        setForceError("Integração ERP indisponível — confira em Configurações");
+        setForceError("Não foi possível acessar o Millennium. Verifique os dados da integração.");
       } else {
-        setForceError("Não foi possível enfileirar a atualização");
+        setForceError("Não foi possível iniciar a atualização. Tente novamente.");
         console.warn("requestForceRefresh:", result.error);
       }
       setRefreshing(false);

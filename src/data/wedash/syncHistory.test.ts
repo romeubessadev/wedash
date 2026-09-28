@@ -28,9 +28,9 @@ describe("syncHistoryItem", () => {
       syncHistoryItem(
         row({ kind: "CLOSE", payload: { from: "2026-08-31", to: "2026-08-31", fillUntil: "2026-08-01", progressDay: "2026-08-01" } }),
       )?.text,
-    ).toBe("Histórico de vendas carregado (01/08 a 31/08)");
+    ).toBe("Histórico de vendas carregado · 01/08 a 31/08");
     expect(syncHistoryItem(row({ kind: "CLOSE", payload: { from: "2026-09-24", to: "2026-09-24" } }))?.text).toBe(
-      "Vendas do dia 24/09 fechadas",
+      "Vendas de 24/09 consolidadas",
     );
     expect(syncHistoryItem(row({ kind: "CLOSE", status: "FAILED", payload: { to: "2026-09-24" } }))).toBeNull();
   });
@@ -39,7 +39,7 @@ describe("syncHistoryItem", () => {
     const deep = { from: "2026-07-31", to: "2026-07-31", fillUntil: "2026-07-01", deep: true };
     expect(syncHistoryItem(row({ kind: "CLOSE", payload: deep }))).toBeNull();
     expect(syncHistoryItem(row({ kind: "CLOSE", payload: { deepDone: true, since: "2024-11-03" } }))?.text).toBe(
-      "Histórico de vendas completo (desde 11/2024)",
+      "Histórico de vendas completo · desde 11/2024",
     );
   });
 

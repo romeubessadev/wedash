@@ -63,7 +63,7 @@ export function AppShell() {
       <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} onToggleCollapse={() => setCollapsed((c) => !c)} onOpenPalette={() => setPaletteOpen(true)} />
+        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} onOpenPalette={() => setPaletteOpen(true)} />
         <main ref={mainRef} className="pad-base flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-5 sm:px-6 sm:pt-6" style={padBase("6rem")}>
           <Suspense fallback={<PageLoader />}>
             <div key={location.pathname} className="vela-page-enter">

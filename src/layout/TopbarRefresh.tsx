@@ -102,7 +102,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
     : null;
 
   const ariaLabel = refreshing
-    ? "Buscando dados de hoje no ERP…"
+    ? "Buscando os dados de hoje no Millennium…"
     : forceCooldownSec != null
       ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)}`
       : storeIds.length === 1

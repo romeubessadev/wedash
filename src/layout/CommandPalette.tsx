@@ -67,11 +67,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} placeholder="Buscar telas..." className="w-full bg-transparent text-[14px] text-t0 outline-none placeholder:text-t2" />
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} placeholder="Buscar no WeDash..." className="w-full bg-transparent text-[14px] text-t0 outline-none placeholder:text-t2" />
           <kbd className="shrink-0 rounded-md border border-line-2 px-1.5 py-0.5 text-[10px] font-bold text-t2">ESC</kbd>
         </div>
         <div className="max-h-[50vh] overflow-y-auto p-2">
-          {results.length === 0 && <p className="px-3 py-6 text-center text-[13px] text-t1">Nada encontrado.</p>}
+          {results.length === 0 && <p className="px-3 py-6 text-center text-[13px] text-t1">Nenhum resultado encontrado.</p>}
           {results.map((item, i) => (
             <button key={item.to} onClick={() => go(item)} onMouseEnter={() => setActiveIdx(i)} className={`flex w-full items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] ${i === activeIdx ? "bg-acc-soft text-acc" : "text-t0"}`}>
               <span className="font-semibold">{item.label}</span>
