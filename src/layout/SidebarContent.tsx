@@ -125,14 +125,6 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
           </Link>
         </div>
       )}
-
-      {!collapsed && session.role !== "SELLER" && (
-        <div className="px-5 pb-4">
-          <Link to={paths.dashboards.analytics} className="text-[11px] font-semibold text-t2 hover:text-t1">
-            Referência do template →
-          </Link>
-        </div>
-      )}
     </div>
   );
 }
