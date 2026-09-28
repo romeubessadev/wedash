@@ -294,7 +294,7 @@ function MillenniumModal({
               : "Informe um usuário e uma senha do ERP. Antes de salvar, testamos a conexão e o acesso aos relatórios que a WeDash usa."}
         </p>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <FormField label="Usuário do Millennium" required>
+          <FormField label="Usuário" required>
             <Input
               value={usuario}
               onChange={(e) => {
@@ -307,7 +307,7 @@ function MillenniumModal({
               disabled={travado}
             />
           </FormField>
-          <FormField label="Senha do Millennium" required>
+          <FormField label="Senha" required>
             <div className="relative">
               <Input
                 type="text"
@@ -316,7 +316,7 @@ function MillenniumModal({
                   setSenha(e.target.value);
                   descartarPendente();
                 }}
-                placeholder="Digite a senha do Millennium"
+                placeholder="Digite a senha"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha && !conectado)}
                 disabled={travado}

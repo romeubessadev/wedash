@@ -93,7 +93,7 @@ export function Step2Credentials({
 
       <div className="flex flex-col gap-3.5">
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <FormField label="Usuário do Millennium" required>
+          <FormField label="Usuário" required>
             <Input
               value={usuario}
               onChange={(e) => {
@@ -107,7 +107,7 @@ export function Step2Credentials({
               className="uppercase"
             />
           </FormField>
-          <FormField label="Senha do Millennium" required>
+          <FormField label="Senha" required>
             <div className="relative">
               <Input
                 type="text"
@@ -116,7 +116,7 @@ export function Step2Credentials({
                   setSenha(e.target.value);
                   gravarSenhaErp(membershipId, e.target.value);
                 }}
-                placeholder="Digite a senha do Millennium"
+                placeholder="Digite a senha"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha)}
                 className="pr-12"
