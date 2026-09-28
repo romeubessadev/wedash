@@ -9,6 +9,7 @@ import {
   Modal,
   Skeleton,
   Switch,
+  Tooltip,
   useToast,
 } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -79,9 +80,20 @@ export function ErpIntegrationPage() {
     void reload();
   }, [reload]);
 
+  const { show } = useToast();
+  const [atualizando, setAtualizando] = useState(false);
   const estado = estadoDe(info);
   const ui = ESTADO_UI[estado];
   const canEdit = session.role === "OWNER" || session.role === "MANAGER";
+  const podeAtualizar = estado === "conectado" && session.role === "OWNER";
+
+  async function atualizarCadastros() {
+    setAtualizando(true);
+    const r = await refreshErpRegistry();
+    setAtualizando(false);
+    if (!r.ok) return show(r.message, "danger");
+    show("Cadastros atualizados.", "success");
+  }
 
   return (
     <>
@@ -108,9 +120,18 @@ export function ErpIntegrationPage() {
                 {ui.label}
               </span>
               {estado === "conectado" ? (
-                <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
-                  Configurar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
+                    Configurar
+                  </Button>
+                  {podeAtualizar && (
+                    <Tooltip label="Atualiza lojas, colaboradores, produtos e tabelas de custo. As vendas não são alteradas.">
+                      <Button size="sm" onClick={() => void atualizarCadastros()} disabled={atualizando}>
+                        {atualizando ? "Atualizando…" : "Atualizar"}
+                      </Button>
+                    </Tooltip>
+                  )}
+                </div>
               ) : (
                 <Button size="sm" onClick={() => setAberto(true)} disabled={!canEdit}>
                   Conectar
@@ -127,6 +148,7 @@ export function ErpIntegrationPage() {
         info={info}
         estado={estado}
         canEdit={canEdit}
+        atualizando={atualizando}
         onChanged={reload}
       />
     </>
@@ -144,6 +166,7 @@ function MillenniumModal({
   info,
   estado,
   canEdit,
+  atualizando,
   onChanged,
 }: {
   open: boolean;
@@ -151,6 +174,7 @@ function MillenniumModal({
   info: ErpIntegrationStatus | null;
   estado: Estado;
   canEdit: boolean;
+  atualizando: boolean;
   onChanged: () => Promise<void>;
 }) {
   const session = useActiveSession();
@@ -168,7 +192,6 @@ function MillenniumModal({
   /** Login ok, mas a troca remove lojas — aguardando confirmação. */
   const [pendente, setPendente] = useState<PreparedErpChange | null>(null);
   const [auto, setAuto] = useState(true);
-  const [atualizando, setAtualizando] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -273,14 +296,6 @@ function MillenniumModal({
     }
     show(v ? "Atualização automática ligada." : "Atualização automática desligada.", "success");
     await onChanged();
-  }
-
-  async function atualizarCadastros() {
-    setAtualizando(true);
-    const r = await refreshErpRegistry();
-    setAtualizando(false);
-    if (!r.ok) return show(r.message, "danger");
-    show("Cadastros atualizados.", "success");
   }
 
   const travado = conectado || busy || !canEdit;
@@ -432,41 +447,15 @@ function MillenniumModal({
           </div>
         )}
         {conectado && canEdit && (
-          <div className="mt-1 flex flex-col gap-4 border-t border-line pt-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-t0">Atualizar vendas automaticamente</p>
-                <p className="mt-0.5 text-xs text-t2">
-                  A cada 30 minutos, enquanto as lojas estiverem abertas. Desligada, as vendas do dia só atualizam pelo botão
-                  Atualizar.
-                </p>
-              </div>
-              <Switch checked={auto} onChange={(v) => void mudarAuto(v)} />
+          <div className="mt-1 flex items-start justify-between gap-4 border-t border-line pt-4">
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-t0">Atualizar vendas automaticamente</p>
+              <p className="mt-0.5 text-xs text-t2">
+                A cada 30 minutos, enquanto as lojas estiverem abertas. Desligada, as vendas do dia só atualizam pelo botão
+                Atualizar.
+              </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-t0">Cadastros do Millennium</p>
-                <p className="mt-0.5 text-xs text-t2">
-                  Lojas, colaboradores, produtos e tabelas de custo. As vendas não são alteradas.
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="shrink-0"
-                onClick={() => void atualizarCadastros()}
-                disabled={atualizando}
-                icon={
-                  atualizando ? undefined : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
-                    </svg>
-                  )
-                }
-              >
-                {atualizando ? "Atualizando…" : "Atualizar cadastros"}
-              </Button>
-            </div>
+            <Switch checked={auto} onChange={(v) => void mudarAuto(v)} />
           </div>
         )}
         {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}
