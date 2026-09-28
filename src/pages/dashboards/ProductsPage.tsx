@@ -416,9 +416,11 @@ export default function ProductsPage() {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Faturamento por categoria</CardTitle>
-              <p className="mt-1.5 font-mono text-2xl font-extrabold text-t0">{brlCent(totalCategorias)}</p>
+              {view.categorias.length > 0 && (
+                <p className="mt-1.5 font-mono text-2xl font-extrabold text-t0">{brlCent(totalCategorias)}</p>
+              )}
             </div>
-            <BadgeVsAnterior delta={view.deltaCategorias} />
+            {view.categorias.length > 0 && <BadgeVsAnterior delta={view.deltaCategorias} />}
           </div>
           {view.categorias.length === 0 ? (
             <EmptyBlock />
@@ -596,6 +598,7 @@ export default function ProductsPage() {
             <CardTitle>Desempenho por produto</CardTitle>
             <TipHelp label={tipCmvProduto} />
           </div>
+          {view.produtos.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
@@ -608,6 +611,7 @@ export default function ProductsPage() {
               Exportar CSV
             </Button>
           </div>
+          )}
         </div>
 
         {/* Desktop */}
