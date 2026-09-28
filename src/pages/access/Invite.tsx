@@ -171,7 +171,7 @@ export function Invite() {
             da <span className="font-bold text-t0">{info.companyName}</span>
           </>
         ) : null}
-        . Seu login é <span className="font-bold text-t0">{info.email}</span>.
+        .
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
         <CamposPessoais valor={dados} onChange={(p) => setDados((d) => ({ ...d, ...p }))} email={info.email} />

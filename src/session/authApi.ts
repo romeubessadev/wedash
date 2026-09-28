@@ -382,7 +382,7 @@ export async function createPersonalAccess(
 
 /** Destino após login / troca de senha / raiz. */
 export function destinationAfterAuth(s: Session, de?: string | null): string {
-  if (s.temporaryPassword) return paths.access.changePassword;
+  if (s.temporaryPassword) return paths.access.createAccess;
   if (s.onboardingStep !== null) return paths.onboarding;
   // Pós-onboarding: não manda pro Dash enquanto a carga inicial não terminou.
   try {

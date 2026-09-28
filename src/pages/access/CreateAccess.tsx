@@ -20,7 +20,7 @@ import { useSession, useActiveSession } from "@/session/SessionProvider";
  * Primeiro acesso com senha temporária = "Crie seu acesso": dados da pessoa + senha própria.
  * Layout RegisterSplit (form à esquerda, hero à direita). Depois segue para o onboarding (ERP → Lojas).
  */
-export function ChangePassword() {
+export function CreateAccess() {
   const session = useActiveSession();
   const { update, signOut } = useSession();
   const navigate = useNavigate();
@@ -78,9 +78,7 @@ export function ChangePassword() {
 
         <div className="w-full max-w-[400px]">
           <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie seu acesso</h1>
-          <p className="mb-7 text-sm text-t2">
-            Seus dados e uma senha só sua. Seu login é <span className="font-bold text-t0">{session.email}</span>.
-          </p>
+          <p className="mb-7 text-sm text-t2">Seus dados e uma senha só sua.</p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
             <CamposPessoais valor={dados} onChange={(p) => setDados((d) => ({ ...d, ...p }))} email={session.email} autoFocus />

@@ -34,7 +34,8 @@ export const accessRoutes: RouteObject[] = [
   { path: `${paths.legacy.auth.redefinir}/:token`, element: <RedirectResetToken /> },
   { path: paths.legacy.auth.convite, element: <RedirectInvite /> },
   { path: paths.legacy.auth.instalar, element: <Navigate to={paths.access.install} replace /> },
-  { path: paths.legacy.auth.trocarSenha, element: <Navigate to={paths.access.changePassword} replace /> },
+  { path: paths.legacy.auth.trocarSenha, element: <Navigate to={paths.access.createAccess} replace /> },
+  { path: paths.legacy.auth.changePassword, element: <Navigate to={paths.access.createAccess} replace /> },
 ];
 
 /** @deprecated alias */
