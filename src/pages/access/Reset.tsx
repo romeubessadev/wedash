@@ -280,7 +280,7 @@ export function Reset() {
         <div className="relative w-full max-w-[420px]">
           <div className="rounded-[22px] border border-line bg-bg-2 p-9 text-center" style={{ boxShadow: "0 20px 60px -20px rgba(0,0,0,.6)" }}>
             <h2 className={acessoTitulo}>Informe seu e-mail</h2>
-            <p className={acessoSubtitulo}>Para receber o código, comece pela recuperação de senha.</p>
+            <p className={acessoSubtitulo}>Comece pela recuperação de senha para receber seu código.</p>
             <Link to={paths.access.forgot} className="mb-4 block">
               <button type="button" className={acessoBotao}>
                 Ir para recuperação
@@ -311,11 +311,10 @@ export function Reset() {
             <>
               <h2 className={acessoTitulo}>Digite o código</h2>
               <p className={acessoSubtitulo}>
-                Digite o código de {RECOVERY_OTP_LENGTH} dígitos enviado para{" "}
-                <span className="font-semibold text-t0">{email}</span>
-                {" · "}
+                Enviamos um código de {RECOVERY_OTP_LENGTH} dígitos para{" "}
+                <span className="font-semibold text-t0">{email}</span>.{" "}
                 <button type="button" onClick={voltarTrocarEmail} className={acessoLink}>
-                  trocar
+                  Trocar e-mail
                 </button>
               </p>
 
@@ -338,7 +337,7 @@ export function Reset() {
                     ? "Reenviando…"
                     : resendIn > 0
                       ? `Reenviar em ${resendIn}s`
-                      : "Reenviar"}
+                      : "Reenviar código"}
                 </button>
               </p>
               {!isSupabaseConfigured() && (
@@ -350,7 +349,7 @@ export function Reset() {
           ) : (
             <>
               <h2 className={acessoTitulo}>Crie uma nova senha</h2>
-              <p className={acessoSubtitulo}>Escolha uma senha forte para voltar a acessar sua conta.</p>
+              <p className={acessoSubtitulo}>Escolha a nova senha que você usará para acessar a WeDash.</p>
 
               <form onSubmit={salvarSenha} className="flex flex-col gap-3.5 text-left" noValidate>
                 {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}

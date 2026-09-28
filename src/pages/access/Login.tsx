@@ -101,7 +101,7 @@ export function Login() {
             Uma gestão mais clara.
           </h2>
           <p className="max-w-[400px] text-[15px] leading-relaxed text-white/70">
-            Acompanhe faturamento, goals, premiações e margens de todas as unidades em um só lugar.
+            Acompanhe faturamento, metas, premiações e margens de todas as unidades em um só lugar.
           </p>
         </div>
         <div className="relative flex gap-2">

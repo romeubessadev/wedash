@@ -16,7 +16,7 @@ import { gravarRascunho, limparRascunho, lerRascunho, lerSenhaErp, rascunhoVazio
 /** Etapa do ERP no indicador e em `membership.onboarding_step` (1 = Crie seu acesso, antes do /onboarding). */
 const ETAPA_ERP = 2;
 
-const bullets = ["Conexão e relatórios testados antes de continuar", "Lojas do usuário adicionadas automaticamente", "Senha protegida no servidor"];
+const bullets = ["Conexão testada antes de continuar", "Lojas adicionadas automaticamente", "Dados de acesso protegidos"];
 
 /** Onboarding — shell RegisterSplit: form à esquerda, hero à direita. Única etapa = Integração ERP. */
 export function Onboarding() {
@@ -47,7 +47,7 @@ export function Onboarding() {
   async function conectar(stores: StoreErp[], millenniumSession: string | undefined) {
     const password = lerSenhaErp(membershipId);
     if (!draft.erp.usuario.trim() || !password) {
-      show("Digite o usuário e a senha do Millennium de novo.", "danger");
+      show("Digite novamente o usuário e a senha do Millennium.", "danger");
       return;
     }
     setConectando(true);
@@ -64,7 +64,7 @@ export function Onboarding() {
       console.warn("persistErpCredentialAndStores:", persisted.error);
       await logoutErp(millenniumSession);
       setConectando(false);
-      show("Não foi possível salvar a conexão com o Millennium. Tente novamente.", "danger");
+      show("A conexão foi testada, mas não foi possível salvá-la. Tente novamente.", "danger");
       return;
     }
 
@@ -126,12 +126,12 @@ export function Onboarding() {
         />
         <div className="relative">
           <h2 className="mb-6 text-[26px] font-extrabold leading-[1.3] tracking-tight text-white">
-            Dados do Millennium,
+            Seus dados do Millennium
             <br />
-            direto na WeDash.
+            na WeDash.
           </h2>
           <p className="mb-6 max-w-[380px] text-[15px] leading-relaxed text-white/70">
-            A conexão mantém vendas, custos, estoque e cadastros sincronizados automaticamente.
+            A conexão mantém vendas, custos e cadastros atualizados automaticamente.
           </p>
           <div className="flex flex-col gap-4">
             {bullets.map((b) => (

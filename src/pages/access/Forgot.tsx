@@ -60,7 +60,7 @@ export function Forgot() {
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-acc-soft">{mailIcon}</div>
           <h2 className={acessoTitulo}>Recupere sua senha</h2>
           <p className={acessoSubtitulo}>
-            Informe seu e-mail. Se existir uma conta, enviaremos um código de 6 dígitos.
+            Informe seu e-mail para receber um código de verificação.
           </p>
           <form ref={formRef} onSubmit={enviar} className="text-left" noValidate>
             <CampoEmail label="E-mail" value={email} onChange={setEmail} autoFocus />

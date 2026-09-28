@@ -7,5 +7,5 @@ import type { WizardStep } from "@/components/ui/WizardSteps";
  */
 export const ONBOARDING_STEPS: WizardStep[] = [
   { num: 1, label: "Crie seu acesso" },
-  { num: 2, label: "Integração ERP" },
+  { num: 2, label: "Conecte o Millennium" },
 ];

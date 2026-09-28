@@ -5,13 +5,17 @@ import { BrandMark } from "@/pages/auth/authKit";
 import { CampoSenha, CamposNome, ForcaSenha, acessoBotao, nomePessoaValido, type NomePessoa } from "@/pages/access/AccessKit";
 import { ONBOARDING_STEPS } from "@/pages/onboarding/steps";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
-import { senhaValida } from "@/lib/password";
+import { senhaValida, SENHA_REGRA_TEXTO } from "@/lib/password";
 import { padTopoEBase } from "@/lib/safeArea";
 import { paths } from "@/router/paths";
 import { destinationAfterAuth, createAccess } from "@/session/authApi";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 
-const bullets = ["Seu nome identifica você na WeDash", "Senha só sua, no lugar da temporária", "Depois: conectar o Millennium (as lojas entram sozinhas)"];
+const bullets = [
+  "Seu nome identifica você na WeDash",
+  "Uma senha pessoal substitui a senha temporária",
+  "Depois, conecte o Millennium para adicionar suas lojas",
+];
 
 /**
  * Primeiro acesso com senha temporária = "Crie seu acesso" (etapa 1 do onboarding):
@@ -75,7 +79,7 @@ export function CreateAccess() {
           {comOnboarding && <WizardSteps steps={ONBOARDING_STEPS} current={1} />}
 
           <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie seu acesso</h1>
-          <p className="mb-7 text-sm text-t2">Informe seu nome e escolha a senha que você vai usar para entrar na WeDash.</p>
+          <p className="mb-7 text-sm text-t2">Informe seu nome e crie a senha que você usará para acessar a WeDash.</p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
             <CamposNome valor={nome} onChange={(p) => setNome((n) => ({ ...n, ...p }))} autoFocus />
@@ -85,7 +89,7 @@ export function CreateAccess() {
               label="Nova senha"
               value={senha}
               onChange={setSenha}
-              placeholder="Digite sua nova senha"
+              placeholder={SENHA_REGRA_TEXTO}
               autoComplete="new-password"
             />
             <CampoSenha
@@ -114,12 +118,12 @@ export function CreateAccess() {
         />
         <div className="relative">
           <h2 className="mb-6 text-[26px] font-extrabold leading-[1.3] tracking-tight text-white">
-            Seu acesso pessoal
+            Seu acesso à WeDash
             <br />
-            à WeDash.
+            começa aqui.
           </h2>
           <p className="mb-6 max-w-[380px] text-[15px] leading-relaxed text-white/70">
-            A senha temporária é desativada assim que você criar a sua.
+            Crie seus dados pessoais de acesso para substituir a senha temporária.
           </p>
           <div className="flex flex-col gap-4">
             {bullets.map((b) => (

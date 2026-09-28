@@ -115,7 +115,7 @@ export function Invite() {
         <p className={acessoSubtitulo}>
           {active
             ? "Entre com seu e-mail e a senha que você criou."
-            : "O link expirou ou já foi usado. Peça a quem convidou para reenviar o convite."}
+            : "O link expirou ou já foi usado. Peça um novo convite a quem enviou este."}
         </p>
         <Link to={paths.access.login} className={cn("block text-center", acessoLink)}>
           Ir para o login
@@ -162,7 +162,7 @@ export function Invite() {
       </IconeCard>
       <h1 className={acessoTitulo}>Crie seu acesso</h1>
       <p className={acessoSubtitulo}>
-        Informe seu nome e crie sua senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+        Informe seu nome e crie uma senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
         {info.companyName ? (
           <>
             {" "}

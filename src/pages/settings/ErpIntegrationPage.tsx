@@ -45,13 +45,13 @@ const ESTADO_UI: Record<Estado, { label: string; cls: string; dot: string }> = {
 };
 
 const ERRO_CREDENCIAL: Record<Extract<ErpCredentialChangeResult, { ok: false }>["reason"], string> = {
-  password: "Usuário ou senha incorretos. Nada foi alterado.",
-  busy: "Este usuário já está logado no Millennium em outro lugar. Saia de lá e tente de novo.",
-  stores: "Conectou, mas não foi possível listar as lojas. Tente de novo.",
-  no_stores: "Esse usuário não enxerga nenhuma loja no Millennium. Nada foi alterado.",
+  password: "Usuário ou senha incorretos. Confira os dados e tente novamente.",
+  busy: "Este usuário já está conectado ao Millennium em outro local. Encerre a outra sessão e tente novamente.",
+  stores: "A conexão foi realizada, mas não conseguimos identificar as lojas deste usuário. Tente novamente.",
+  no_stores: "Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente novamente.",
   other: "Não foi possível conectar ao Millennium. Tente novamente em alguns minutos.",
-  persist: "O login funcionou, mas não conseguimos salvar. Tente de novo.",
-  reports: "Este usuário não tem acesso a todos os relatórios que a WeDash usa. Nada foi alterado.",
+  persist: "A conexão foi testada, mas não foi possível salvá-la. Tente novamente.",
+  reports: "Este usuário não possui acesso a todos os relatórios necessários para a WeDash.",
 };
 
 /**
@@ -279,7 +279,7 @@ function MillenniumModal({
               </Button>
             ) : (
               <Button onClick={() => void conectar()} disabled={!podeConectar}>
-                {busy ? "Testando conexão e relatórios…" : "Conectar"}
+                {busy ? "Testando conexão…" : "Conectar"}
               </Button>
             ))}
         </>
@@ -316,7 +316,7 @@ function MillenniumModal({
                   setSenha(e.target.value);
                   descartarPendente();
                 }}
-                placeholder="Digite a senha do ERP"
+                placeholder="Digite a senha do Millennium"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha && !conectado)}
                 disabled={travado}
@@ -351,8 +351,8 @@ function MillenniumModal({
             <span>
               Este usuário será exclusivo da WeDash
               <span className="mt-0.5 block text-xs text-t2">
-                O Millennium aceita uma sessão por usuário: se alguém entrar com ele no sistema, um derruba o outro e a
-                sincronização para. Use um usuário criado só para a WeDash.
+                O Millennium permite apenas uma sessão por usuário. Para evitar interrupções na sincronização, use um
+                usuário criado exclusivamente para a WeDash.
               </span>
             </span>
           }
@@ -361,7 +361,7 @@ function MillenniumModal({
           disabled={travado}
         />
         <Checkbox
-          label="Autorizo a WeDash a usar estes dados para realizar a sincronização"
+          label="Autorizo a WeDash a usar estes dados para realizar a sincronização."
           checked={conectado || autorizo}
           onChange={(e) => setAutorizo(e.target.checked)}
           disabled={travado}

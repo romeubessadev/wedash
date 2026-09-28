@@ -6,12 +6,11 @@ import { gravarSenhaErp, lerSenhaErp } from "./draft";
 import { noAutofill, secretStyle } from "@/lib/noAutofill";
 
 const toastErro: Record<Exclude<ErpLoginResult, { ok: true }>["reason"], string> = {
-  password: "Usuário ou senha incorretos. Nenhum dado foi salvo.",
-  busy:
-    "Este usuário já está logado no Millennium (outra tela, loja ou integração). Saia do ERP nesse outro lugar e toque em Testar de novo.",
-  stores: "Conectou no Millennium, mas não foi possível listar as lojas. Tente de novo.",
+  password: "Usuário ou senha incorretos. Confira os dados e tente novamente.",
+  busy: "Este usuário já está conectado ao Millennium em outro local. Encerre a outra sessão e tente novamente.",
+  stores: "A conexão foi realizada, mas não conseguimos identificar as lojas deste usuário. Tente novamente.",
   other: "Não foi possível conectar ao Millennium. Tente novamente em alguns minutos.",
-  reports: "Este usuário não tem acesso a todos os relatórios que a WeDash usa. Nenhum dado foi salvo.",
+  reports: "Este usuário não possui acesso a todos os relatórios necessários para a WeDash.",
 };
 
 const btnPrimario =
@@ -48,6 +47,7 @@ export function Step2Credentials({
   const [testando, setTestando] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [relatorios, setRelatorios] = useState<ErpReportCheck[] | null>(null);
+  const [falhou, setFalhou] = useState(false);
 
   function syncErp(next: Partial<ErpRascunho> & { usuario?: string; dedicada?: boolean; aceite?: boolean }) {
     const erp = {
@@ -69,10 +69,12 @@ export function Step2Credentials({
     if (r.ok && r.stores.length === 0) {
       await logoutErp(r.session);
       setTestando(false);
-      show("Este usuário não tem lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente de novo.", "danger");
+      setFalhou(true);
+      show("Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente novamente.", "danger");
       return;
     }
     setTestando(false);
+    setFalhou(!r.ok);
     if (!r.ok) {
       if (r.reason === "reports" && r.reports) setRelatorios(r.reports);
       show(toastErro[r.reason], "danger");
@@ -85,8 +87,8 @@ export function Step2Credentials({
     <div>
       <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Conecte o Millennium</h1>
       <p className="mb-7 text-sm text-t2">
-        A WeDash usa essa conexão para sincronizar vendas, custos, estoque e cadastros. As lojas que este usuário enxerga no
-        Millennium entram automaticamente.
+        Conecte seu ERP para trazer vendas, custos e cadastros para a WeDash. As lojas vinculadas a este usuário serão
+        adicionadas automaticamente.
       </p>
 
       <div className="flex flex-col gap-3.5">
@@ -114,7 +116,7 @@ export function Step2Credentials({
                   setSenha(e.target.value);
                   gravarSenhaErp(membershipId, e.target.value);
                 }}
-                placeholder="Digite a senha do ERP"
+                placeholder="Digite a senha do Millennium"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha)}
                 className="pr-12"
@@ -154,8 +156,8 @@ export function Step2Credentials({
           <span>
             Este usuário será exclusivo da WeDash
             <span className="mt-0.5 block text-t2">
-              O Millennium aceita uma sessão por usuário: se alguém entrar com ele no sistema, um derruba o outro e a
-              sincronização para. Use um usuário criado só para a WeDash.
+              O Millennium permite apenas uma sessão por usuário. Para evitar interrupções na sincronização, use um
+              usuário criado exclusivamente para a WeDash.
             </span>
           </span>
         </label>
@@ -171,13 +173,13 @@ export function Step2Credentials({
             className="mt-0.5"
             style={{ accentColor: "var(--acc)" }}
           />
-          Autorizo a WeDash a usar estes dados para realizar a sincronização
+          Autorizo a WeDash a usar estes dados para realizar a sincronização.
         </label>
 
         {relatorios && <ErpReportChecks reports={relatorios} username={usuario.trim()} />}
 
         <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
-          {conectando ? "Conectando…" : testando ? "Testando conexão e relatórios…" : "Testar e conectar"}
+          {conectando ? "Conectando…" : testando ? "Testando conexão…" : falhou ? "Testar novamente" : "Testar e conectar"}
         </button>
       </div>
     </div>

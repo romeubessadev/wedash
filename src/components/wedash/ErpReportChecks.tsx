@@ -4,10 +4,10 @@ import type { ErpReportCheck } from "@/data/wedash/erp";
 export function ErpReportChecks({ reports, username }: { reports: ErpReportCheck[]; username: string }) {
   return (
     <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--bad-soft)" }}>
-      <p className="text-[13px] font-bold text-bad">Faltam relatórios personalizados no Millennium</p>
+      <p className="text-[13px] font-bold text-bad">Faltam acessos no Millennium</p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
         Peça ao administrador do Millennium para liberar os relatórios abaixo para o usuário{" "}
-        <span className="font-bold">{username || "informado"}</span> e teste de novo.
+        <span className="font-bold">{username || "informado"}</span>. Depois, teste a conexão novamente.
       </p>
       <ul className="mt-2.5 space-y-1.5">
         {reports.map((r) => (

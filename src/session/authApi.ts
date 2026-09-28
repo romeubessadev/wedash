@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { validarSenha } from "@/lib/password";
+import { validarSenha, SENHA_REGRA_TEXTO } from "@/lib/password";
 import { prepararAvatar } from "@/lib/avatar";
 import { companyNameCase, titleName } from "@/lib/format";
 import { stores } from "@/data/wedash/stores";
@@ -30,7 +30,7 @@ export function mensagemErroSenhaAuth(error: { code?: string; message?: string }
     return "A nova senha precisa ser diferente da senha atual.";
   }
   if (code === "weak_password" || msg.includes("weak password") || msg.includes("password should be")) {
-    return "Essa senha é fraca demais. Use pelo menos 8 caracteres e 1 caractere especial.";
+    return SENHA_REGRA_TEXTO;
   }
   if (code === "session_not_found" || (msg.includes("session") && msg.includes("not found"))) {
     return MENSAGEM_OTP_INVALIDO;
@@ -386,7 +386,7 @@ export async function createAccess(
 
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
-  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo com a senha temporária." };
+  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre novamente com a senha temporária." };
 
   // Nome antes da senha: se a troca falhar, tentar de novo não esbarra em "senha igual à anterior".
   const { error: idErr } = await sb

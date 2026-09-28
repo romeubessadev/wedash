@@ -13,18 +13,18 @@ export function InitialSyncNotice() {
   const falhou = sync.phase === "failed";
   const titulo =
     sync.phase === "running"
-      ? "Buscando as vendas de hoje no Millennium"
+      ? "Buscando as vendas de hoje"
       : sync.phase === "stuck"
-        ? "A busca das vendas de hoje ainda não começou"
+        ? "A sincronização está demorando mais que o normal"
         : "Não foi possível buscar as vendas de hoje";
   const texto =
     sync.phase === "running"
-      ? "Leva alguns segundos. Os números aparecem sozinhos."
+      ? "Os dados aparecerão automaticamente assim que a sincronização terminar."
       : sync.phase === "stuck"
-        ? "O sincronizador está demorando para responder. Se continuar assim, fale com o suporte."
+        ? "Ainda não conseguimos iniciar a busca das vendas de hoje. Se continuar assim, fale com o suporte."
         : sync.busy
-          ? "Este usuário do Millennium está logado em outro lugar. Saia do ERP nessa outra sessão e tente de novo."
-          : "O Millennium não respondeu como esperado. Tente de novo em instantes.";
+          ? "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente."
+          : "Não foi possível obter os dados do Millennium. Tente novamente em instantes.";
 
   return (
     <div
