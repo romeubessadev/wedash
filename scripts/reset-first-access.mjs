@@ -1,6 +1,6 @@
 /**
- * Volta um usuário para o "primeiro acesso" (tela Crie seu acesso) sem mexer em dados do ERP.
- * Marca temporary_password = true e limpa nome/sobrenome/celular. A senha atual vira a "temporária".
+ * Volta um usuário para o "primeiro acesso" (tela Crie sua senha) sem mexer em dados do ERP.
+ * Marca temporary_password = true; a senha atual vira a "temporária". Onboarding (ERP/Lojas) não muda.
  * Usa a service role de workers/millennium-sync/.env.
  *
  *   npx tsx scripts/reset-first-access.mjs email@exemplo.com
@@ -43,9 +43,15 @@ const { data, error } = await sb
   .from("identity")
   .update({ temporary_password: true })
   .ilike("email", EMAIL)
-  .select("email, name, temporary_password, first_name, last_name, phone");
+  .select("id, email, name, temporary_password");
 if (error || !data?.length) {
   console.error("identity:", error?.message ?? "not found");
   process.exit(1);
 }
 console.log(data);
+
+const { data: memb } = await sb
+  .from("membership")
+  .select("role, status, is_owner, onboarding_step")
+  .eq("identity_id", data[0].id);
+console.log("membership:", memb);
