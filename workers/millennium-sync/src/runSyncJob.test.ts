@@ -393,6 +393,28 @@ describe("runSyncJob", () => {
     expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
   });
 
+  it("SEED com SYNC_ONBOARDING=off: sem vendas, mas sincroniza a equipe de cada loja", async () => {
+    vi.stubEnv("SYNC_ONBOARDING", "off");
+    try {
+      const fetchStoreSellers = vi.fn().mockResolvedValue([]);
+      const syncStoreSellers = vi.fn().mockResolvedValue([]);
+      const deps = makeDeps({
+        loadSellerDirectory: vi.fn().mockResolvedValue({ sellers: [] }),
+        fetchStoreSellers,
+        syncStoreSellers,
+      });
+      const result = await runSyncJob(baseJob({ kind: "SEED" }), deps);
+      expect(result).toEqual({ ok: true, storesDone: 2 });
+      expect(fetchStoreSellers.mock.calls.map((c) => c[0].millenniumStoreId)).toEqual([1, 2]);
+      expect(syncStoreSellers).toHaveBeenCalledTimes(2);
+      expect(deps.fetchSalesLista).not.toHaveBeenCalled();
+      expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
+      expect(deps.markJobFinished).toHaveBeenCalledWith(expect.objectContaining({ status: "SUCCEEDED" }));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("SEED que falha não enfileira a carga do mês", async () => {
     const deps = makeDeps({
       listStores: vi.fn().mockResolvedValue([stores[0]]),

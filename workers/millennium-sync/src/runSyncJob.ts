@@ -2031,6 +2031,47 @@ async function ensureMillenniumSession(
 }
 
 /**
+ * Carga inicial com SYNC_ONBOARDING=off: sem vendas, mas a equipe de cada loja entra
+ * (Colaboradores / turnos não dependem de venda). Soft-fail: falha do ERP só vira aviso no terminal.
+ * Devolve quantas lojas tiveram a equipe sincronizada.
+ */
+async function syncOnboardingTeams(job: SyncJob, deps: SyncJobDeps): Promise<number> {
+  const { loadSellerDirectory, fetchStoreSellers, syncStoreSellers } = deps;
+  if (!loadSellerDirectory || !fetchStoreSellers || !syncStoreSellers) return 0;
+  try {
+    const cred = await deps.loadCredential(job.credentialId);
+    const ensured = await ensureMillenniumSession(cred, deps);
+    if (!ensured.ok) {
+      console.warn(`  ⚠ equipe de vendas não sincronizou: login no Millennium falhou (${ensured.reason})`);
+      return 0;
+    }
+    const session = ensured.session;
+    const linker = createSellerLinker({
+      deps: {
+        loadSellerDirectory,
+        fetchStoreSellers: (p) => fetchStoreSellers({ ...p, concurrency: 1 }),
+        syncStoreSellers,
+      },
+      tenantId: job.tenantId,
+      getSession: () => session,
+      now: () => deps.now(),
+      log: (_level, message, store) => console.warn(`  ⚠ [${store.code}] ${message}`),
+      isSessionDead: isSessionDeadError,
+    });
+    let done = 0;
+    for (const store of await deps.listStores(job.tenantId)) {
+      console.log(`  Equipe · ${store.code}${store.name ? ` · ${store.name}` : ""}`);
+      await linker.syncStore(store);
+      done++;
+    }
+    return done;
+  } catch (e) {
+    console.warn(`  ⚠ equipe de vendas não sincronizou: ${e instanceof Error ? e.message : String(e)}`);
+    return 0;
+  }
+}
+
+/**
  * Claim already happened; runner enforces one RUNNING per credential,
  * sequential stores, always logout after login, busy/password classification.
  */
@@ -2053,9 +2094,10 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
   const tJob = nowMs();
   const isSeed = job.kind === "SEED";
   if (isSeed && syncOnboardingOff()) {
+    const teams = await syncOnboardingTeams(job, deps);
     await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED", error: SYNC_OFF_NOTE });
-    console.log(`Carga inicial pulada (SYNC_ONBOARDING=off) · job ${job.id.slice(0, 8)}`);
-    return { ok: true, storesDone: 0 };
+    console.log(`Carga inicial sem vendas (SYNC_ONBOARDING=off) · equipe de ${teams} loja(s) · job ${job.id.slice(0, 8)}`);
+    return { ok: true, storesDone: teams };
   }
   const fillUntil = job.kind === "CLOSE" ? job.payload.fillUntil : undefined;
   const deep = Boolean(fillUntil && job.payload.deep);
