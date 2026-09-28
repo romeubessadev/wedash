@@ -216,7 +216,9 @@
   }
 
   /* Preenchimento automático do navegador: o Chrome força fundo e texto
-     próprios com !important; a sombra interna cobre o fundo com o do tema. */
+     próprios com !important. A transição quase infinita segura o fundo do
+     tema (inclusive sob a borda semitransparente) e precisa de !important
+     para vencer o transition-colors do Input; a sombra interna é reserva. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
@@ -227,7 +229,9 @@
     caret-color: var(--t0);
     -webkit-box-shadow: 0 0 0 1000px var(--bg-inset) inset;
     box-shadow: 0 0 0 1000px var(--bg-inset) inset;
-    transition: background-color 9999s ease-out 0s;
+    transition:
+      background-color 0s 600000s,
+      color 0s 600000s !important;
   }
   input:autofill {
     -webkit-text-fill-color: var(--t0);

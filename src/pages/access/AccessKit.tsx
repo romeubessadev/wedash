@@ -71,6 +71,16 @@ function BotaoRevelarSenha({ mostrar, onToggle }: { mostrar: boolean; onToggle: 
   );
 }
 
+/** Ao aceitar a sugestão, o Chrome deixa o valor inteiro selecionado; digitando isso nunca acontece. */
+function soltarSelecaoDoAutofill(el: HTMLInputElement) {
+  requestAnimationFrame(() => {
+    const fim = el.value.length;
+    if (fim > 0 && document.activeElement === el && el.selectionStart === 0 && el.selectionEnd === fim) {
+      el.setSelectionRange(fim, fim);
+    }
+  });
+}
+
 /** E-mail — FormField + Input (Vela). */
 export function CampoEmail({
   label = "E-mail",
@@ -89,10 +99,16 @@ export function CampoEmail({
     <FormField label={label} error={erro ?? undefined}>
       <Input
         {...props}
-        type="email"
+        type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          soltarSelecaoDoAutofill(e.target);
+        }}
         inputMode="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         autoComplete={props.autoComplete ?? "username"}
         placeholder={props.placeholder ?? "seu@email.com"}
         className={cn(erro && inputErro, className)}
