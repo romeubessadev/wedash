@@ -37,8 +37,9 @@ const ROLE_OPTIONS: { value: SystemRole; label: string }[] = [
 ];
 
 const ROLE_HINT: Record<SystemRole, string> = {
-  OWNER: "Vê tudo das lojas escolhidas, inclusive o Financeiro, e gerencia usuários e integrações. Para sócios e administrativo.",
-  MANAGER: "Vê Dashboard (sem Financeiro), Gestão (metas, turnos e colaboradores) e o horário das lojas escolhidas.",
+  OWNER:
+    "Acessa todas as áreas das lojas selecionadas, inclusive Financeiro, e pode gerenciar usuários e integrações. Indicado para sócios e administrativo.",
+  MANAGER: "Acessa Dashboard, exceto Financeiro, Gestão e os horários das lojas selecionadas.",
 };
 
 function fmtAgo(iso: string | null): string {
@@ -231,7 +232,7 @@ export function SystemUsersPage() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <CardTitle>Usuários</CardTitle>
-          <CardSubtitle>Gestores e gerentes que acessam a WeDash</CardSubtitle>
+          <CardSubtitle>Gestores e gerentes com acesso à WeDash.</CardSubtitle>
         </div>
         <Button icon={<Icon d={icons.plus} size={14} />} onClick={() => setEditing({ mode: "invite" })}>
           Convidar usuário
@@ -263,7 +264,7 @@ export function SystemUsersPage() {
                 <EmptyState
                   framed={false}
                   icon="👤"
-                  title="Nenhum usuário ainda"
+                  title="Nenhum usuário cadastrado"
                   description="Convide gestores e gerentes para acessar a WeDash."
                   action={inviteButton}
                 />
@@ -280,7 +281,7 @@ export function SystemUsersPage() {
                   framed={false}
                   icon="✉️"
                   title="Nenhum convite pendente"
-                  description="Convites enviados aparecem aqui até a pessoa criar a senha."
+                  description="Os convites enviados aparecem aqui até a pessoa criar a senha."
                   action={inviteButton}
                 />
               }
@@ -314,15 +315,15 @@ export function SystemUsersPage() {
               Voltar
             </Button>
             <Button variant="danger" disabled={busy} onClick={() => confirming && void run(confirming.action, confirming.user)}>
-              {busy ? "Aguarde…" : confirming?.action === "revoke" ? "Cancelar convite" : "Suspender"}
+              {busy ? "Aguarde…" : confirming?.action === "revoke" ? "Cancelar convite" : "Suspender acesso"}
             </Button>
           </>
         }
       >
         <p className="text-sm leading-relaxed text-t1">
           {confirming?.action === "revoke"
-            ? `O link enviado para ${confirming.user.email} deixa de funcionar.`
-            : `${confirming ? displayName(confirming.user) : ""} não consegue mais entrar no WeDash. Você pode reativar depois.`}
+            ? `O link enviado para ${confirming.user.email} deixará de funcionar.`
+            : `${confirming ? displayName(confirming.user) : ""} não poderá mais entrar na WeDash. O acesso pode ser reativado depois.`}
         </p>
       </Modal>
     </Card>
@@ -426,7 +427,7 @@ function UserModal({
           <FormField
             label="E-mail"
             required
-            hint="O convite chega neste e-mail. A pessoa informa o nome e cria a senha ao abrir o link."
+            hint="O convite será enviado para este e-mail. Ao abrir o link, a pessoa informa o nome e cria a senha."
           >
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" autoFocus />
           </FormField>
@@ -441,7 +442,7 @@ function UserModal({
               label={
                 <span className="min-w-0">
                   <span className="block font-semibold">Todas as lojas</span>
-                  <span className="block text-[11.5px] text-t2">Inclusive as que abrirem depois</span>
+                  <span className="block text-[11.5px] text-t2">Inclui também as lojas adicionadas no futuro.</span>
                 </span>
               }
               checked={allStores}

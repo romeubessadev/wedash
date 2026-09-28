@@ -19,6 +19,11 @@ const SYNC_PRODUCTS_ERRORS: Record<string, string> = {
   invalid_period: "Período inválido.",
 };
 
+const REGISTRY_ERRORS: Record<string, string> = {
+  busy: "Os cadastros já estão sendo atualizados. Tente novamente em alguns minutos.",
+  forbidden: "Você não tem permissão para atualizar os cadastros.",
+};
+
 export type ProductsSyncScope =
   | { scope: "tables" }
   | { scope: "registry" }
@@ -52,6 +57,7 @@ export async function syncProductsNow(
   return {
     ok: false,
     message:
+      (request.scope === "registry" ? REGISTRY_ERRORS[body?.error ?? ""] : undefined) ??
       SYNC_PRODUCTS_ERRORS[body?.error ?? ""] ??
       (request.scope === "costs"
         ? "Não foi possível atualizar os custos. Tente novamente."

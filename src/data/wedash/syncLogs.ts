@@ -25,32 +25,32 @@ export type SyncLogEntry = {
 /** Origem (etapa do sync) → rótulo na UI. */
 export const SYNC_LOG_SOURCE_LABEL: Record<string, string> = {
   job: "Sincronização",
-  login: "Login no ERP",
+  login: "Acesso ao Millennium",
   vendas: "Vendas",
-  margem: "Marca (WEPINK/WPINK)",
+  margem: "Marca · WEPINK/WPINK",
   cmv: "CMV",
-  detalhe_movimento: "Detalhe do movimento",
+  detalhe_movimento: "Detalhe da venda",
   categorias: "Categorias",
   catalogo: "Catálogo de produtos",
   top_produtos: "Top produtos",
-  cupom: "Produtos por cupom",
+  cupom: "Produtos por venda",
   custo_produto: "CMV por produto",
-  mapa_produtos: "Mapa de produtos",
-  gerador: "Gerador da filial",
+  mapa_produtos: "Mapeamento de produtos",
+  gerador: "Gerador da loja",
   eventos: "Eventos de venda",
   vendedoras: "Equipe de vendas",
-  millennium_ocupado: "ERP ocupado",
+  millennium_ocupado: "Millennium ocupado",
 };
 
 export const SYNC_JOB_KIND_LABEL: Record<string, string> = {
   SEED: "Carga inicial",
-  FORCE: "Atualizar",
-  FORCE_LIGHT: "Atualizar",
-  LIGHT: "Automático",
+  FORCE: "Atualização manual",
+  FORCE_LIGHT: "Atualização manual",
+  LIGHT: "Atualização automática",
   HISTORY: "Histórico",
   CLOSE: "Fechamento do dia",
   RANGE: "Período",
-  BACKFILL: "Reprocesso",
+  BACKFILL: "Reprocessamento",
 };
 
 export function syncLogSourceLabel(source: string): string {
@@ -59,20 +59,20 @@ export function syncLogSourceLabel(source: string): string {
 
 const SYNC_LOG_SUMMARY: Record<string, string> = {
   job: "Sincronização interrompida",
-  vendas: "Vendas não foram carregadas",
-  margem: "Faturamento por marca não carregou",
-  cmv: "CMV não carregou",
+  vendas: "Vendas não carregadas",
+  margem: "Faturamento por marca não carregado",
+  cmv: "CMV não carregado",
   detalhe_movimento: "Vendas por hora incompletas",
-  categorias: "Categorias não carregaram",
+  categorias: "Categorias não carregadas",
   catalogo: "Produtos novos sem categoria",
-  top_produtos: "Top produtos não carregou",
-  cupom: "Top produtos e vendas por marca incompletos",
-  custo_produto: "CMV por produto não gravou",
-  mapa_produtos: "Mapa de produtos incompleto",
+  top_produtos: "Top produtos não carregado",
+  cupom: "Top produtos e faturamento por marca incompletos",
+  custo_produto: "CMV por produto não salvo",
+  mapa_produtos: "Mapeamento de produtos incompleto",
   gerador: "Loja sem gerador no Millennium",
-  eventos: "Eventos de venda não carregaram",
-  vendedoras: "Equipe de vendas não sincronizou",
-  millennium_ocupado: "Millennium lento, sincronização mais devagar",
+  eventos: "Eventos de venda não carregados",
+  vendedoras: "Equipe de vendas não sincronizada",
+  millennium_ocupado: "Millennium lento · sincronização mais demorada",
 };
 
 /** Frase curta para a lista; a mensagem técnica fica no detalhe. */
@@ -80,7 +80,7 @@ export function syncLogSummary(e: Pick<SyncLogEntry, "source" | "message">): str
   if (e.source === "login") {
     return /senha|password|inv[aá]lid/i.test(e.message)
       ? "Senha do Millennium inválida"
-      : "Não foi possível entrar no Millennium";
+      : "Não foi possível acessar o Millennium";
   }
   return SYNC_LOG_SUMMARY[e.source] ?? syncLogSourceLabel(e.source);
 }

@@ -48,9 +48,9 @@ const ESTADO_UI: Record<Estado, { label: string; cls: string; dot: string }> = {
 
 const ERRO_CREDENCIAL: Record<Extract<ErpCredentialChangeResult, { ok: false }>["reason"], string> = {
   password: "Usuário ou senha incorretos. Confira os dados e tente novamente.",
-  busy: "Este usuário já está conectado ao Millennium em outro local. Encerre a outra sessão e tente novamente.",
+  busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
   stores: "A conexão foi realizada, mas não conseguimos identificar as lojas deste usuário. Tente novamente.",
-  no_stores: "Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente novamente.",
+  no_stores: "Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no Millennium e tente novamente.",
   other: "Não foi possível conectar ao Millennium. Tente novamente em alguns minutos.",
   persist: "A conexão foi testada, mas não foi possível salvá-la. Tente novamente.",
   reports: "Este usuário não possui acesso a todos os relatórios necessários para a WeDash.",
@@ -223,7 +223,7 @@ function MillenniumModal({
       show("Millennium desconectado.", "success");
       await onChanged();
     } catch {
-      show("Não foi possível desconectar. Tente de novo.", "danger");
+      show("Não foi possível desconectar. Tente novamente.", "danger");
     } finally {
       setBusy(false);
     }
@@ -310,14 +310,20 @@ function MillenniumModal({
     >
       <div className="flex flex-col gap-3.5">
         <p className={`text-[13.5px] leading-relaxed ${estado === "senha" ? "text-bad" : "text-t1"}`}>
-          {conectado
-            ? `A WeDash está sincronizando vendas, custos e lojas com o usuário ${usuarioAnterior}. Desconectar libera o Millennium e pausa a sincronização.`
-            : estado === "senha"
-              ? "A senha salva não funciona mais. Informe a senha atual do ERP para voltar a sincronizar."
-              : "Informe um usuário e uma senha do ERP. Antes de salvar, testamos a conexão e o acesso aos relatórios que a WeDash usa."}
+          {conectado ? (
+            <>
+              A WeDash está sincronizando vendas, custos e lojas com o usuário{" "}
+              <strong className="font-semibold text-t0">{usuarioAnterior}</strong>. Ao desconectar, a sincronização é
+              interrompida e o usuário fica disponível para uso no Millennium.
+            </>
+          ) : estado === "senha" ? (
+            "A senha salva não é mais válida. Informe a senha atual do Millennium para voltar a sincronizar."
+          ) : (
+            "Informe um usuário e uma senha do Millennium. Antes de conectar, a WeDash testa a conexão e verifica os acessos necessários."
+          )}
         </p>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <FormField label="Usuário" required>
+          <FormField label="Usuário do Millennium" required>
             <Input
               value={usuario}
               onChange={(e) => {
@@ -330,7 +336,7 @@ function MillenniumModal({
               disabled={travado}
             />
           </FormField>
-          <FormField label="Senha" required>
+          <FormField label="Senha do Millennium" required>
             <div className="relative">
               <Input
                 type="text"
@@ -394,10 +400,11 @@ function MillenniumModal({
             {pendente.plan.kind === "partial" ? (
               <>
                 <p className="text-[13px] font-bold text-bad">
-                  {pendente.username} não enxerga {pendente.plan.removed.length === 1 ? "1 loja" : `${pendente.plan.removed.length} lojas`}
+                  {pendente.username} não tem acesso a{" "}
+                  {pendente.plan.removed.length === 1 ? "1 loja" : `${pendente.plan.removed.length} lojas`}
                 </p>
                 <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
-                  Elas deixam de ser sincronizadas e os dados delas saem da WeDash. As demais lojas continuam como estão.
+                  Essas lojas deixarão de ser sincronizadas e serão removidas da WeDash. As demais continuam normalmente.
                 </p>
                 <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[12.5px] font-semibold text-t0">
                   {pendente.plan.removed.map((s) => (
@@ -407,10 +414,15 @@ function MillenniumModal({
               </>
             ) : (
               <>
-                <p className="text-[13px] font-bold text-bad">{pendente.username} não enxerga nenhuma das lojas atuais</p>
+                <p className="text-[13px] font-bold text-bad">
+                  {pendente.username} não tem acesso a nenhuma das lojas atuais
+                </p>
                 <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
-                  Os dados sincronizados serão apagados, as lojas recriadas (fuso e horário voltam ao padrão) e a carga
-                  inicial refeita.
+                  Os dados sincronizados atuais serão removidos. As lojas serão cadastradas novamente e a carga inicial
+                  será refeita.
+                </p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
+                  Configurações como fuso e horário das lojas voltarão ao padrão.
                 </p>
               </>
             )}
@@ -418,8 +430,8 @@ function MillenniumModal({
               className="mt-3 items-start text-bad"
               label={
                 pendente.plan.kind === "partial"
-                  ? `Entendo — remover essas lojas e trocar para ${pendente.username}`
-                  : `Entendo — apagar os dados e trocar para ${pendente.username}`
+                  ? `Entendo que essas lojas serão removidas e quero trocar para ${pendente.username}.`
+                  : `Entendo que os dados atuais serão removidos e quero trocar para ${pendente.username}.`
               }
               checked={aceiteTroca}
               onChange={(e) => setAceiteTroca(e.target.checked)}
@@ -428,7 +440,7 @@ function MillenniumModal({
           </div>
         )}
         {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}
-        {!canEdit && <p className="text-xs text-t2">Só o dono ou o gerente da rede pode alterar a integração.</p>}
+        {!canEdit && <p className="text-xs text-t2">Somente Gestores podem alterar a integração.</p>}
       </div>
     </Modal>
   );

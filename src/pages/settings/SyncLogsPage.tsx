@@ -87,7 +87,8 @@ export function SyncLogsPage() {
     try {
       setLogs(await fetchSyncLogs({ tenantId: session.tenantId, level: nivel || null }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.warn("fetchSyncLogs:", e);
+      setError("Não foi possível carregar os logs. Tente novamente.");
       setLogs([]);
     } finally {
       setLoading(false);
@@ -100,7 +101,7 @@ export function SyncLogsPage() {
 
   const lojaNome = useCallback(
     (e: SyncLogEntry) => {
-      if (!e.storeId && !e.storeLabel) return "Todas";
+      if (!e.storeId && !e.storeLabel) return "Todas as lojas";
       const loja = lojas.find((s) => s.id === e.storeId);
       return loja ? loja.fantasia : e.storeLabel ?? "—";
     },
@@ -134,7 +135,7 @@ export function SyncLogsPage() {
   });
 
   if (!canView) {
-    return <p className="text-sm text-t2">Só o dono ou o gerente da rede pode ver os logs.</p>;
+    return <p className="text-sm text-t2">Somente Gestores podem visualizar os logs.</p>;
   }
 
   return (
@@ -159,7 +160,7 @@ export function SyncLogsPage() {
 
       <Card padding="lg">
         {error ? (
-          <span className="block py-6 text-center text-[12px] text-bad">Não foi possível carregar os logs: {error}</span>
+          <span className="block py-6 text-center text-[12px] text-bad">{error}</span>
         ) : showSkeleton ? (
           <TimelineSkeleton rows={5} />
         ) : events.length === 0 ? (
@@ -168,7 +169,7 @@ export function SyncLogsPage() {
               framed={false}
               icon="🔍"
               title="Nenhum resultado"
-              description="Tente outra busca ou mude o tipo de evento."
+              description="Tente outra busca ou altere o tipo de evento."
               action={
                 <Button
                   variant="outline"
@@ -264,41 +265,47 @@ function LogDetail({ entry, loja }: { entry: SyncLogEntry; loja: string }) {
   const extra = Object.entries(entry.detail ?? {}).filter(([k]) => !DETAIL_KEYS_INTERNAS.has(k));
   const w = workerInfo(entry);
   const stack = stackOf(entry);
+  const mono = (v: string) => <span className="font-mono text-xs">{v}</span>;
   return (
     <div className="space-y-2.5 text-[13px]">
       <p className="pb-1 text-[14px] font-semibold text-t0">{syncLogSummary(entry)}</p>
       <DetailRow label="Quando" value={fmtWhen(entry.createdAt)} />
       <DetailRow label="Nível" value={<LevelBadge level={entry.level} />} />
-      <DetailRow label="Origem" value={`${syncLogSourceLabel(entry.source)} (${entry.source})`} />
+      <DetailRow label="Origem" value={syncLogSourceLabel(entry.source)} />
       {entry.jobKind && (
-        <DetailRow label="Sincronização" value={SYNC_JOB_KIND_LABEL[entry.jobKind] ?? entry.jobKind} />
+        <DetailRow label="Tipo de sincronização" value={SYNC_JOB_KIND_LABEL[entry.jobKind] ?? entry.jobKind} />
       )}
-      {entry.jobId && <DetailRow label="Job" value={<span className="font-mono text-xs">{entry.jobId}</span>} />}
-      {erpUserOf(entry) && <DetailRow label="Usuário ERP" value={erpUserOf(entry)} />}
       <DetailRow label="Loja" value={loja} />
-      {entry.days.length > 0 && (
-        <DetailRow
-          label={entry.days.length > 1 ? "Dias" : "Dia"}
-          value={entry.days.map(fmtDay).join(", ")}
-        />
-      )}
-      {entry.count > 1 && <DetailRow label="Ocorrências" value={`${entry.count} vezes nesta sincronização`} />}
-      {extra.map(([k, v]) => (
-        <DetailRow key={k} label={k} value={typeof v === "string" ? v : JSON.stringify(v)} />
-      ))}
-      {w?.version && (
-        <DetailRow label="Versão do worker" value={<span className="font-mono text-xs">{w.version}</span>} />
-      )}
+      {entry.days.length > 0 && <DetailRow label="Período" value={entry.days.map(fmtDay).join(", ")} />}
+      <DetailRow
+        label="Ocorrências"
+        value={entry.count > 1 ? `${entry.count} vezes nesta sincronização` : "1 vez nesta sincronização"}
+      />
       <div className="pt-2">
         <span className="mb-1.5 block text-t2">Mensagem</span>
         <pre className={PRE}>{entry.message}</pre>
       </div>
-      {stack && (
-        <div className="pt-1">
-          <span className="mb-1.5 block text-t2">Rastro do código</span>
-          <pre className={PRE}>{stack}</pre>
+      <details className="group rounded-[var(--radius-vela-md)] border border-line">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 font-semibold text-t1 hover:text-t0">
+          Informações técnicas
+          <span className="text-t2 transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="space-y-2.5 border-t border-line px-3 py-3">
+          <DetailRow label="Identificador da sincronização" value={mono(entry.id)} />
+          {entry.jobId && <DetailRow label="Identificador da tarefa" value={mono(entry.jobId)} />}
+          {erpUserOf(entry) && <DetailRow label="Usuário do Millennium" value={erpUserOf(entry)} />}
+          {w?.version && <DetailRow label="Versão da sincronização" value={mono(w.version)} />}
+          {extra.map(([k, v]) => (
+            <DetailRow key={k} label={k} value={typeof v === "string" ? v : JSON.stringify(v)} />
+          ))}
+          {stack && (
+            <div className="pt-1">
+              <span className="mb-1.5 block text-t2">Detalhes técnicos do erro</span>
+              <pre className={PRE}>{stack}</pre>
+            </div>
+          )}
         </div>
-      )}
+      </details>
     </div>
   );
 }

@@ -26,7 +26,7 @@ const META: Record<string, { title: string; subtitle: string }> = {
   },
   [paths.settings.logs]: {
     title: "Logs",
-    subtitle: "Acompanhe os erros e avisos da sincronização com o Millennium.",
+    subtitle: "Acompanhe erros e avisos da sincronização com o Millennium.",
   },
 };
 
