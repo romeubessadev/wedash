@@ -57,7 +57,7 @@ export function StoresSettingsPage() {
   }, [session.tenantId, session.stores]);
 
   if (showSkeleton) {
-    return <CardGridSkeleton count={3} />;
+    return <CardGridSkeleton count={Math.max(1, session.stores.length)} />;
   }
 
   if (lojas.length === 0) {

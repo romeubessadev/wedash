@@ -31,7 +31,7 @@ export function RentPage() {
       title="Aluguel"
       subtitle="A WeDash considera o maior valor entre o aluguel mínimo e o percentual sobre o faturamento."
       loading={loading}
-      skeleton={<StoreCardsSkeleton fields={2} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
       lojas={lojas}
     >
       {(loja) => <CostFieldsCard loja={loja} fields={RENT_FIELDS} onSaved={refresh} />}

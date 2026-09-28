@@ -55,7 +55,7 @@ export function ProductsTaxesPage() {
         </Button>
       }
       loading={loading}
-      skeleton={<StoreCardsSkeleton fields={3} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} fields={3} />}
       lojas={lojas}
     >
       {(loja) => <ProductsTaxesCard loja={loja} tables={tables} onSaved={refresh} />}

@@ -21,7 +21,7 @@ export function ShiftsPage() {
       title="Turnos"
       subtitle="Configure os turnos de cada loja. O turno de cada colaborador é definido em Colaboradores."
       loading={loading}
-      skeleton={<StoreCardsSkeleton shifts />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} shifts />}
       lojas={lojas}
     >
       {(loja) => <ShiftsCard tenantId={session.tenantId} loja={loja} />}

@@ -23,7 +23,7 @@ export function StaffPage() {
       title="Colaboradores"
       subtitle="Colaboradores de cada loja, sincronizados com o Millennium."
       loading={loading}
-      skeleton={<StoreCardsSkeleton team wide />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} team wide />}
       lojas={lojas}
       wide
     >

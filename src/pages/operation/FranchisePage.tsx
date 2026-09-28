@@ -25,7 +25,7 @@ export function FranchisePage() {
       title="Franquia"
       subtitle="Configure royalties e taxa de marketing pagos à franqueadora."
       loading={loading}
-      skeleton={<StoreCardsSkeleton fields={2} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
       lojas={lojas}
     >
       {(loja) => <CostFieldsCard loja={loja} fields={franchiseFields(loja)} onSaved={refresh} />}

@@ -92,18 +92,22 @@ export function StoreCardsPage({
   subtitle: string;
   actions?: ReactNode;
   loading: boolean;
-  skeleton: ReactNode;
+  /** Recebe quantos cards desenhar = lojas do StorePicker ("Todas" = todas as da sessão). */
+  skeleton: (count: number) => ReactNode;
   lojas: Store[];
   wide?: boolean;
   children: (loja: Store) => ReactNode;
 }) {
   const showSkeleton = useMinSkeleton(loading);
+  const session = useActiveSession();
+  const { escopo } = useScope();
+  const skeletonCount = Math.max(1, escopo.filialIds.length || session.stores.length);
   return (
     <div>
       <SectionHeader section={section} title={title} subtitle={subtitle} actions={actions} />
       <div className="mt-6">
         {showSkeleton ? (
-          skeleton
+          skeleton(skeletonCount)
         ) : lojas.length === 0 ? (
           <Card>
             <EmptyState framed={false} icon="🏬" title="Nenhuma loja" description="Nenhuma loja no seu escopo." />

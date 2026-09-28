@@ -42,7 +42,7 @@ export function CostsPage() {
       title="Custos"
       subtitle="Configure os custos fixos, variáveis e outras despesas de cada loja."
       loading={loading}
-      skeleton={<StoreCardsSkeleton rows={3} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} rows={3} />}
       lojas={lojas}
     >
       {(loja) => <CostsCard tenantId={session.tenantId} loja={loja} onSaved={refresh} />}
