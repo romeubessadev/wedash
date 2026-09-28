@@ -1126,33 +1126,49 @@ export function closeWindow(todayIso: string, previousClosed: boolean): { from: 
 export const HISTORY_CAP_MONTHS = 24;
 
 /**
- * Histórico carregado depois do onboarding (`.env SYNC_HISTORY`), do mais recente para o mais antigo:
- * `Nd` = N dias antes de hoje (1d = só ontem) · `Nm` = mês atual + N−1 meses anteriores
- * (1m = este mês, 3m = desde o dia 1 de dois meses atrás) · `0` = nenhum. Vazio/inválido = `1m`.
- * Devolve o dia mais antigo a carregar, ou null quando não há histórico.
+ * O que entra depois do onboarding (`.env SYNC_ONBOARDING`; `SYNC_HISTORY` = nome antigo), sempre
+ * com hoje incluído: `off` = nada · `hoje` (ou `0`) = só hoje · `Nd` = hoje + N dias anteriores
+ * (1d = hoje + ontem) · `Nm` = mês atual + N−1 meses anteriores (1m = este mês). Vazio/inválido = `1m`.
+ * Devolve o dia mais antigo do histórico (antes de hoje), ou null quando é só hoje / off.
  */
 export function syncHistoryUntil(
   todayIso: string,
   env: Record<string, string | undefined> = process.env,
 ): string | null {
   const parsed = parseSyncHistory(env);
-  if (!parsed) return null;
+  if (!parsed || parsed === "off") return null;
   if (parsed.unit === "d") return addDaysIso(todayIso, -parsed.n);
   const [y, m] = todayIso.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - parsed.n, 1)).toISOString().slice(0, 10);
 }
 
-/** Texto do histórico configurado (linha de início do worker). */
+/**
+ * `SYNC_ONBOARDING=off`: nada automático — SEED (vendas de hoje ao conectar) termina sem ir ao ERP,
+ * sem carga do histórico, sem atualização automática nem fechamento da madrugada. O Atualizar manual
+ * continua funcionando.
+ */
+export function syncOnboardingOff(env: Record<string, string | undefined> = process.env): boolean {
+  return parseSyncHistory(env) === "off";
+}
+
+/** Anotação do SEED pulado (sync_job.error com status SUCCEEDED; o sino ignora). */
+export const SYNC_OFF_NOTE = "sync desligado (SYNC_ONBOARDING=off)";
+
+/** Texto do que entra depois do onboarding (linha de início do worker). */
 export function describeSyncHistory(env: Record<string, string | undefined> = process.env): string {
   const parsed = parseSyncHistory(env);
-  if (!parsed) return "nenhum (só hoje)";
-  if (parsed.unit === "d") return parsed.n === 1 ? "só ontem" : `${parsed.n} dias`;
+  if (parsed === "off") return "desligado (nada automático; só o Atualizar manual)";
+  if (!parsed) return "só hoje";
+  if (parsed.unit === "d") return parsed.n === 1 ? "hoje + ontem" : `hoje + ${parsed.n} dias anteriores`;
   return parsed.n === 1 ? "mês atual" : `mês atual + ${parsed.n - 1} anterior(es)`;
 }
 
-function parseSyncHistory(env: Record<string, string | undefined>): { n: number; unit: "d" | "m" } | null {
-  const raw = (env.SYNC_HISTORY ?? "").trim().toLowerCase();
-  if (raw === "0") return null;
+function parseSyncHistory(
+  env: Record<string, string | undefined>,
+): { n: number; unit: "d" | "m" } | "off" | null {
+  const raw = (env.SYNC_ONBOARDING ?? env.SYNC_HISTORY ?? "").trim().toLowerCase();
+  if (raw === "off") return "off";
+  if (raw === "0" || raw === "hoje") return null;
   const match = /^(\d+)\s*([dm])$/.exec(raw);
   const n = match ? Number(match[1]) : 0;
   if (!match || n === 0) return { n: 1, unit: "m" };
@@ -2085,6 +2101,11 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
   const startedAt = deps.now();
   const tJob = nowMs();
   const isSeed = job.kind === "SEED";
+  if (isSeed && syncOnboardingOff()) {
+    await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED", error: SYNC_OFF_NOTE });
+    console.log(`Carga inicial pulada (SYNC_ONBOARDING=off) · job ${job.id.slice(0, 8)}`);
+    return { ok: true, storesDone: 0 };
+  }
   const fillUntil = job.kind === "CLOSE" ? job.payload.fillUntil : undefined;
   const deep = Boolean(fillUntil && job.payload.deep);
   const label = isSeed ? "Carga inicial" : deep ? "Histórico antigo" : fillUntil ? "Carga do histórico" : "Fechamento";

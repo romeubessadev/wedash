@@ -42,6 +42,7 @@ import {
   hourInTz,
   isCloseWindow,
   runSyncJob,
+  syncOnboardingOff,
   ymdInTz,
   type SyncCredential,
   type SyncJob,
@@ -1120,7 +1121,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
  * não fechou. Não enfileira com onboarding aberto nem com SEED pendente (a carga já cobre ontem).
  */
 export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
-  if (!dailyCloseEnabled()) return 0;
+  if (!dailyCloseEnabled() || syncOnboardingOff()) return 0;
   const { data: creds, error } = await sb
     .from("erp_credential")
     .select("id, tenant_id, sync_paused")
@@ -1237,6 +1238,7 @@ export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()):
  * usuário exclusivo da WeDash (`dedicated`) faz login na hora.
  */
 export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
+  if (syncOnboardingOff()) return 0;
   const { data: creds, error } = await sb
     .from("erp_credential")
     .select("id, tenant_id, sync_paused, dedicated")
@@ -1333,6 +1335,7 @@ export function deepHistoryEnabled(): boolean {
 }
 
 export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
+  if (syncOnboardingOff()) return 0;
   const { data: creds, error } = await sb.from("erp_credential").select("id, tenant_id, sync_paused").eq("status", "VALID");
   if (error) throw error;
   let n = 0;

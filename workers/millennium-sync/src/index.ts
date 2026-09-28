@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { installAsciiConsole } from "./consoleAscii.ts";
 import { createAdminClient, deepHistoryEnabled, disconnectTenantSessions, enqueueDueAutoRefreshJobs, enqueueDueCloseJobs, enqueueDueDeepHistoryJobs, enqueueDueLightJobs, processOneJob, purgeOldSyncLogs, recoverOnStartup, SYNC_LOG_RETENTION_DAYS, recoverStaleRunningJobs } from "./deps.ts";
 import { logoutMillennium } from "./millenniumAuth.ts";
-import { closeHour, dailyCloseEnabled, describeSyncHistory, releaseActiveMillenniumSession } from "./runSyncJob.ts";
+import { closeHour, dailyCloseEnabled, describeSyncHistory, releaseActiveMillenniumSession, syncOnboardingOff } from "./runSyncJob.ts";
 import { isWorkerPaused } from "./workerPause.ts";
 import { acquireWorkerLock, releaseWorkerLock } from "./workerLock.ts";
 
@@ -74,11 +74,14 @@ async function main() {
   const sb = createAdminClient();
   await recoverOnStartup(sb);
   console.log("Worker Millennium");
-  console.log(`  Histórico pós-onboarding : ${describeSyncHistory()} (SYNC_HISTORY)`);
+  const syncOff = syncOnboardingOff();
+  console.log(`  Pós-onboarding           : ${describeSyncHistory()} (SYNC_ONBOARDING)`);
   console.log(
-    `  Fechamento de ontem      : ${dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
+    `  Fechamento de ontem      : ${syncOff ? "desligado (SYNC_ONBOARDING=off)" : dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
   );
-  console.log("  Atualização automática   : por integração (Configurações > Integrações)");
+  console.log(
+    `  Atualização automática   : ${syncOff ? "desligada (SYNC_ONBOARDING=off)" : "a cada 30 min com a loja aberta"}`,
+  );
   console.log(
     `  Histórico antigo         : ${deepHistoryEnabled() ? "ligado na madrugada, até a inauguração (DEEP_HISTORY=1)" : "desligado (DEEP_HISTORY=1 liga)"}`,
   );

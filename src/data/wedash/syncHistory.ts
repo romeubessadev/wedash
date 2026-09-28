@@ -16,6 +16,7 @@ export type SyncJobRow = {
     since?: string;
   } | null;
   finished_at: string | null;
+  error?: string | null;
 };
 
 export type SyncHistoryItem = { id: string; at: Date; text: string; ok: boolean };
@@ -32,6 +33,8 @@ export function syncHistoryItem(row: SyncJobRow): SyncHistoryItem | null {
   if (!row.finished_at || !KINDS.includes(row.kind)) return null;
   const ok = row.status === "SUCCEEDED";
   if (row.status !== "SUCCEEDED" && row.status !== "FAILED") return null;
+  // Concluído com anotação = pulado sem ir ao ERP (ex.: worker com SYNC_ONBOARDING=off).
+  if (ok && row.error) return null;
   const p = row.payload ?? {};
   let text: string;
   if (row.kind === "CLOSE") {
@@ -63,7 +66,7 @@ export async function fetchSyncHistory(tenantId: string, limit = 20): Promise<Sy
   if (!sb) return [];
   const { data, error } = await sb
     .from("sync_job")
-    .select("id, kind, status, payload, finished_at")
+    .select("id, kind, status, payload, finished_at, error")
     .eq("tenant_id", tenantId)
     .in("kind", KINDS)
     .in("status", ["SUCCEEDED", "FAILED"])
