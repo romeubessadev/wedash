@@ -27,7 +27,6 @@ export function CreatePassword() {
   const [confirma, setConfirma] = useState("");
   const [carregando, setCarregando] = useState(false);
 
-  const primeiroNome = session.name.split(/\s+/)[0] ?? "";
   const comOnboarding = session.onboardingStep !== null;
   const erroConfirma = confirma.length > 0 && confirma !== senha ? "As senhas não coincidem." : null;
   const pode = senhaValida(senha) && confirma === senha && !carregando;
@@ -74,9 +73,7 @@ export function CreatePassword() {
           {comOnboarding && <WizardSteps steps={ONBOARDING_STEPS} current={1} />}
 
           <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Crie sua senha</h1>
-          <p className="mb-7 text-sm text-t2">
-            {primeiroNome ? `Olá, ${primeiroNome}. ` : ""}Ela substitui a senha temporária que você recebeu.
-          </p>
+          <p className="mb-7 text-sm text-t2">Escolha a senha que você vai usar para entrar na WeDash.</p>
 
           <form onSubmit={salvar} className="flex flex-col gap-3.5" noValidate>
             {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
