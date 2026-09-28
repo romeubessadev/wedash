@@ -153,6 +153,8 @@ export interface StoreSummaryView {
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const TIP_CMV = "Custo das mercadorias vendidas no período.";
 const TIP_CMV_INDISPONIVEL = "O CMV não está disponível para este período.";
+const TIP_LUCRO_BRUTO = "Valor que permanece após descontar do faturamento o CMV e os impostos considerados pela operação.";
+const TIP_MARGEM = "Percentual do faturamento que permanece como lucro bruto após CMV e impostos.";
 const DIA_SEMANA_PASSADO = [
   "o domingo passado",
   "a segunda-feira passada",
@@ -1649,9 +1651,6 @@ function agregadoMes(fs: Store[], mes: string, divisao: Division | null): Aggreg
   return { ...agg, cmv: custo, porMeio };
 }
 
-const TIP_LUCRO_BRUTO =
-  "Valor que permanece após descontar do faturamento o CMV e os impostos considerados pela operação.";
-
 export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): FinanceView {
   if (aggs) return buildFinanceViewFromAggs(escopo, aggs);
   const periodo = resolvePeriod(escopo.periodo);
@@ -1695,7 +1694,7 @@ export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): 
       sub: `${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}% do faturamento`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Percentual do faturamento utilizado para cobrir o custo dos produtos vendidos.",
+      tooltip: TIP_CMV,
     },
     {
       label: "Lucro bruto",
@@ -1709,7 +1708,7 @@ export function buildFinanceView(escopo: Scope, aggs?: FinanceAggInput | null): 
       valor: pct(margemAtual),
       delta: temComp ? kpiDeltaPp(margemAtual, margemAnterior, vsRotulo) : undefined,
       serie: serieMargem,
-      tooltip: "Percentual do faturamento que permanece como lucro bruto após CMV e impostos.",
+      tooltip: TIP_MARGEM,
     },
   ];
 
@@ -2169,7 +2168,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       valor: temCmv ? brlCent(atual.cmv) : "—",
       sub: temCmv ? `${(divSeguro(atual.cmv, atual.rev) * 100).toFixed(0)}% do faturamento` : undefined,
       delta: cmvComparavel ? kpiDelta(atualCmp.cmv, antCmp.cmv, vsCmv) : undefined,
-      tooltip: "Percentual do faturamento utilizado para cobrir o custo dos produtos vendidos.",
+      tooltip: temCmv ? TIP_CMV : TIP_CMV_INDISPONIVEL,
     },
     {
       label: "Lucro bruto",
@@ -2182,7 +2181,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
       label: "Margem",
       valor: temCmv ? pct(margemAtual) : "—",
       delta: cmvComparavel ? kpiDeltaPp(margemAtualCmp, margemAnteriorCmp, vsCmv) : undefined,
-      tooltip: "Percentual do faturamento que permanece como lucro bruto após CMV e impostos.",
+      tooltip: TIP_MARGEM,
     },
   ];
 
@@ -3318,7 +3317,7 @@ function buildFinanceWpinkKpis(p: {
       label: "CMV WPINK",
       valor: cmv != null ? brlCent(cmv) : "—",
       sub: cmv != null && atual.fat > 0 ? `${Math.round((cmv / atual.fat) * 100)}% do faturamento WPINK` : undefined,
-      tooltip: "Percentual do faturamento WPINK utilizado para cobrir o custo dos produtos vendidos.",
+      tooltip: cmv != null ? TIP_CMV : TIP_CMV_INDISPONIVEL,
       tint: "warn",
       delta: cmvComp ? kpiDelta(cmvA, cmvB, c.vsRotulo) : undefined,
     },
@@ -3326,15 +3325,14 @@ function buildFinanceWpinkKpis(p: {
       label: "Lucro bruto WPINK",
       valor: cmv != null ? brlCent(lucro) : "—",
       sub: cmv != null && atual.impostos > 0 ? `Impostos: ${brlCent(atual.impostos)}` : undefined,
-      tooltip:
-        "Valor que permanece do faturamento WPINK após descontar CMV e impostos.",
+      tooltip: TIP_LUCRO_BRUTO,
       tint: "ok",
       delta: cmvComp ? kpiDelta(lucroA, lucroB, c.vsRotulo) : undefined,
     },
     {
       label: "Margem WPINK",
       valor: cmv != null ? pct(margem) : "—",
-      tooltip: "Percentual do faturamento WPINK que permanece como lucro bruto após CMV e impostos.",
+      tooltip: TIP_MARGEM,
       tint: "info",
       delta: cmvComp ? kpiDeltaPp(margemA, margemB, c.vsRotulo) : undefined,
     },

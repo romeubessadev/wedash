@@ -349,8 +349,8 @@ export default function ProductsPage() {
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const tipCmvProduto = view.temCustoProduto
-    ? "CMV e lucro bruto por produto vêm do relatório de margem do ERP. “—” = algum dia com venda do produto ainda sem custo."
-    : "CMV por produto aparece depois do próximo Atualizar (relatório de margem do ERP).";
+    ? "Custo das mercadorias vendidas e lucro bruto de cada produto no período. “—” indica que falta o custo de algum dia com venda do produto."
+    : "O CMV por produto não está disponível para este período.";
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
