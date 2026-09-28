@@ -302,7 +302,6 @@ function MillenniumModal({
                 descartarPendente();
               }}
               placeholder="Ex.: ESSENCIA.INTEGRACAO"
-              name="erp-user"
               {...noAutofill}
               className="uppercase"
               disabled={travado}
@@ -318,7 +317,6 @@ function MillenniumModal({
                   descartarPendente();
                 }}
                 placeholder="Digite a senha do ERP"
-                name="erp-secret"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha && !conectado)}
                 disabled={travado}

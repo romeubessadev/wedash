@@ -353,6 +353,8 @@ export function Reset() {
               <p className={acessoSubtitulo}>Escolha uma senha forte para voltar a acessar sua conta.</p>
 
               <form onSubmit={salvarSenha} className="flex flex-col gap-3.5 text-left" noValidate>
+                {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
+                <input type="email" name="username" autoComplete="username" value={email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
                 <CampoSenha
                   label="Nova senha"
                   value={senha}

@@ -100,7 +100,6 @@ export function Step2Credentials({
                 syncErp({ usuario: v });
               }}
               placeholder="Ex.: ESSENCIA.INTEGRACAO"
-              name="erp-user"
               {...noAutofill}
               autoFocus
               className="uppercase"
@@ -116,7 +115,6 @@ export function Step2Credentials({
                   gravarSenhaErp(membershipId, e.target.value);
                 }}
                 placeholder="Digite a senha do ERP"
-                name="erp-secret"
                 {...noAutofill}
                 style={secretStyle(mostrarSenha)}
                 className="pr-12"
