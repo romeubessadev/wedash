@@ -353,7 +353,7 @@ export default function OverviewPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
         title={welcomeTitle(session.name)}
-        subtitle="Indicadores, metas e desempenho da operação."
+        subtitle="Acompanhe os principais indicadores, metas e resultados da operação."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -470,7 +470,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento x meta</CardTitle>
-                <Tooltip label="Faturamento de cada hora/dia comparado à meta daquele ponto. A meta do mês é distribuída pelo peso histórico de cada dia da semana e de cada hora da loja.">
+                <Tooltip label="Compare o faturamento realizado com a meta esperada para cada período. A meta mensal é distribuída com base no histórico de vendas da operação.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -509,7 +509,7 @@ export default function OverviewPage() {
                 <EmptyBlock
                   icon="🎯"
                   title="Meta não configurada"
-                  description="Cadastre a meta do mês para comparar o faturamento de cada hora e dia com a meta."
+                  description="Cadastre a meta do mês para comparar o faturamento realizado com o esperado ao longo do período."
                   action={
                     <Button size="sm" onClick={() => navigate(paths.goals)}>
                       Criar meta
@@ -554,7 +554,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento por categoria</CardTitle>
-                <Tooltip label="Mix do faturamento por tipo de produto no período.">
+                <Tooltip label="Veja como o faturamento está distribuído entre as categorias de produtos.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -585,7 +585,7 @@ export default function OverviewPage() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Dias da semana x meta</CardTitle>
-                  <Tooltip label="Revela em quais dias o faturamento médio supera ou fica abaixo da meta diária.">
+                  <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta esperada.">
                     <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                       ?
                     </span>
@@ -644,7 +644,7 @@ export default function OverviewPage() {
             <CardTitle>Ranking de lojas</CardTitle>
             {escopo.filialIds.length === 1 && view.rankingLojas.length > 0 && (view.rankingRedeTotal ?? 0) > 0 && (
               <Badge variant="accent">
-                Rede: {brlCent(view.rankingRedeTotal ?? 0)}
+                Total da rede: {brlCent(view.rankingRedeTotal ?? 0)}
               </Badge>
             )}
           </CardHeader>
@@ -804,15 +804,18 @@ export default function OverviewPage() {
                       >
                         <div className="flex flex-col gap-2.5 text-[12px]">
                           <div>
-                            <p className="text-[11px] font-semibold text-t2">{v.lojas.length > 1 ? "Lojas" : "Loja"}</p>
+                            <p className="text-[11px] font-semibold text-t2">{v.lojas.length > 1 ? "Principal loja" : "Loja"}</p>
                             <p className="font-bold text-t0">{v.lojas[0] ?? "—"}</p>
-                            {v.lojas.length > 1 && (
-                              <p className="text-t1">Também vendeu em {v.lojas.slice(1).join(", ")}</p>
-                            )}
                           </div>
+                          {v.lojas.length > 1 && (
+                            <div>
+                              <p className="text-[11px] font-semibold text-t2">Também vendeu em</p>
+                              <p className="text-t1">{v.lojas.slice(1).join(", ")}</p>
+                            </div>
+                          )}
                           <div>
                             <p className="text-[11px] font-semibold text-t2">Turno</p>
-                            <p className={v.turno ? "font-bold text-t0" : "text-t2"}>{v.turno ?? "Sem turno"}</p>
+                            <p className={v.turno ? "font-bold text-t0" : "text-t2"}>{v.turno ?? "Sem turno definido"}</p>
                           </div>
                         </div>
                       </Popover>

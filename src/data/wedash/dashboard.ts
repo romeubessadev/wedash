@@ -70,11 +70,11 @@ export interface Scope {
 
 export const periodLabels: Record<PeriodType, string> = {
   hoje: "Hoje",
-  estaSemana: "Esta Semana",
+  estaSemana: "Esta semana",
   esteMes: "Este mês",
-  esteTrimestre: "Este Trimestre",
-  esteSemestre: "Este Semestre",
-  esteAno: "Este Ano",
+  esteTrimestre: "Este trimestre",
+  esteSemestre: "Este semestre",
+  esteAno: "Este ano",
   ontem: "Ontem",
   "7dias": "7 dias",
   mesPassado: "Mês passado",
@@ -151,6 +151,17 @@ export interface StoreSummaryView {
 }
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const TIP_CMV = "Custo das mercadorias vendidas no período.";
+const TIP_CMV_INDISPONIVEL = "O CMV não está disponível para este período.";
+const DIA_SEMANA_PASSADO = [
+  "o domingo passado",
+  "a segunda-feira passada",
+  "a terça-feira passada",
+  "a quarta-feira passada",
+  "a quinta-feira passada",
+  "a sexta-feira passada",
+  "o sábado passado",
+];
 
 /** Segunda-feira da semana ISO (PT-BR) que contém `hojeIso`. */
 function inicioDaSemana(hojeIso: string): string {
@@ -645,7 +656,7 @@ export function previousPeriod(
   const horaMax = periodo.terminaHoje ? horaAtual : undefined;
   if (periodo.granularidade === "dia") {
     const ref = somarDias(periodo.inicio, -7);
-    return { inicio: ref, fim: ref, rotulo: `${DIAS_SEMANA[deIso(ref).getDay()]} passada`, horaMax };
+    return { inicio: ref, fim: ref, rotulo: DIA_SEMANA_PASSADO[deIso(ref).getDay()], horaMax };
   }
   if (periodo.granularidade === "mes") {
     const ini = deIso(periodo.inicio);
@@ -2140,7 +2151,7 @@ export function buildFinanceViewFromAggs(escopo: Scope, input: FinanceAggInput):
   const cortaHoje = ant.horaMax != null;
   const atualCmp = cortaHoje ? sumDays(diasPeriodo.slice(0, -1)) : atual;
   const antCmp = cortaHoje ? sumDays(diasAnt.slice(0, -1)) : antLine;
-  const vsCmv = cortaHoje ? `${ant.rotulo}, até ontem` : ant.rotulo;
+  const vsCmv = cortaHoje ? `${ant.rotulo}, até o mesmo dia` : ant.rotulo;
   const cmvComparavel = temComp && temCmv && atualCmp.cmv > 0 && antCmp.cmv > 0;
   const lucroAtualCmp = finLucro(atualCmp);
   const lucroAnteriorCmp = finLucro(antCmp);
@@ -2561,7 +2572,7 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
   const cortaHoje = ant.horaMax != null;
   const fimCmp = cortaHoje ? somarDias(periodo.fim, -1) : periodo.fim;
   const antFimCmp = cortaHoje ? somarDias(ant.fim, -1) : ant.fim;
-  const vsCmp = cortaHoje ? `${ant.rotulo}, até ontem` : ant.rotulo;
+  const vsCmp = cortaHoje ? `${ant.rotulo}, até o mesmo dia` : ant.rotulo;
   const noAtual = (d: string) => d >= periodo.inicio && d <= periodo.fim;
   const noAtualCmp = (d: string) => d >= periodo.inicio && d <= fimCmp;
   const noAntCmp = (d: string) => d >= ant.inicio && d <= antFimCmp;
@@ -3490,14 +3501,8 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const wpinkItens = wpink.vendasIncompletas ? 0 : wpinkSum.itemCount;
   const wpinkTicket = wpinkVendas > 0 ? wpinkFat / wpinkVendas : 0;
   const cmvTotalCents = days.reduce((s, d) => s + (d.cmvCents ?? 0), 0);
-  const tipCmv =
-    cmvTotalCents <= 0
-      ? "Custo dos produtos (RELATORIOMARGEM · COD WP*). Imposto sobre custo: Configurações > Custos (TODO)."
-      : `Lucro bruto ≈ ${brlCent(faturamento - cmvTotalCents / 100)} (faturamento − CMV). Imposto sobre custo: TODO Configurações.`;
-  const tipCmvWpink =
-    wpinkCmv <= 0
-      ? "Custo dos produtos (RELATORIOMARGEM · COD WP*). Imposto sobre custo: Configurações > Custos (TODO)."
-      : `Lucro bruto ≈ ${brlCent(wpinkFat - wpinkCmv)} (faturamento − CMV). Imposto sobre custo: TODO Configurações.`;
+  const tipCmv = cmvTotalCents <= 0 ? TIP_CMV_INDISPONIVEL : TIP_CMV;
+  const tipCmvWpink = wpinkCmv <= 0 ? TIP_CMV_INDISPONIVEL : TIP_CMV;
   const kpisWpink: OverviewKpiWpink[] = showWpinkStrip
     ? [
         {
@@ -3599,7 +3604,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
 
   // CMV não existe por hora: terminando hoje, compara sem o dia de hoje nos dois lados.
   const cortaHoje = antHoraMax != null;
-  const vsCmv = cortaHoje ? `${antBase.rotulo}, até ontem` : antBase.rotulo;
+  const vsCmv = cortaHoje ? `${antBase.rotulo}, até o mesmo dia` : antBase.rotulo;
   const cmvAtualCmp = (cortaHoje ? days.filter((d) => d.day < periodo.fim) : days).reduce((s, d) => s + (d.cmvCents ?? 0), 0) / 100;
   const cmvAntCmp = somaPrev(cortaHoje ? prevDays.filter((d) => d.day < antBase.fim) : prevDays).cmvCents / 100;
   const deltaCmv = cmvTotalCents > 0 && cmvAtualCmp > 0 && cmvAntCmp > 0 ? kpiDelta(cmvAtualCmp, cmvAntCmp, vsCmv) : undefined;
@@ -4038,13 +4043,10 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
   const vsRotulo = temComp ? ant.rotulo : undefined;
 
   const showWpinkStrip = fs.some((f) => f.temWpink);
-  const tipCmv = "Percentual do faturamento consumido pelo custo dos produtos vendidos.";
+  const tipCmv = TIP_CMV;
   const wpinkAgg = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WPINK")));
   const wpinkCmvFix = custoPeriodo(fs, periodo.inicio, periodo.fim, "WPINK").cmv;
-  const tipCmvWpink =
-    wpinkCmvFix <= 0
-      ? tipCmv
-      : `Lucro bruto ≈ ${brlCent(wpinkAgg.faturamento - wpinkCmvFix)} (faturamento − CMV). Imposto sobre custo: TODO Configurações.`;
+  const tipCmvWpink = wpinkCmvFix <= 0 ? TIP_CMV_INDISPONIVEL : TIP_CMV;
   const wpinkTicketFix = divSeguro(wpinkAgg.faturamento, wpinkAgg.atendimentos);
   const kpisWpink: OverviewKpiWpink[] = showWpinkStrip
     ? [

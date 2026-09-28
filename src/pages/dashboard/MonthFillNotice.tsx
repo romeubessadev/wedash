@@ -31,12 +31,12 @@ export function MonthFillNotice({ fill, inicio, fim }: { fill: MonthFill | null;
       </span>
       <div className="min-w-0">
         <p className="font-semibold">
-          Carregando o histórico de vendas · <span className="tabular-nums">{pct}%</span>
+          Carregando histórico de vendas · <span className="tabular-nums">{pct}%</span>
         </p>
         <p className="text-t1">
           {parcial
-            ? "Os totais deste período ainda estão parciais e se completam sozinhos conforme os dias chegam."
-            : "Os dias anteriores vão aparecendo sozinhos. Você pode usar o painel normalmente."}
+            ? "Os dados deste período ainda são parciais e serão atualizados automaticamente conforme o histórico for carregado."
+            : "Os dados anteriores serão adicionados automaticamente. Você pode continuar usando o painel normalmente."}
         </p>
       </div>
     </div>

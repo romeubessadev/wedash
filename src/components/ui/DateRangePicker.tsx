@@ -16,7 +16,7 @@ import { calendarTodayIso } from "@/data/wedash/clock";
  *
  * - value: [inicio, fim] | null  →  null = sem seleção
  * - onChange: dispara ao fechar um intervalo válido (inicio <= fim)
- * - quickRanges: atalhos pré-definidos (Hoje, Esta Semana, …)
+ * - quickRanges: atalhos pré-definidos (Hoje, Esta semana, …)
  *
  * Painel em portal no `document.body` (position:fixed), alinhado à direita
  * do trigger e limitado à viewport — evita corte pelo overflow-x-hidden /
@@ -75,11 +75,11 @@ function inicioSemestre(hoje: Date): Date {
 export const QUICK_RANGES_PADRAO: QuickRange[] = [
   { id: "hoje", label: "Hoje", resolve: (h) => { const d = zeraHora(h); return [d, d]; } },
   { id: "ontem", label: "Ontem", resolve: (h) => { const d = addDias(zeraHora(h), -1); return [d, d]; } },
-  { id: "estaSemana", label: "Esta Semana", resolve: (h) => { const d = zeraHora(h); return [inicioSemana(d), d]; } },
+  { id: "estaSemana", label: "Esta semana", resolve: (h) => { const d = zeraHora(h); return [inicioSemana(d), d]; } },
   { id: "esteMes", label: "Este mês", resolve: (h) => { const d = zeraHora(h); return [new Date(d.getFullYear(), d.getMonth(), 1), d]; } },
-  { id: "esteTrimestre", label: "Este Trimestre", resolve: (h) => { const d = zeraHora(h); return [inicioTrimestre(d), d]; } },
-  { id: "esteSemestre", label: "Este Semestre", resolve: (h) => { const d = zeraHora(h); return [inicioSemestre(d), d]; } },
-  { id: "esteAno", label: "Este Ano", resolve: (h) => { const d = zeraHora(h); return [new Date(d.getFullYear(), 0, 1), d]; } },
+  { id: "esteTrimestre", label: "Este trimestre", resolve: (h) => { const d = zeraHora(h); return [inicioTrimestre(d), d]; } },
+  { id: "esteSemestre", label: "Este semestre", resolve: (h) => { const d = zeraHora(h); return [inicioSemestre(d), d]; } },
+  { id: "esteAno", label: "Este ano", resolve: (h) => { const d = zeraHora(h); return [new Date(d.getFullYear(), 0, 1), d]; } },
 ];
 
 const DOW_PT = ["D", "S", "T", "Q", "Q", "S", "S"];

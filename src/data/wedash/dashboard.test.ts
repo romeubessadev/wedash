@@ -1172,7 +1172,7 @@ describe("comparativo alinhado pelo horário (período termina hoje)", () => {
     expect(fat?.delta).toMatchObject({ value: "14%", positive: true, vs: "a semana passada" });
     expect(fat?.delta?.anterior).toContain("350,00");
     // CMV seg–qua: 120 × 150
-    expect(cmv?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até ontem" });
+    expect(cmv?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até o mesmo dia" });
     expect(cmv?.delta?.anterior).toContain("150,00");
   });
 
@@ -1189,7 +1189,7 @@ describe("comparativo alinhado pelo horário (período termina hoje)", () => {
     });
     const byLabel = (l: string) => f.kpis.find((k) => k.label === l);
     expect(byLabel("Faturamento")?.delta).toMatchObject({ value: "14%", positive: true });
-    expect(byLabel("CMV")?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até ontem" });
+    expect(byLabel("CMV")?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até o mesmo dia" });
   });
 });
 
@@ -1447,7 +1447,7 @@ describe("buildProductsView com agregados reais", () => {
         productDayAggs: [prod("2026-09-21", 1, "A1", 100, 1), prod("2026-09-24", 1, "A1", 500, 5), prod("2026-09-14", 1, "A1", 50, 1), prod("2026-09-17", 1, "A1", 900, 9)],
       };
       const v = buildProductsView(semana, input);
-      expect(v.deltaCategorias).toMatchObject({ value: "100%", positive: true, vs: "a semana passada, até ontem" });
+      expect(v.deltaCategorias).toMatchObject({ value: "100%", positive: true, vs: "a semana passada, até o mesmo dia" });
       expect(v.produtos[0]?.variacaoPct).toBe(100);
       expect(v.produtos[0]?.faturamento).toBe(600);
 
