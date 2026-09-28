@@ -18,7 +18,7 @@ const RENT_MIN: CostField = {
 const RENT_PCT: CostField = {
   key: "rentPct",
   label: "Aluguel percentual",
-  hint: "Sobre o faturamento total.",
+  hint: "Percentual sobre o faturamento total.",
   unit: "%",
   get: (c) => c.rentWepinkPct ?? c.rentWpinkPct,
   set: (c, v) => ({ ...c, rentWepinkPct: v, rentWpinkPct: v }),
@@ -28,8 +28,14 @@ const RENT_FIELDS = [RENT_MIN, RENT_PCT];
 
 const POINT_OPTIONS: { value: PointType; label: string }[] = [
   { value: "SHOPPING", label: "Shopping" },
-  { value: "RUA", label: "Rua" },
+  { value: "RUA", label: "Loja de rua" },
 ];
+
+const POINT_HINT: Record<PointType, string> = {
+  SHOPPING:
+    "No shopping, a WeDash considera o aluguel e, quando o percentual sobre o faturamento for maior, acrescenta a diferença como aluguel extra. Exemplo: aluguel de R$ 10.000 e percentual de 10% sobre R$ 120.000 em faturamento = R$ 2.000 de aluguel extra.",
+  RUA: "Na loja de rua, a WeDash considera somente o valor mensal do aluguel.",
+};
 
 /** Configurações > Aluguel — aluguel mensal e, em shopping, percentual do faturamento (paga-se o que passar do aluguel). */
 export function RentPage() {
@@ -38,7 +44,7 @@ export function RentPage() {
     <StoreCardsPage
       section="Configurações"
       title="Aluguel"
-      subtitle="Em shopping, quando o percentual sobre o faturamento passa do aluguel, a diferença entra como aluguel extra. Ex.: aluguel de R$ 10.000 e 10% sobre R$ 120.000 vendidos = R$ 2.000 a mais."
+      subtitle="Configure o aluguel da loja e, para lojas em shopping, o percentual sobre o faturamento."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
       lojas={lojas}
@@ -81,7 +87,7 @@ function RentCard({ loja, onSaved }: { loja: Store; onSaved: () => void }) {
           void save();
         }}
       >
-        <FormField label="Tipo de loja" hint={rua ? "Loja de rua paga só o aluguel." : "Loja em shopping paga o aluguel e, se passar dele, o percentual."}>
+        <FormField label="Tipo de loja" hint={POINT_HINT[point]}>
           <Segmented options={POINT_OPTIONS} value={point} onChange={(v) => v && setPoint(v)} />
         </FormField>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

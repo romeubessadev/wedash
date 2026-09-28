@@ -48,7 +48,7 @@ export function ProductsTaxesPage() {
           variant="secondary"
           onClick={() => void atualizarTabelas()}
           disabled={syncing}
-          title="Busca no Millennium as tabelas de custo disponíveis."
+          title="Busca no Millennium as tabelas de custo disponíveis para as lojas."
           icon={syncing ? undefined : <RefreshIcon />}
         >
           {syncing ? "Atualizando…" : "Atualizar tabelas"}

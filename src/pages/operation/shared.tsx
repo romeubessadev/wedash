@@ -109,7 +109,7 @@ export function StoreCardsPage({
           skeleton(skeletonCount)
         ) : lojas.length === 0 ? (
           <Card>
-            <EmptyState framed={false} icon="🏬" title="Nenhuma loja" description="Nenhuma loja no seu escopo." />
+            <EmptyState framed={false} icon="🏬" title="Nenhuma loja disponível" description="Não há lojas disponíveis para este acesso." />
           </Card>
         ) : (
           <div className={wide ? "flex flex-col gap-5" : "flex max-w-[720px] flex-col gap-5"}>

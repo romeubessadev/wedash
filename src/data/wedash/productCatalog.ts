@@ -15,7 +15,7 @@ const SYNC_PRODUCTS_ERRORS: Record<string, string> = {
   erp_busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
   busy: "Os produtos já estão sendo atualizados. Tente novamente em alguns minutos.",
   forbidden: "Você não tem permissão para atualizar os custos.",
-  invalid_table: "Tabela de custo inválida.",
+  invalid_table: "Esta tabela de custo não está mais disponível. Atualize as tabelas e escolha outra.",
   invalid_period: "Período inválido.",
 };
 
