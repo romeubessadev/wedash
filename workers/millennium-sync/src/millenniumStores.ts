@@ -80,23 +80,37 @@ export async function fetchErpStores(opts: {
 }): Promise<ErpStore[]> {
   const base = (opts.baseUrl ?? millenniumBaseUrl()).replace(/\/$/, "");
   const fetchImpl = opts.fetchImpl ?? fetch;
+  const headers = { Accept: "application/json", "Content-Type": "application/json", "WTS-Session": opts.session };
+  const attempts: Array<{ label: string; url: string; init: RequestInit }> = [
+    ...STORE_PATHS.map((path) => ({
+      label: `GET ${path}`,
+      url: `${base}/${path}?$format=json&$dateformat=iso&$top=0`,
+      init: { method: "GET", headers },
+    })),
+    // Variante WTS (mesma ordem de `callList` da Edge): POST + X-HTTP-Method: GET.
+    ...STORE_PATHS.map((path) => ({
+      label: `POST ${path}`,
+      url: `${base}/${path}`,
+      init: {
+        method: "POST",
+        headers: { ...headers, "X-HTTP-Method": "GET", "X-DateFormat": "ISOTZ", "X-IdentifierCase": "upper" },
+        body: JSON.stringify({ $top: 0 }),
+      },
+    })),
+  ];
   let lastErr = "";
-  for (const path of STORE_PATHS) {
-    const res = await fetchImpl(`${base}/${path}?$format=json&$dateformat=iso&$top=0`, {
-      method: "GET",
-      headers: { Accept: "application/json", "WTS-Session": opts.session },
-      signal: AbortSignal.timeout(60_000),
-    });
+  for (const a of attempts) {
+    const res = await fetchImpl(a.url, { ...a.init, signal: AbortSignal.timeout(60_000) });
     const text = await res.text();
     if (!res.ok) {
-      lastErr = `${path} → ${res.status} ${text.slice(0, 240)}`;
+      lastErr = `${a.label} → ${res.status} ${text.slice(0, 240)}`;
       if (res.status === 401) break;
       continue;
     }
     try {
       return parseFiliaisLista(text ? JSON.parse(text) : []);
     } catch {
-      lastErr = `${path} JSON inválido: ${text.slice(0, 200)}`;
+      lastErr = `${a.label} JSON inválido: ${text.slice(0, 200)}`;
     }
   }
   throw new Error(`FILIAIS.Lista falhou: ${lastErr}`);
