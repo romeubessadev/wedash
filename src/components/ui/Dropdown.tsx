@@ -25,6 +25,8 @@ export interface DropdownItem {
 export interface DropdownProps {
   trigger: ReactNode;
   items: DropdownItem[];
+  /** Bloco fixo acima dos itens (ex.: usuário logado no menu do avatar). */
+  header?: ReactNode;
   align?: "left" | "right";
   /** Classes extras do menu (ex.: altura máxima com scroll). */
   menuClassName?: string;
@@ -34,7 +36,7 @@ export interface DropdownProps {
 
 const GAP = 8;
 
-export function Dropdown({ trigger, items, align = "right", menuClassName, portal = false }: DropdownProps) {
+export function Dropdown({ trigger, items, header, align = "right", menuClassName, portal = false }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -93,6 +95,7 @@ export function Dropdown({ trigger, items, align = "right", menuClassName, porta
           className={menuClass}
           style={portal ? (pos ?? { position: "fixed", top: 0, left: 0, visibility: "hidden" }) : undefined}
         >
+          {header && <div className="mb-1.5 border-b border-line px-3 pb-3 pt-2">{header}</div>}
           {items.map((item, i) =>
             item.divider ? (
               <div key={i} className="my-1.5 h-px bg-line" />

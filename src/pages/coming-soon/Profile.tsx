@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Avatar, Badge, Button, Card, CardTitle, PageHeader } from "@/components/ui";
+import { Avatar, Badge, Button, Card, CardTitle, PageHeader, Switch } from "@/components/ui";
+import { useTheme } from "@/theme/ThemeProvider";
 import { paths } from "@/router/paths";
 import { stores } from "@/data/wedash/stores";
 import { mascararCpf } from "@/lib/cpf";
@@ -8,6 +9,7 @@ import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvid
 export function Profile() {
   const session = useActiveSession();
   const { signOut } = useSession();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const minhas = stores.filter((f) => session.stores.includes(f.id));
 
@@ -58,6 +60,16 @@ export function Profile() {
           </div>
         </Card>
 
+        <div className="flex flex-col gap-4">
+        <Card>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <CardTitle>Tema escuro</CardTitle>
+              <p className="mt-1 text-[12.5px] text-t1">Vale só para este aparelho.</p>
+            </div>
+            <Switch checked={theme === "dark"} onChange={toggleTheme} />
+          </div>
+        </Card>
         <Card>
           <CardTitle>App no celular</CardTitle>
           <p className="mt-1 text-[12.5px] text-t1">{session.appInstalled ? "Instalado. As notificações de degrau chegam por aqui." : "Ainda não instalado. Sem o app, o aviso de degrau vira rascunho de WhatsApp para o gestor enviar."}</p>
@@ -73,6 +85,7 @@ export function Profile() {
             <p className="mt-1 text-[12px] text-t2">Você tem acesso só a esta franquia. Se receber convite de outra, o seletor aparece aqui.</p>
           </div>
         </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { padTopo } from "@/lib/safeArea";
-import { useTheme } from "@/theme/ThemeProvider";
 import { Avatar, Dropdown, type DropdownItem } from "@/components/ui";
 import { isGestor } from "./nav-wedash";
 import { paths } from "@/router/paths";
@@ -17,6 +16,21 @@ import { useScope } from "@/pages/dashboard/useScope";
 import { TopbarRefresh } from "./TopbarRefresh";
 import { useSyncHistory } from "./useSyncHistory";
 
+const ICON_PERFIL = "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8";
+const ICON_INTEGRACOES = "M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z";
+const ICON_USUARIOS =
+  "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8";
+const ICON_LOGS = "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8";
+const ICON_SAIR = "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9";
+
+function MenuIcon({ d }: { d: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80">
+      <path d={d} />
+    </svg>
+  );
+}
+
 /** "19:32" hoje; "24/09 19:32" em outro dia. */
 function quando(d: Date): string {
   const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -25,7 +39,6 @@ function quando(d: Date): string {
 }
 
 export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; collapsed: boolean; onToggleCollapse: () => void; onOpenPalette: () => void }) {
-  const { theme, toggleTheme } = useTheme();
   const session = useActiveSession();
   const { signOut } = useSession();
   const navigate = useNavigate();
@@ -80,23 +93,16 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname.startsWith("/operation/") ||
     location.pathname.startsWith(paths.settings.root);
 
-  // Administração no menu do avatar: Lojas (Gestor e Gerente); Usuários, Integrações e Logs só Gestor.
-  const gestor = isGestor(session.role);
-  const administracao: DropdownItem[] =
-    session.role === "SELLER"
-      ? []
-      : [
-          { divider: true, label: "" },
-          { heading: true, label: "Administração" },
-          { label: "Lojas", onClick: () => navigate(paths.settings.stores) },
-          ...(gestor
-            ? [
-                { label: "Usuários", onClick: () => navigate(paths.settings.users) },
-                { label: "Integrações", onClick: () => navigate(paths.settings.erp) },
-                { label: "Logs", onClick: () => navigate(paths.settings.logs) },
-              ]
-            : []),
-        ];
+  // Menu do avatar: Meu perfil · (Gestor) Integrações, Usuários, Logs · Sair.
+  const administracao: DropdownItem[] = isGestor(session.role)
+    ? [
+        { divider: true, label: "" },
+        { heading: true, label: "Administração" },
+        { label: "Integrações", icon: <MenuIcon d={ICON_INTEGRACOES} />, onClick: () => navigate(paths.settings.erp) },
+        { label: "Usuários", icon: <MenuIcon d={ICON_USUARIOS} />, onClick: () => navigate(paths.settings.users) },
+        { label: "Logs", icon: <MenuIcon d={ICON_LOGS} />, onClick: () => navigate(paths.settings.logs) },
+      ]
+    : [];
 
   return (
     <header className="pad-topo sticky top-0 z-30 flex flex-none items-center gap-2.5 border-b border-line bg-bg-1/80 px-3.5 pb-3 backdrop-blur-md sm:gap-3.5 sm:px-6" style={padTopo("0.75rem")}>
@@ -159,25 +165,23 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
               </span>
             </button>
           }
+          menuClassName="min-w-[240px]"
+          header={
+            <div className="flex items-center gap-2.5">
+              <Avatar name={session.name} src={session.avatarUrl} size="sm" />
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-[13px] font-bold text-t0">{session.name}</p>
+                <p className="truncate text-[11.5px] text-t2">{session.email}</p>
+              </div>
+            </div>
+          }
           items={[
-            { heading: true, label: "Conta" },
-            { label: "Minha conta", onClick: () => navigate(paths.profile) },
-            { label: "Instalar o app", onClick: () => navigate(paths.access.install) },
-            {
-              label: "Tema escuro",
-              keepOpen: true,
-              onClick: toggleTheme,
-              trailing: (
-                <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${theme === "dark" ? "bg-acc" : "bg-bg-3"}`}>
-                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${theme === "dark" ? "translate-x-[18px]" : "translate-x-0.5"}`} />
-                </span>
-              ),
-            },
+            { label: "Meu perfil", icon: <MenuIcon d={ICON_PERFIL} />, onClick: () => navigate(paths.profile) },
             ...administracao,
             { divider: true, label: "" },
-            { heading: true, label: "Sessão" },
             {
               label: "Sair",
+              icon: <MenuIcon d={ICON_SAIR} />,
               danger: true,
               onClick: () => {
                 signOut();
