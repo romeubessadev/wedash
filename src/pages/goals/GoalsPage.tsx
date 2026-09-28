@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button, Card, CardTitle, PageHeader, Pagination, ThSort, type SortDir } from "@/components/ui";
+import { Button, Card, CardTitle, Pagination, ThSort, type SortDir } from "@/components/ui";
+import { SectionHeader } from "@/pages/operation/shared";
 import { goals } from "@/data/wedash/goals";
 import { stores } from "@/data/wedash/stores";
 import { brl } from "@/lib/format";
@@ -42,9 +43,9 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="flex flex-col p-4 sm:p-6">
-      <PageHeader
-        crumbs={[{ label: "Gestão" }, { label: "Metas" }]}
+    <div>
+      <SectionHeader
+        section="Gestão"
         title="Metas"
         subtitle="Metas mensais, níveis de premiação e distribuição individual."
         actions={
@@ -54,7 +55,7 @@ export default function GoalsPage() {
         }
       />
 
-      <Card className="mt-4" padding="lg">
+      <Card className="mt-6" padding="lg">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
             <CardTitle>Metas cadastradas</CardTitle>

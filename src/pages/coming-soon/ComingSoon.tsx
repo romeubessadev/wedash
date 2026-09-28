@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
 /**
@@ -5,11 +6,24 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
  * um Card listando o que a tela vai mostrar, para o mapa de telas ser validado
  * antes da construção.
  */
-export function ComingSoon({ titulo, fase, descricao, itens }: { titulo: string; fase: string; descricao: string; itens: string[] }) {
+export function ComingSoon({
+  titulo,
+  fase,
+  descricao,
+  itens,
+  header,
+}: {
+  titulo: string;
+  fase: string;
+  descricao: string;
+  itens: string[];
+  /** Substitui o PageHeader padrão (ex.: cabeçalho com abas da seção). */
+  header?: ReactNode;
+}) {
   return (
     <div>
-      <PageHeader title={titulo} subtitle={fase} />
-      <div className="max-w-2xl">
+      {header ?? <PageHeader title={titulo} subtitle={fase} />}
+      <div className={header ? "mt-6 max-w-2xl" : "max-w-2xl"}>
         <EmptyState icon="🚧" title="Tela ainda não construída" description={descricao} />
         <Card className="mt-4">
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-t2">O que ela vai mostrar</p>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Button, Card, CardHeader, CardSubtitle, CardTitle, EmptyState, FormField, Input, PageHeader, Select } from "@/components/ui";
+import { Button, Card, CardHeader, CardSubtitle, CardTitle, EmptyState, FormField, Input, PageHeader, Select, TabNav } from "@/components/ui";
+import { managementTabs, operationTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -37,6 +38,23 @@ export function useScopedStores() {
   return { session, lojas, loading, refresh: () => setTick((n) => n + 1) };
 }
 
+export type SectionName = "Gestão" | "Configurações da operação";
+
+const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
+  Gestão: managementTabs,
+  "Configurações da operação": operationTabs,
+};
+
+/** Cabeçalho da seção (breadcrumb + abas do grupo do menu). */
+export function SectionHeader({ section, title, subtitle, actions }: { section: SectionName; title: string; subtitle: string; actions?: ReactNode }) {
+  return (
+    <>
+      <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} />
+      <TabNav items={SECTION_TABS[section]} />
+    </>
+  );
+}
+
 /** Cabeçalho da seção + 1 card por loja do escopo. */
 export function StoreCardsPage({
   section,
@@ -49,7 +67,7 @@ export function StoreCardsPage({
   wide = false,
   children,
 }: {
-  section: string;
+  section: SectionName;
   title: string;
   subtitle: string;
   actions?: ReactNode;
@@ -61,7 +79,7 @@ export function StoreCardsPage({
 }) {
   return (
     <div>
-      <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} />
+      <SectionHeader section={section} title={title} subtitle={subtitle} actions={actions} />
       <div className="mt-6">
         {loading ? (
           skeleton

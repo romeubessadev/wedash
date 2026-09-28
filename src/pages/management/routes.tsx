@@ -3,6 +3,7 @@ import { lazyPage } from "@/lib/lazyPage";
 import { paths } from "@/router/paths";
 import { RequireRole } from "@/session/RequireSession";
 import { ComingSoon } from "@/pages/coming-soon/ComingSoon";
+import { SectionHeader } from "@/pages/operation/shared";
 
 const ShiftsPage = lazyPage(() => import("./ShiftsPage"), "ShiftsPage");
 const StaffPage = lazyPage(() => import("./StaffPage"), "StaffPage");
@@ -18,6 +19,7 @@ export const managementRoutes: RouteObject[] = [
         path: paths.management.challenges,
         element: (
           <ComingSoon
+            header={<SectionHeader section="Gestão" title="Desafios" subtitle="Fase 2 · em construção" />}
             titulo="Desafios"
             fase="Fase 2 · em construção"
             descricao="Objetivos pontuais em quantidade, produto, faturamento, P.A. ou ticket médio. Prêmio em reais; meta nunca em reais (exceto ticket/faturamento)."

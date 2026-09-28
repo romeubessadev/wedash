@@ -1,6 +1,6 @@
 import { paths } from "@/router/paths";
 import type { Role } from "@/data/wedash/team";
-import type { NavEntry } from "./nav-config";
+import type { NavEntry, NavGroup } from "./nav-config";
 
 const ICONE = {
   dashboard: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
@@ -18,7 +18,7 @@ const ICONE = {
 };
 
 /** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */
-const gestao: NavEntry = {
+const gestao: NavGroup = {
   label: "Gestão",
   description: "Área de gerenciamento da operação e da equipe.",
   icon: ICONE.gestao,
@@ -29,6 +29,23 @@ const gestao: NavEntry = {
     { label: "Colaboradores", to: paths.management.staff },
   ],
 };
+
+/** Custos · Franquia · Aluguel · Produtos e impostos (só Gestor). */
+const operacao: NavGroup = {
+  label: "Configurações da operação",
+  description: "Parâmetros usados pelo WeDash para calcular custos, margens e resultados da operação.",
+  icon: ICONE.config,
+  items: [
+    { label: "Custos", to: paths.operation.costs },
+    { label: "Franquia", to: paths.operation.franchise },
+    { label: "Aluguel", to: paths.operation.rent },
+    { label: "Produtos e impostos", to: paths.operation.productsTaxes },
+  ],
+};
+
+/** Abas das telas de cada grupo = os mesmos itens do menu. */
+export const managementTabs = gestao.items.map(({ label, to }) => ({ label, to }));
+export const operationTabs = operacao.items.map(({ label, to }) => ({ label, to }));
 
 const navGestor: NavEntry[] = [
   {
@@ -42,17 +59,7 @@ const navGestor: NavEntry[] = [
     ],
   },
   gestao,
-  {
-    label: "Configurações da operação",
-    description: "Parâmetros usados pelo WeDash para calcular custos, margens e resultados da operação.",
-    icon: ICONE.config,
-    items: [
-      { label: "Custos", to: paths.operation.costs },
-      { label: "Franquia", to: paths.operation.franchise },
-      { label: "Aluguel", to: paths.operation.rent },
-      { label: "Produtos e impostos", to: paths.operation.productsTaxes },
-    ],
-  },
+  operacao,
 ];
 
 /** Gerente: sem Financeiro nem Configurações da operação. Lojas fica no menu do avatar. */
