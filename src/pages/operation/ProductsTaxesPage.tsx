@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Button, Card, FormField, Select, useToast } from "@/components/ui";
+import { Card, FormField, Select, useToast } from "@/components/ui";
 import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { fetchCostTables, updateStoreCosts, updateStoreCostTable, type CostTable, type Store } from "@/data/wedash/stores";
 import { syncProductsNow } from "@/data/wedash/productCatalog";
 import { INVALID_COSTS_MSG, pctField, useCostFields, type CostField } from "./costFields";
-import { FormActions, NumberField, RefreshIcon, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, useScopedStores } from "./shared";
+import { FormActions, NumberField, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, useScopedStores } from "./shared";
 
 const TAX_FIELDS: CostField[] = [
   pctField("icmsPct", "ICMS", "Percentual sobre o faturamento."),
@@ -13,10 +13,8 @@ const TAX_FIELDS: CostField[] = [
 
 /** Configurações > Produtos e impostos — tabela de custo do Millennium, ICMS e ICMS ST. */
 export function ProductsTaxesPage() {
-  const { show } = useToast();
   const { lojas, loading, refresh } = useScopedStores();
   const [tables, setTables] = useState<CostTable[]>([]);
-  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,15 +26,6 @@ export function ProductsTaxesPage() {
     };
   }, []);
 
-  async function atualizarTabelas() {
-    setSyncing(true);
-    const r = await syncProductsNow({ scope: "tables" });
-    if (r.ok) setTables(await fetchCostTables());
-    setSyncing(false);
-    if (!r.ok) return show(r.message, "danger");
-    show("Tabelas de custo atualizadas.", "success");
-  }
-
   return (
     <StoreCardsPage
       section="Configurações"
@@ -46,32 +35,12 @@ export function ProductsTaxesPage() {
       skeleton={(n) => <StoreCardsSkeleton count={n} fields={3} />}
       lojas={lojas}
     >
-      {(loja) => (
-        <ProductsTaxesCard
-          loja={loja}
-          tables={tables}
-          syncing={syncing}
-          onRefreshTables={() => void atualizarTabelas()}
-          onSaved={refresh}
-        />
-      )}
+      {(loja) => <ProductsTaxesCard loja={loja} tables={tables} onSaved={refresh} />}
     </StoreCardsPage>
   );
 }
 
-function ProductsTaxesCard({
-  loja,
-  tables,
-  syncing,
-  onRefreshTables,
-  onSaved,
-}: {
-  loja: Store;
-  tables: CostTable[];
-  syncing: boolean;
-  onRefreshTables: () => void;
-  onSaved: () => void;
-}) {
+function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: CostTable[]; onSaved: () => void }) {
   const { show } = useToast();
   const form = useCostFields(loja, TAX_FIELDS);
   const [savedTable, setSavedTable] = useState<number | null>(loja.costTableId ?? null);
@@ -126,33 +95,19 @@ function ProductsTaxesCard({
           label="Tabela de custo dos produtos"
           hint="Usada quando um produto vendido chega do Millennium sem custo. A WeDash seleciona automaticamente a tabela mais próxima dos custos da loja."
         >
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Select
-              className="min-w-0 flex-1"
-              value={table == null ? "" : String(table)}
-              disabled={tables.length === 0 && table == null}
-              onChange={(e) => setTable(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">{tables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
-              {table != null && !tables.some((t) => t.id === table) && <option value={String(table)}>Tabela {table}</option>}
-              {tables.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.code} · {t.description}
-                </option>
-              ))}
-            </Select>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-[42px]"
-              onClick={onRefreshTables}
-              disabled={syncing}
-              title="Busca no Millennium as tabelas de custo disponíveis para as lojas."
-              icon={syncing ? undefined : <RefreshIcon />}
-            >
-              {syncing ? "Atualizando…" : "Atualizar tabelas"}
-            </Button>
-          </div>
+          <Select
+            value={table == null ? "" : String(table)}
+            disabled={tables.length === 0 && table == null}
+            onChange={(e) => setTable(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">{tables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
+            {table != null && !tables.some((t) => t.id === table) && <option value={String(table)}>Tabela {table}</option>}
+            {tables.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                {t.code} · {t.description}
+              </option>
+            ))}
+          </Select>
         </FormField>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {TAX_FIELDS.map((f) => (
