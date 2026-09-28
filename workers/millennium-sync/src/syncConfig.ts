@@ -3,7 +3,7 @@
  *   off = desligado · Nd = N dias contando hoje (1d = só hoje) · Nm = N meses contando o atual (1m = mês atual)
  *
  * - SYNC_ONBOARDING (padrão 1m): o que entra depois do onboarding. off = sem vendas — ao conectar só
- *   sincroniza a equipe das lojas; sem carga do histórico, sem atualização automática e sem
+ *   traz o cadastro (gerador, equipe e produtos); sem carga do histórico, sem atualização automática e sem
  *   fechamento da madrugada; o Atualizar manual continua.
  * - DEEP_HISTORY (padrão off, só Nm): histórico antigo na madrugada, até a inauguração da loja.
  *

@@ -2031,44 +2031,81 @@ async function ensureMillenniumSession(
 }
 
 /**
- * Carga inicial com SYNC_ONBOARDING=off: sem vendas, mas a equipe de cada loja entra
- * (Colaboradores / turnos não dependem de venda). Soft-fail: falha do ERP só vira aviso no terminal.
+ * Carga inicial com SYNC_ONBOARDING=off: nada de vendas, mas o cadastro do Millennium entra —
+ * gerador de cada loja, equipe de cada loja e produtos (catálogo + tabelas de custo, só se vazios).
+ * Cada parte é soft-fail (aviso no terminal); sessão caída interrompe o resto.
  * Devolve quantas lojas tiveram a equipe sincronizada.
  */
-async function syncOnboardingTeams(job: SyncJob, deps: SyncJobDeps): Promise<number> {
-  const { loadSellerDirectory, fetchStoreSellers, syncStoreSellers } = deps;
-  if (!loadSellerDirectory || !fetchStoreSellers || !syncStoreSellers) return 0;
+async function syncOnboardingRegistry(job: SyncJob, deps: SyncJobDeps): Promise<number> {
+  const warn = (what: string, e: unknown) =>
+    console.warn(`  ⚠ ${what} não sincronizou: ${e instanceof Error ? e.message : String(e)}`);
+  let session: string;
+  let stores: SyncStore[];
   try {
     const cred = await deps.loadCredential(job.credentialId);
     const ensured = await ensureMillenniumSession(cred, deps);
     if (!ensured.ok) {
-      console.warn(`  ⚠ equipe de vendas não sincronizou: login no Millennium falhou (${ensured.reason})`);
+      console.warn(`  ⚠ cadastro não sincronizou: login no Millennium falhou (${ensured.reason})`);
       return 0;
     }
-    const session = ensured.session;
-    const linker = createSellerLinker({
-      deps: {
-        loadSellerDirectory,
-        fetchStoreSellers: (p) => fetchStoreSellers({ ...p, concurrency: 1 }),
-        syncStoreSellers,
-      },
-      tenantId: job.tenantId,
-      getSession: () => session,
-      now: () => deps.now(),
-      log: (_level, message, store) => console.warn(`  ⚠ [${store.code}] ${message}`),
-      isSessionDead: isSessionDeadError,
-    });
-    let done = 0;
-    for (const store of await deps.listStores(job.tenantId)) {
-      console.log(`  Equipe · ${store.code}${store.name ? ` · ${store.name}` : ""}`);
-      await linker.syncStore(store);
-      done++;
-    }
-    return done;
+    session = ensured.session;
+    stores = await deps.listStores(job.tenantId);
   } catch (e) {
-    console.warn(`  ⚠ equipe de vendas não sincronizou: ${e instanceof Error ? e.message : String(e)}`);
+    warn("cadastro", e);
     return 0;
   }
+
+  const missingGerador = stores.filter((s) => s.geradorId == null);
+  if (missingGerador.length > 0 && deps.setStoresGerador) {
+    try {
+      const found = await deps.fetchFilialGeradorMap(session);
+      const rows = missingGerador.flatMap((s) => {
+        const g = found.get(s.code);
+        return g == null ? [] : [{ storeId: s.id, geradorId: g }];
+      });
+      if (rows.length > 0) await deps.setStoresGerador(rows);
+      console.log(`  Gerador · ${rows.length}/${missingGerador.length} loja(s)`);
+    } catch (e) {
+      warn("gerador da loja", e);
+      if (isSessionDeadError(e instanceof Error ? e.message : String(e))) return 0;
+    }
+  }
+
+  let teams = 0;
+  const { loadSellerDirectory, fetchStoreSellers, syncStoreSellers } = deps;
+  if (loadSellerDirectory && fetchStoreSellers && syncStoreSellers) {
+    try {
+      const linker = createSellerLinker({
+        deps: {
+          loadSellerDirectory,
+          fetchStoreSellers: (p) => fetchStoreSellers({ ...p, concurrency: 1 }),
+          syncStoreSellers,
+        },
+        tenantId: job.tenantId,
+        getSession: () => session,
+        now: () => deps.now(),
+        log: (_level, message, store) => console.warn(`  ⚠ [${store.code}] ${message}`),
+        isSessionDead: isSessionDeadError,
+      });
+      for (const store of stores) {
+        console.log(`  Equipe · ${store.code}${store.name ? ` · ${store.name}` : ""}`);
+        await linker.syncStore(store);
+        teams++;
+      }
+    } catch (e) {
+      warn("equipe de vendas", e);
+      if (isSessionDeadError(e instanceof Error ? e.message : String(e))) return teams;
+    }
+  }
+
+  if (stores[0]) {
+    try {
+      await ensureCatalogFor(deps, { session, seen: [], guard: { attempted: false }, store: stores[0] });
+    } catch (e) {
+      warn("produtos", e);
+    }
+  }
+  return teams;
 }
 
 /**
@@ -2083,7 +2120,7 @@ async function syncOnboardingTeams(job: SyncJob, deps: SyncJobDeps): Promise<num
  *   "Atualizado às…".
  * - SEED (onboarding): só **hoje** (o usuário entra no dashboard em segundos); grava "Atualizado às…"
  *   e enfileira a carga do histórico (CLOSE com `fillUntil`), de ontem até o início de `SYNC_ONBOARDING`
- *   (off = SEED termina sem ir ao ERP).
+ *   (off = sem vendas; só o cadastro: gerador, equipe e produtos).
  * - Carga do histórico (CLOSE com `fillUntil`): 1 dia por job; terminou (ou falhou sem ser senha) →
  *   enfileira o dia anterior. Entre um dia e outro o Atualizar (prioridade na fila) passa na frente.
  */
@@ -2094,7 +2131,7 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
   const tJob = nowMs();
   const isSeed = job.kind === "SEED";
   if (isSeed && syncOnboardingOff()) {
-    const teams = await syncOnboardingTeams(job, deps);
+    const teams = await syncOnboardingRegistry(job, deps);
     await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED", error: SYNC_OFF_NOTE });
     console.log(`Carga inicial sem vendas (SYNC_ONBOARDING=off) · equipe de ${teams} loja(s) · job ${job.id.slice(0, 8)}`);
     return { ok: true, storesDone: teams };

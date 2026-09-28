@@ -393,20 +393,49 @@ describe("runSyncJob", () => {
     expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
   });
 
-  it("SEED com SYNC_ONBOARDING=off: sem vendas, mas sincroniza a equipe de cada loja", async () => {
+  it("SEED com SYNC_ONBOARDING=off: sem vendas, mas traz gerador, equipe e produtos", async () => {
     vi.stubEnv("SYNC_ONBOARDING", "off");
     try {
       const fetchStoreSellers = vi.fn().mockResolvedValue([]);
       const syncStoreSellers = vi.fn().mockResolvedValue([]);
+      const setStoresGerador = vi.fn().mockResolvedValue(undefined);
+      const fetchTypes = vi.fn().mockResolvedValue([{ typeId: 14, description: "BODY SPLASH" }]);
       const deps = makeDeps({
         loadSellerDirectory: vi.fn().mockResolvedValue({ sellers: [] }),
         fetchStoreSellers,
         syncStoreSellers,
+        setStoresGerador,
+        catalog: {
+          countCatalog: vi.fn().mockResolvedValue(0),
+          countCostTables: vi.fn().mockResolvedValue(0),
+          knownProductIds: vi.fn().mockResolvedValue(new Set()),
+          lookupProducts: vi.fn().mockResolvedValue(new Map()),
+          claimRefresh: vi.fn().mockResolvedValue(true),
+          releaseRefresh: vi.fn().mockResolvedValue(undefined),
+          upsertTypes: vi.fn().mockResolvedValue(undefined),
+          upsertProducts: vi.fn().mockResolvedValue(undefined),
+          recordMisses: vi.fn().mockResolvedValue(undefined),
+          fetchTypes,
+          fetchProductsOfType: vi.fn().mockResolvedValue([]),
+          storeCostTable: vi.fn().mockResolvedValue(null),
+          coveredCostCodes: vi.fn().mockResolvedValue(new Set()),
+          recordCostMisses: vi.fn().mockResolvedValue(undefined),
+          fetchCostTables: vi.fn().mockResolvedValue([{ tableId: 104, description: "CENTRO-OESTE" }]),
+          fetchCostTablePrices: vi.fn().mockResolvedValue(new Map([["WP014", 1000]])),
+          saveCostTables: vi.fn().mockResolvedValue(undefined),
+          saveCostTablePrices: vi.fn().mockResolvedValue(undefined),
+        },
       });
       const result = await runSyncJob(baseJob({ kind: "SEED" }), deps);
       expect(result).toEqual({ ok: true, storesDone: 2 });
+      expect(setStoresGerador).toHaveBeenCalledWith([
+        { storeId: "s1", geradorId: 126 },
+        { storeId: "s2", geradorId: 41562 },
+      ]);
       expect(fetchStoreSellers.mock.calls.map((c) => c[0].millenniumStoreId)).toEqual([1, 2]);
       expect(syncStoreSellers).toHaveBeenCalledTimes(2);
+      expect(fetchTypes).toHaveBeenCalledTimes(1);
+      expect(deps.catalog!.saveCostTablePrices).toHaveBeenCalledWith(104, expect.any(Map));
       expect(deps.fetchSalesLista).not.toHaveBeenCalled();
       expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
       expect(deps.markJobFinished).toHaveBeenCalledWith(expect.objectContaining({ status: "SUCCEEDED" }));

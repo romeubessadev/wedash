@@ -81,7 +81,7 @@ async function main() {
   const syncOff = onboarding === "off";
   const offByOnboarding = "desligado (SYNC_ONBOARDING=off)";
   console.log(
-    `  Pós-onboarding           : ${syncOff ? "sem vendas — só a equipe das lojas; vendas pelo Atualizar manual" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
+    `  Pós-onboarding           : ${syncOff ? "sem vendas — só o cadastro (equipe e produtos); vendas pelo Atualizar manual" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
   );
   console.log(
     `  Fechamento de ontem      : ${syncOff ? offByOnboarding : dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
