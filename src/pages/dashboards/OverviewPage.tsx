@@ -38,6 +38,8 @@ import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
+import { cn } from "@/lib/cn";
+import { useProductDetail } from "@/pages/dashboard/ProductDetail";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -350,6 +352,7 @@ export default function OverviewPage() {
   const monthFill = useMonthFill();
   const printing = usePrintMode();
   const exportar = useExportPdf("Visão geral");
+  const { abrir: abrirDetalhe, modal: detalheModal } = useProductDetail({ escopo, tenantId: session.tenantId });
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
@@ -571,6 +574,7 @@ export default function OverviewPage() {
               height={220}
               color="var(--acc)"
               formatValue={brlCent}
+              onSelect={(d) => abrirDetalhe({ tipo: "categoria", nome: d.label })}
             />
           )}
         </Card>
@@ -896,8 +900,24 @@ export default function OverviewPage() {
                   const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
                   const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
                   const corAvatar = cores[idx % cores.length];
+                  const chave = p.chave;
+                  const abrir = chave ? () => abrirDetalhe({ tipo: "produto", chave, nome: p.nome }) : undefined;
                   return (
-                    <tr key={p.nome} className="border-b border-line last:border-b-0">
+                    <tr
+                      key={p.nome}
+                      tabIndex={abrir ? 0 : undefined}
+                      onClick={abrir}
+                      onKeyDown={(e) => {
+                        if (abrir && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          abrir();
+                        }
+                      }}
+                      className={cn(
+                        "border-b border-line last:border-b-0",
+                        abrir && "cursor-pointer transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none",
+                      )}
+                    >
                       <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                       <td className="px-1 py-3">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -924,6 +944,8 @@ export default function OverviewPage() {
       </div>
       </>
       )}
+
+      {detalheModal}
     </div>
   );
 }

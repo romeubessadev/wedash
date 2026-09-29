@@ -3933,8 +3933,9 @@ export interface OverviewView {
   evolucao: EvolutionPoint[];
   formasPagamento: PaymentMethodRevenue[];
   topVendedoras: TopSeller[];
-  /** Ranking completo (maior faturamento primeiro) — a tela escolhe a métrica e corta o Top N. */
-  topProdutos: (TopItem & { sub?: string; itens?: number; categoria?: string; trend?: number })[];
+  /** Ranking completo (maior faturamento primeiro) — a tela escolhe a métrica e corta o Top N.
+   *  `chave` = mesma do `ProductItemRow` (abre o detalhe do produto). */
+  topProdutos: (TopItem & { chave?: string; sub?: string; itens?: number; categoria?: string; trend?: number })[];
   rankingLojas: (TopItem & { id?: string; pctMeta?: number; pctRede?: number; trend?: number })[];
   /** Faturamento da rede no período (badge do Ranking — independente do StorePicker). */
   rankingRedeTotal?: number;
@@ -4715,19 +4716,21 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
 
   // Top produtos — {E7A5C5C7}; variação vs período anterior se houver dados.
   const antPeriod = previousPeriod(periodo);
-  const prodMap = new Map<number, { nome: string; fat: number; itens: number }>();
+  const prodMap = new Map<number, { nome: string; codigo: string; fat: number; itens: number }>();
   const prodMapAnt = new Map<number, number>();
   for (const row of input.productDayAggs ?? []) {
     if (escopo.filialIds.length > 0 && !scopedStoreIds.has(row.storeId)) continue;
     if (row.day >= periodo.inicio && row.day <= periodo.fim) {
       const acc = prodMap.get(row.productId) ?? {
         nome: row.productName,
+        codigo: "",
         fat: 0,
         itens: 0,
       };
       acc.fat += row.revenueCents / 100;
       acc.itens += row.itemCount;
       if (row.productName) acc.nome = row.productName;
+      if (row.productCode?.trim()) acc.codigo = row.productCode.trim();
       prodMap.set(row.productId, acc);
     } else if (row.day >= antPeriod.inicio && row.day <= antPeriod.fim) {
       prodMapAnt.set(
@@ -4744,6 +4747,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
       const ant = prodMapAnt.get(pid) ?? 0;
       const trendPct = ant > 0 ? Math.round(((p.fat - ant) / ant) * 100) : undefined;
       return {
+        chave: productRowKey({ productCode: p.codigo, productId: pid }),
         nome: labelUpper(p.nome),
         valor: p.fat,
         sub: `${p.itens} itens`,
