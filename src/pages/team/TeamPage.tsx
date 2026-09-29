@@ -280,48 +280,38 @@ export function TeamPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Equipe" }]}
         title="Equipe"
-        subtitle="Acompanhe o desempenho da equipe de vendas."
+        subtitle={
+          <>
+            Acompanhe o desempenho da equipe de vendas.
+            <LastUpdated inline />
+          </>
+        }
         actions={
-          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-              <DateRangePicker
-                value={dateRange}
-                onChange={onDateChange}
-                displayLabel={periodDisplayLabel(escopo.periodo)}
-                activePresetId={periodActivePresetId(escopo.periodo)}
-                size="sm"
-                minDate={pickerMinDate(coverageFrom, monthFill)}
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+            <DateRangePicker
+              value={dateRange}
+              onChange={onDateChange}
+              displayLabel={periodDisplayLabel(escopo.periodo)}
+              activePresetId={periodActivePresetId(escopo.periodo)}
+              minDate={pickerMinDate(coverageFrom, monthFill)}
+            />
+            {view.turnosDisponiveis.length > 0 && (
+              <Dropdown
+                align="right"
+                trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
+                items={[
+                  { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
+                  ...view.turnosDisponiveis.map((t) => ({
+                    label: t,
+                    active: view.turnoFiltro === t,
+                    onClick: () => setTurnoSel(t),
+                  })),
+                ]}
               />
-              {view.turnosDisponiveis.length > 0 && (
-                <Dropdown
-                  align="right"
-                  trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
-                  items={[
-                    { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
-                    ...view.turnosDisponiveis.map((t) => ({
-                      label: t,
-                      active: view.turnoFiltro === t,
-                      onClick: () => setTurnoSel(t),
-                    })),
-                  ]}
-                />
-              )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={exportar}
-                icon={
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                }
-              >
-                Exportar
-              </Button>
-            </div>
-            <LastUpdated />
+            )}
+            <Button variant="secondary" onClick={exportar}>
+              Exportar
+            </Button>
           </div>
         }
       />
@@ -715,18 +705,18 @@ export function TeamPage() {
   }
 }
 
-/** Mesmo desenho do gatilho do DateRangePicker (sm). */
+/** Mesmo desenho do gatilho do DateRangePicker (md). */
 function FiltroTurnoTrigger({ rotulo }: { rotulo: string }) {
   return (
     <button
       type="button"
-      className="flex h-8 min-w-0 items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-left transition-colors hover:border-acc"
+      className="flex h-10 min-w-0 items-center gap-2.5 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-left transition-colors hover:border-acc"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
         <circle cx="12" cy="12" r="10" />
         <polyline points="12 6 12 12 16 14" />
       </svg>
-      <span className="min-w-0 truncate text-xs font-semibold text-t0">{rotulo}</span>
+      <span className="min-w-0 truncate text-[13.5px] font-semibold text-t0">{rotulo}</span>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
         <path d="m6 9 6 6 6-6" />
       </svg>

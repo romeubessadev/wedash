@@ -4,7 +4,7 @@ import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
 export interface PageHeaderProps {
   crumbs?: Crumb[];
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }
 
