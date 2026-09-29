@@ -49,6 +49,18 @@ export function titleName(s: string | null | undefined): string {
     .join(" ");
 }
 
+/**
+ * Nome de produto / categoria / tabela vindo do ERP em Title Case ("DESOD COL VF GOLDEN 100ML" →
+ * "Desod Col VF Golden 100ml"). Sigla sem vogal (VF, WP, FPS) fica em maiúsculas.
+ */
+export function labelCase(s: string | null | undefined): string {
+  const raw = (s ?? "").trim().replace(/\s+/g, " ").split(" ");
+  const cased = titleName(raw.join(" ")).split(" ");
+  return cased
+    .map((w, i) => (/^[\p{L}]{2,4}$/u.test(raw[i]!) && !/[aeiouyáéíóúâêôãõàü]/iu.test(raw[i]!) ? raw[i]!.toLocaleUpperCase("pt-BR") : w))
+    .join(" ");
+}
+
 /** 2,3 · 184,5 — número com casas decimais em pt-BR. */
 export function num(v: number, casas = 0): string {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });

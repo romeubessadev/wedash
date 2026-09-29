@@ -2,7 +2,7 @@
  * Estoque > Produtos: leitura (estoque da loja, tabelas/preços de venda, tabela usada nas vendas, catálogo)
  * e busca no Millennium sob demanda (Edge `erp-stock-sync`).
  */
-import { titleName } from "@/lib/format";
+import { labelCase, titleName } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllPages } from "./salesRepo";
 import type { StockCatalogItem, StockInput } from "./stockProducts";
@@ -23,7 +23,7 @@ export async function fetchSaleTables(): Promise<SaleTable[]> {
   return (data ?? []).map((r: { table_id: number; code: string; description: string; updated_at: string; prices_at: string | null }) => ({
     id: Number(r.table_id),
     code: String(r.code ?? ""),
-    description: String(r.description ?? ""),
+    description: labelCase(r.description),
     updatedAt: r.updated_at,
     pricesAt: r.prices_at,
   }));
@@ -114,7 +114,7 @@ export async function fetchPriceTableUsage(
       .order("table_id"),
     "fetchPriceTableUsage",
   );
-  return rows.map((r) => ({ day: r.day, tableId: Number(r.table_id), tableName: r.table_name ?? "", items: Number(r.item_count) || 0 }));
+  return rows.map((r) => ({ day: r.day, tableId: Number(r.table_id), tableName: labelCase(r.table_name), items: Number(r.item_count) || 0 }));
 }
 
 let catalogPromise: Promise<Map<string, StockCatalogItem>> | null = null;
@@ -139,8 +139,8 @@ export function fetchStockCatalog(): Promise<Map<string, StockCatalogItem>> {
     );
     for (const r of rows) {
       const code = String(r.product_code).trim();
-      const category = r.type_id == null ? "" : (typeName.get(Number(r.type_id)) ?? "");
-      out.set(code, { code, name: r.description ?? "", category: category === "INDEFINIDO" ? "" : category });
+      const category = r.type_id == null ? "" : (typeName.get(Number(r.type_id)) ?? "").trim();
+      out.set(code, { code, name: labelCase(r.description), category: category.toUpperCase() === "INDEFINIDO" ? "" : labelCase(category) });
     }
     return out;
   })();

@@ -130,13 +130,13 @@ describe("stockTransfers", () => {
 });
 
 describe("suggestSaleTable", () => {
-  it("sugere a mais usada no último dia; usadas = ordem de uso no período", () => {
+  it("sugere a mais usada no período; usadas = ordem de uso no período", () => {
     const r = suggestSaleTable([
       { day: "2026-09-27", tableId: 1, items: 50 },
       { day: "2026-09-28", tableId: 2, items: 10 },
       { day: "2026-09-28", tableId: 3, items: 12 },
     ]);
-    expect(r.sugerida).toBe(3);
+    expect(r.sugerida).toBe(1);
     expect(r.usadas).toEqual([1, 3, 2]);
   });
 });

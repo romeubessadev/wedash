@@ -261,17 +261,13 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
   };
 }
 
-/** Tabela mais usada no último dia com venda (entre as lojas); `usadas` = tabelas com venda no período, mais usada primeiro. */
+/** Tabela mais usada (em peças) no período, somando as lojas; `usadas` = tabelas com venda no período, mais usada primeiro. */
 export function suggestSaleTable(usage: Array<{ day: string; tableId: number; items: number }>): {
   sugerida: number | null;
   usadas: number[];
 } {
-  if (usage.length === 0) return { sugerida: null, usadas: [] };
-  const lastDay = usage.reduce((m, u) => (u.day > m ? u.day : m), "");
-  const sum = (rows: typeof usage) => {
-    const m = new Map<number, number>();
-    for (const u of rows) m.set(u.tableId, (m.get(u.tableId) ?? 0) + u.items);
-    return [...m].sort((a, b) => b[1] - a[1]).map(([id]) => id);
-  };
-  return { sugerida: sum(usage.filter((u) => u.day === lastDay))[0] ?? null, usadas: sum(usage) };
+  const m = new Map<number, number>();
+  for (const u of usage) m.set(u.tableId, (m.get(u.tableId) ?? 0) + u.items);
+  const usadas = [...m].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  return { sugerida: usadas[0] ?? null, usadas };
 }

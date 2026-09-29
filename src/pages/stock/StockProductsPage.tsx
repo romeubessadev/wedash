@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, Badge, Button, Card, CardTitle, Dropdown, Modal, Pagination, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Alert, Badge, Button, Dropdown, Modal, Pagination, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { MobileSortBar } from "@/components/wedash/MobileSortBar";
@@ -160,7 +160,7 @@ export function StockProductsPage() {
   const [syncing, setSyncing] = useState(false);
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<string | null>(null);
-  const [situacaoSel, setSituacao] = useState<Situacao>("com");
+  const [situacaoSel, setSituacao] = useState<Situacao>("todos");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -299,12 +299,12 @@ export function StockProductsPage() {
   const nTransferir = useMemo(() => view?.rows.filter((r) => r.transferir > 0).length ?? 0, [view]);
   const nNegativo = useMemo(() => view?.rows.filter(temNegativo).length ?? 0, [view]);
   const situacaoOpcoes: { value: Situacao; label: string }[] = [
+    { value: "todos", label: "Todos os status" },
     { value: "com", label: "Com estoque" },
-    { value: "todos", label: "Todos os produtos" },
     ...(nTransferir > 0 ? [{ value: "transferir" as const, label: `Transferir (${nTransferir})` }] : []),
     ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Estoque negativo (${nNegativo})` }] : []),
   ];
-  const situacao: Situacao = situacaoOpcoes.some((o) => o.value === situacaoSel) ? situacaoSel : "com";
+  const situacao: Situacao = situacaoOpcoes.some((o) => o.value === situacaoSel) ? situacaoSel : "todos";
 
   const linhas = useMemo(() => {
     if (!view) return [];
@@ -381,10 +381,23 @@ export function StockProductsPage() {
       <SectionHeader
         section="Estoque"
         title="Produtos"
-        subtitle="Veja o estoque, o custo, o preço e o lucro por peça de cada produto."
+        subtitle="Veja o estoque, o custo, o preço e o lucro por peça de cada produto. O lucro já desconta impostos, royalties, marketing e aluguel."
         actions={
-          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end print:hidden">
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end print:hidden">
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <div className="flex h-8 w-full items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 transition-colors focus-within:border-acc hover:border-acc sm:w-44">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar…"
+                  className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-t0 outline-none placeholder:font-normal placeholder:text-t2"
+                />
+              </div>
               {data && data.saleTables.length > 0 && (
                 <Dropdown
                   align="right"
@@ -406,6 +419,22 @@ export function StockProductsPage() {
                     active: id === tabelaAtiva,
                     onClick: () => escolherTabela(id),
                   }))}
+                />
+              )}
+              <Dropdown
+                align="right"
+                trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Todos os status"} title="Status" />}
+                items={situacaoOpcoes.map((o) => ({ label: o.label, active: o.value === situacao, onClick: () => setSituacao(o.value) }))}
+              />
+              {view && view.categorias.length > 1 && (
+                <Dropdown
+                  align="right"
+                  menuClassName="max-h-72 overflow-y-auto"
+                  trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} title="Categoria" />}
+                  items={[
+                    { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
+                    ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
+                  ]}
                 />
               )}
               <Button
@@ -437,7 +466,7 @@ export function StockProductsPage() {
           {lojasSemTabela.length > 0 && (
             <Alert
               variant="warning"
-              className="mt-4 print:hidden"
+              className="mb-3 print:hidden"
               title={
                 lojasSemTabela.length === 1
                   ? `A loja ${lojasSemTabela[0].fantasia} está sem tabela de custo.`
@@ -450,7 +479,7 @@ export function StockProductsPage() {
           {nTransferir > 0 && (
             <Alert
               variant="warning"
-              className="mt-4 print:hidden"
+              className="mb-3 print:hidden"
               title={
                 nTransferir === 1
                   ? "1 produto precisa de transferência entre locais de estoque."
@@ -463,61 +492,17 @@ export function StockProductsPage() {
           {nNegativo > 0 && (
             <Alert
               variant="warning"
-              className="mt-4 print:hidden"
+              className="mb-3 print:hidden"
               title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
             >
               Confira as entradas e saídas desses produtos na loja.
             </Alert>
           )}
 
-          <Card className="mt-4" padding="none">
-            <div className="flex items-center gap-1.5 px-5 py-4">
-              <CardTitle>Custo e lucro por produto</CardTitle>
-              <TipHelp label={`Lucro por peça vendendo na tabela ${tabelaNome}, já descontando impostos, royalties, marketing e aluguel. Clique no produto para ver a conta.`} />
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5 border-y border-line px-5 py-3 print:hidden">
-              <div className="flex h-8 w-full items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 transition-colors focus-within:border-acc hover:border-acc sm:w-60">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-                <input
-                  type="search"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar…"
-                  className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-t0 outline-none placeholder:font-normal placeholder:text-t2"
-                />
-              </div>
-              <Dropdown
-                align="left"
-                trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Com estoque"} />}
-                items={situacaoOpcoes.map((o) => ({ label: o.label, active: o.value === situacao, onClick: () => setSituacao(o.value) }))}
-              />
-              {view.categorias.length > 1 && (
-                <Dropdown
-                  align="left"
-                  menuClassName="max-h-72 overflow-y-auto"
-                  trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
-                  items={[
-                    { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
-                    ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
-                  ]}
-                />
-              )}
-              <div className="hidden flex-1 sm:block" />
-              {(situacao !== "com" || categoria != null) && (
-                <div className="flex flex-wrap gap-1.5">
-                  {situacao !== "com" && (
-                    <FiltroChip label={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? ""} onClear={() => setSituacao("com")} />
-                  )}
-                  {categoria != null && <FiltroChip label={categoria} onClear={() => setCategoria(null)} />}
-                </div>
-              )}
-            </div>
+          <div>
             {linhas.length > 1 && (
               <MobileSortBar
-                className="px-5 pt-3"
+                className="mb-3"
                 options={[
                   { key: "nome", label: "Produto", text: true },
                   { key: "estoque", label: "Estoque" },
@@ -534,7 +519,7 @@ export function StockProductsPage() {
             )}
 
             {linhas.length === 0 ? (
-              <div className="flex p-4">
+              <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
                 {view.rows.length === 0 ? (
                   <EmptyBlock icon="📦" title="Sem produtos" description={syncing ? "Buscando o estoque e os preços no Millennium…" : "Nenhum produto com preço ou estoque para as lojas selecionadas."} />
                 ) : (
@@ -552,10 +537,11 @@ export function StockProductsPage() {
               </div>
             ) : (
               <>
-                <div className="hidden overflow-x-auto p-4 md:block">
+                <div className="hidden overflow-hidden rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 md:block">
+                  <div className="overflow-x-auto">
                   <table className="w-full min-w-[720px] border-collapse text-[13px]">
                     <thead>
-                      <tr className="border-b-2 border-line">
+                      <tr className="border-b border-line">
                         <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
                         {locaisColunas.map((nome) => (
                           <ThSort
@@ -581,7 +567,7 @@ export function StockProductsPage() {
                       {pageRows.map((r) => {
                         const pend = pendencias(r, pendCtx);
                         return (
-                        <tr key={r.codigo} className="cursor-pointer border-b border-line hover:bg-bg-3" onClick={() => setDetalhe(r.codigo)}>
+                        <tr key={r.codigo} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-bg-3" onClick={() => setDetalhe(r.codigo)}>
                           <td className={cn("px-3 py-2.5", marcaClass(pend))}>
                             <p className="text-[13px] font-bold text-t0">{r.nome}</p>
                             <p className="text-[11px] text-t2">
@@ -610,9 +596,10 @@ export function StockProductsPage() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
+                <div className="flex flex-col gap-2.5 md:hidden">
                   {pageRows.map((r) => {
                     const pend = pendencias(r, pendCtx);
                     return (
@@ -620,7 +607,7 @@ export function StockProductsPage() {
                       key={r.codigo}
                       type="button"
                       onClick={() => setDetalhe(r.codigo)}
-                      className={cn("rounded-xl border border-line bg-bg-inset p-3.5 text-left", marcaClass(pend))}
+                      className={cn("rounded-xl border border-line bg-bg-2 p-3.5 text-left", marcaClass(pend))}
                     >
                       <p className="text-[13.5px] font-bold text-t0">{r.nome}</p>
                       <p className="mt-0.5 text-[11px] font-semibold text-t2">
@@ -657,7 +644,7 @@ export function StockProductsPage() {
                   })}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 print:hidden">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
                   <span className="text-[12.5px] text-t2">
                     Mostrando {pageRows.length} de {num(linhas.length)} produtos
                   </span>
@@ -665,7 +652,7 @@ export function StockProductsPage() {
                 </div>
               </>
             )}
-          </Card>
+          </div>
         </>
       )}
 
@@ -758,26 +745,15 @@ function Metrica({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function FiltroChip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <button type="button" onClick={onClear} className="flex items-center gap-1.5 rounded-full bg-acc-soft px-2.5 py-1 text-[11.5px] font-bold text-acc">
-      {label}
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-        <path d="M18 6 6 18M6 6l12 12" />
-      </svg>
-    </button>
-  );
-}
-
 function FiltroTrigger({ rotulo, icon, title }: { rotulo: string; icon?: ReactNode; title?: string }) {
   return (
     <button
       type="button"
       title={title}
-      className="flex h-8 min-w-0 max-w-[280px] items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-left transition-colors hover:border-acc"
+      className="flex h-8 w-full min-w-0 items-center gap-2 sm:w-auto sm:max-w-[280px] rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-left transition-colors hover:border-acc"
     >
       {icon}
-      <span className="min-w-0 truncate text-xs font-semibold text-t0">{rotulo}</span>
+      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-t0">{rotulo}</span>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
         <path d="m6 9 6 6 6-6" />
       </svg>

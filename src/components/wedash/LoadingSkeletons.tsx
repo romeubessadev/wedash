@@ -373,10 +373,32 @@ export function ProductsSkeleton() {
 }
 
 /** Estoque > Produtos: listagem de produtos (busca e filtros no topo). */
+/** Página de tabela sem card (padrão Data Tables): tabela com borda + rodapé "Mostrando…" / paginação. */
 export function StockProductsSkeleton() {
+  const cols = 5;
+  const grid = { gridTemplateColumns: `1.6fr repeat(${cols - 1}, 1fr)` };
   return (
     <Busy>
-      <WideTableSkeleton cols={5} rows={10} actions />
+      <div className="overflow-x-auto rounded-[var(--radius-vela-lg)] border border-line bg-bg-2">
+        <div style={{ minWidth: cols * 110 }}>
+          <div className="grid gap-4 border-b border-line px-4 py-3" style={grid}>
+            {Array.from({ length: cols }, (_, c) => (
+              <Skeleton key={c} className={cn("h-2.5 w-16", c > 0 && "justify-self-end")} />
+            ))}
+          </div>
+          {Array.from({ length: 10 }, (_, r) => (
+            <div key={r} className="grid items-center gap-4 border-b border-line px-4 py-3.5 last:border-b-0" style={grid}>
+              {Array.from({ length: cols }, (_, c) => (
+                <Skeleton key={c} className={cn("h-3.5", c === 0 ? "w-3/5" : "w-3/4 justify-self-end")} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-8 w-48 rounded-[var(--radius-vela-sm)]" />
+      </div>
     </Busy>
   );
 }
