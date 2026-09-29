@@ -524,7 +524,7 @@ export default function ProductsPage() {
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(l.itens)}</td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(l.faturamento)}</td>
                     <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", l.margemPct == null ? "text-t2" : "text-ok")}>
-                      {pctFmt(l.margemPct, 0)}
+                      {pctFmt(l.margemPct)}
                     </td>
                   </tr>
                 ))}
@@ -585,7 +585,7 @@ export default function ProductsPage() {
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
                     <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
-                      {pctFmt(p.margemPct, 0)}
+                      {pctFmt(p.margemPct)}
                     </td>
                   </tr>
                 ))}
@@ -675,7 +675,7 @@ export default function ProductsPage() {
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
                       <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", corLucro(p.lucro))}>{moneyOrDash(p.lucro)}</td>
                       <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
-                        {pctFmt(p.margemPct, 0)}
+                        {pctFmt(p.margemPct)}
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px]">
                         <Tooltip label={tipVariacao}>
@@ -704,7 +704,7 @@ export default function ProductsPage() {
                     {moneyOrDash(totalTabela.lucro)}
                   </td>
                   <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.margemPct == null ? "text-t2" : "text-ok")}>
-                    {pctFmt(totalTabela.margemPct, 0)}
+                    {pctFmt(totalTabela.margemPct)}
                   </td>
                   <td />
                 </tr>
