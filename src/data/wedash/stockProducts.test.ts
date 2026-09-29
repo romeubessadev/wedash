@@ -112,7 +112,7 @@ describe("buildStockProductsView", () => {
       { nome: "ESTOQUE", qtd: 144 },
       { nome: "QUIOSQUE", qtd: -71 },
     ]);
-    expect(p.lojas[0].transferencias).toEqual([{ para: "QUIOSQUE", de: ["ESTOQUE"], qtd: 71 }]);
+    expect(p.lojas[0].transferencias).toEqual([{ de: "ESTOQUE", para: "QUIOSQUE", qtd: 71 }]);
     expect(view.rows.find((r) => r.codigo === "X")!.transferir).toBe(0);
   });
 
@@ -154,14 +154,32 @@ describe("buildStockProductsView", () => {
 });
 
 describe("stockTransfers", () => {
-  it("transfere no máximo o que os locais positivos têm", () => {
+  it("Loja recebe de qualquer local, no máximo o que eles têm (maior saldo primeiro)", () => {
     expect(
       stockTransfers([
         { nome: "ESTOQUE", qtd: 10 },
         { nome: "SHOP010", qtd: 5 },
         { nome: "QUIOSQUE", qtd: -20 },
       ]),
-    ).toEqual([{ para: "QUIOSQUE", de: ["ESTOQUE", "SHOP010"], qtd: 15 }]);
+    ).toEqual([
+      { de: "ESTOQUE", para: "QUIOSQUE", qtd: 10 },
+      { de: "SHOP010", para: "QUIOSQUE", qtd: 5 },
+    ]);
+  });
+
+  it("local intermediário só recebe do Estoque, antes da Loja", () => {
+    expect(
+      stockTransfers([
+        { nome: "Estoque", qtd: 8 },
+        { nome: "Shop010", qtd: -3 },
+        { nome: "Loja", qtd: -10 },
+      ]),
+    ).toEqual([
+      { de: "Estoque", para: "Shop010", qtd: 3 },
+      { de: "Estoque", para: "Loja", qtd: 5 },
+    ]);
+    expect(stockTransfers([{ nome: "Loja", qtd: 3 }, { nome: "Shop010", qtd: -2 }])).toEqual([]);
+    expect(stockTransfers([{ nome: "Estoque", qtd: -1 }, { nome: "Loja", qtd: 3 }])).toEqual([]);
   });
 });
 

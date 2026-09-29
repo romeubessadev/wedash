@@ -94,20 +94,40 @@ export function composePrice(store: Store, code: string, priceCents: number | nu
 
 export type StockLocation = { nome: string; qtd: number };
 
-/** Local negativo coberto por outro local positivo da mesma loja: `qtd` peças `de` → `para`. */
-export type StockTransfer = { para: string; de: string[]; qtd: number };
+/** `qtd` peças do local `de` para o local `para`, na mesma loja. */
+export type StockTransfer = { de: string; para: string; qtd: number };
 
-/** Transferências pendentes entre locais de estoque de uma loja (a venda sai de um local e a entrada caiu em outro). */
+type LocalNivel = "estoque" | "intermediario" | "loja";
+
+function localNivel(nome: string): LocalNivel {
+  const n = nome.trim().toUpperCase();
+  if (n === "ESTOQUE") return "estoque";
+  if (n === "LOJA" || n === "QUIOSQUE") return "loja";
+  return "intermediario";
+}
+
+/**
+ * Transferências pendentes entre locais de uma loja, pela hierarquia: Estoque é pai de todos; os demais
+ * (Shop010…) são filhos do Estoque; a Loja (QUIOSQUE, de onde sai a venda) é filha de todos. Cobre primeiro os
+ * locais intermediários negativos (só pelo Estoque) e depois a Loja (pelo que sobrar, do local com mais saldo).
+ */
 export function stockTransfers(locais: StockLocation[]): StockTransfer[] {
-  const positivos = locais.filter((l) => l.qtd > 0).sort((a, b) => b.qtd - a.qtd);
-  let disponivel = positivos.reduce((s, l) => s + l.qtd, 0);
+  const saldo = new Map(locais.map((l) => [l.nome, l.qtd]));
   const out: StockTransfer[] = [];
-  for (const l of [...locais].filter((x) => x.qtd < 0).sort((a, b) => a.qtd - b.qtd)) {
-    const qtd = Math.min(-l.qtd, disponivel);
-    if (qtd <= 0) continue;
-    disponivel -= qtd;
-    out.push({ para: l.nome, de: positivos.map((p) => p.nome), qtd });
-  }
+  const cobrir = (para: string, pais: (nome: string) => boolean) => {
+    let falta = -(saldo.get(para) ?? 0);
+    const origens = [...saldo].filter(([nome, q]) => nome !== para && q > 0 && pais(nome)).sort((a, b) => b[1] - a[1]);
+    for (const [de, q] of origens) {
+      if (falta <= 0) break;
+      const qtd = Math.min(q, falta);
+      saldo.set(de, q - qtd);
+      falta -= qtd;
+      out.push({ de, para, qtd });
+    }
+  };
+  const negativos = [...locais].filter((l) => l.qtd < 0).sort((a, b) => a.qtd - b.qtd);
+  for (const l of negativos) if (localNivel(l.nome) === "intermediario") cobrir(l.nome, (n) => localNivel(n) === "estoque");
+  for (const l of negativos) if (localNivel(l.nome) === "loja") cobrir(l.nome, (n) => localNivel(n) !== "loja");
   return out;
 }
 
@@ -173,27 +193,9 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
  */
 export type StockStatus = "negativo" | "aguardando" | "ok";
 
-type LocalNivel = "estoque" | "intermediario" | "loja";
-
-function localNivel(nome: string): LocalNivel {
-  const n = nome.trim().toUpperCase();
-  if (n === "ESTOQUE") return "estoque";
-  if (n === "LOJA" || n === "QUIOSQUE") return "loja";
-  return "intermediario";
-}
-
-function aguardandoTransferencia(locais: StockLocation[]): boolean {
-  return locais.some((filho) => {
-    if (filho.qtd >= 0) return false;
-    const nivel = localNivel(filho.nome);
-    if (nivel === "estoque") return false;
-    return locais.some((pai) => pai !== filho && pai.qtd > 0 && (nivel === "loja" ? localNivel(pai.nome) !== "loja" : localNivel(pai.nome) === "estoque"));
-  });
-}
-
 export function stockStatus(r: StockProductRow): StockStatus {
   if (r.lojas.some((l) => l.estoque < 0)) return "negativo";
-  return r.lojas.some((l) => aguardandoTransferencia(l.locais)) ? "aguardando" : "ok";
+  return r.lojas.some((l) => l.transferencias.length > 0) ? "aguardando" : "ok";
 }
 
 export function buildStockProductsView(input: StockInput): StockProductsView {

@@ -3,7 +3,8 @@ import { Alert, Badge, DataTable, type DataTableColumn, type SortDir } from "@/c
 import type { StatusVariant } from "@/lib/status";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { MobileSortBar } from "@/components/wedash/MobileSortBar";
-import { stockStatus, type StockStatus } from "@/data/wedash/stockProducts";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { stockStatus, type StockProductRow, type StockStatus } from "@/data/wedash/stockProducts";
 import { cn } from "@/lib/cn";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -33,11 +34,23 @@ const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant 
   ok: { label: "Ok", variant: "success" },
 };
 
+const doLocal = (nome: string) => (nome === "Loja" ? `da ${nome}` : `do ${nome}`);
+const paraLocal = (nome: string) => (nome === "Loja" ? `para a ${nome}` : `para o ${nome}`);
+
+/** "Transferir 71 do Estoque para a Loja", uma linha por transferência (com o nome da loja quando há várias). */
+function transferTip(r: StockProductRow, variasLojas: boolean): string {
+  return r.lojas
+    .flatMap((l) =>
+      l.transferencias.map((t) => `${variasLojas ? `${l.store.fantasia}: ` : ""}Transferir ${qty(t.qtd)} ${doLocal(t.de)} ${paraLocal(t.para)}`),
+    )
+    .join("\n");
+}
+
 /** Ordenar por Status: do maior para o menor = o mais grave primeiro. */
 const STATUS_PESO: Record<StockStatus, number> = { negativo: 2, aguardando: 1, ok: 0 };
 
 export function InventoryPage() {
-  const { storeKey, view, loading, syncing, atualizadoTexto } = useStockData({ prices: false });
+  const { lojas, storeKey, view, loading, syncing, atualizadoTexto } = useStockData({ prices: false });
   const [busca, setBusca] = useState("");
   const [statusSel, setStatus] = useState<StatusFiltro>("todos");
   const [categoria, setCategoria] = useState("");
@@ -47,6 +60,7 @@ export function InventoryPage() {
   const printing = usePrintMode();
   const showSkeleton = useMinSkeleton(loading);
   const exportar = useExportPdf("Estoque", null, { periodo: false });
+  const variasLojas = lojas.length > 1;
 
   const comStatus = useMemo(() => (view?.rows ?? []).map((r) => ({ r, status: stockStatus(r) })), [view]);
   const contagem = (s: StockStatus) => comStatus.filter((x) => x.status === s).length;
@@ -115,7 +129,17 @@ export function InventoryPage() {
     {
       key: "status",
       header: "Status",
-      render: ({ status: s }) => <Badge variant={STATUS_BADGE[s].variant}>{STATUS_BADGE[s].label}</Badge>,
+      render: ({ r, status: s }) => {
+        const badge = <Badge variant={STATUS_BADGE[s].variant}>{STATUS_BADGE[s].label}</Badge>;
+        if (s !== "aguardando") return badge;
+        return (
+          <Tooltip label={transferTip(r, variasLojas)}>
+            <span tabIndex={0} className="cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-acc">
+              {badge}
+            </span>
+          </Tooltip>
+        );
+      },
     },
   ];
 
