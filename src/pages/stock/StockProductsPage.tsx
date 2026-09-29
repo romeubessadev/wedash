@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { Alert, AlertLink, Badge, Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Alert, Badge, Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -29,13 +28,11 @@ import {
   type SaleTable,
 } from "@/data/wedash/stockRepo";
 import type { Store } from "@/data/wedash/stores";
-import { isGestor } from "@/layout/nav-wedash";
 import { cn } from "@/lib/cn";
 import { brlCent, deIso, num, paraIso } from "@/lib/format";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
-import { paths } from "@/router/paths";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { FORCE_REFRESH_CLICK_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -420,13 +417,6 @@ export function StockProductsPage() {
                   ? `A loja ${lojasSemTabela[0].fantasia} está sem tabela de custo.`
                   : `${lojasSemTabela.length} lojas estão sem tabela de custo.`
               }
-              action={
-                isGestor(session.role) && (
-                  <Link to={paths.operation.productsTaxes} className="text-[12.5px] font-bold text-t0 underline-offset-2 hover:underline">
-                    Escolher tabela
-                  </Link>
-                )
-              }
             >
               Sem ela não dá para calcular o custo e o lucro dos produtos.
             </Alert>
@@ -440,7 +430,6 @@ export function StockProductsPage() {
                   ? "1 produto precisa de transferência entre locais de estoque."
                   : `${nTransferir} produtos precisam de transferência entre locais de estoque.`
               }
-              action={soComEstoque !== "transferir" && <AlertLink onClick={() => setFiltroEstoque("transferir")}>Ver produtos</AlertLink>}
             >
               Um local está com saldo negativo e outro local da loja tem o produto.
             </Alert>
@@ -450,7 +439,6 @@ export function StockProductsPage() {
               variant="warning"
               className="mt-4 print:hidden"
               title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
-              action={soComEstoque !== "negativo" && <AlertLink onClick={() => setFiltroEstoque("negativo")}>Ver produtos</AlertLink>}
             >
               Confira as entradas e saídas desses produtos na loja.
             </Alert>
