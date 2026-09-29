@@ -323,31 +323,6 @@ export default function ProductsPage() {
     }
   }
 
-  function exportCsv() {
-    const header = ["Código", "Produto", "Faturamento", "Itens vendidos", "Preço médio", "CMV", "Lucro bruto", "Margem %", "Participação %", "Variação %"];
-    const dec = (v: number | null, casas = 2) => (v == null ? "" : v.toFixed(casas).replace(".", ","));
-    const rows = linhasTabela.map((p) => [
-      csvCell(p.codigo),
-      csvCell(p.nome),
-      dec(p.faturamento),
-      String(p.itens),
-      dec(p.precoMedio),
-      dec(p.cmv),
-      dec(p.lucro),
-      dec(p.margemPct, 1),
-      dec(p.participacaoPct, 1),
-      dec(p.variacaoPct, 1),
-    ]);
-    const csv = [header.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "produtos.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const tipCmvProduto = view.temCustoProduto
@@ -605,14 +580,11 @@ export default function ProductsPage() {
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <input
               type="search"
-              placeholder="Buscar por produto ou código…"
+              placeholder="Buscar..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className={cn(filtroInputClass, "sm:w-56")}
             />
-            <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
-              Exportar CSV
-            </Button>
           </div>
           )}
         </div>
@@ -789,11 +761,6 @@ function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProductsKpi; Icon: () => Re
       tooltip={kpi.tooltip}
     />
   );
-}
-
-function csvCell(v: string): string {
-  if (/[";\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-  return v;
 }
 
 type MetricasLinha = Pick<ProductItemRow, "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct">;
