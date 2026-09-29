@@ -6,6 +6,7 @@ import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
   buildProductDetail,
+  buildProductLineDetail,
   buildProductsView,
   financeFetchRange,
   productsFetchRange,
@@ -163,7 +164,9 @@ export default function ProductsPage() {
   const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [detalhe, setDetalhe] = useState<ProductItemRow | null>(null);
+  const [detalhe, setDetalhe] = useState<
+    { tipo: "produto"; row: ProductItemRow; linha?: ProductLineRow } | { tipo: "linha"; row: ProductLineRow } | null
+  >(null);
   const printing = usePrintMode();
   const exportar = useExportPdf("Produtos");
   // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
@@ -316,7 +319,12 @@ export default function ProductsPage() {
   }, [escopo]);
 
   const detalheView = useMemo(
-    () => (detalhe ? buildProductDetail(escopo, aggs, detalhe) : null),
+    () =>
+      !detalhe
+        ? null
+        : detalhe.tipo === "linha"
+          ? buildProductLineDetail(escopo, aggs, detalhe.row)
+          : buildProductDetail(escopo, aggs, detalhe.row),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [detalhe, escopo, aggs, storesTick],
   );
@@ -485,7 +493,18 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {topLinhas.map((l, idx) => (
-                  <tr key={l.nome} className="border-b border-line last:border-b-0">
+                  <tr
+                    key={l.nome}
+                    tabIndex={0}
+                    onClick={() => setDetalhe({ tipo: "linha", row: l })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDetalhe({ tipo: "linha", row: l });
+                      }
+                    }}
+                    className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+                  >
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -542,11 +561,11 @@ export default function ProductsPage() {
                   <tr
                     key={p.chave}
                     tabIndex={0}
-                    onClick={() => setDetalhe(p)}
+                    onClick={() => setDetalhe({ tipo: "produto", row: p })}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setDetalhe(p);
+                        setDetalhe({ tipo: "produto", row: p });
                       }
                     }}
                     className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
@@ -630,11 +649,11 @@ export default function ProductsPage() {
                     <tr
                       key={p.chave}
                       tabIndex={0}
-                      onClick={() => setDetalhe(p)}
+                      onClick={() => setDetalhe({ tipo: "produto", row: p })}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setDetalhe(p);
+                          setDetalhe({ tipo: "produto", row: p });
                         }
                       }}
                       className="cursor-pointer border-b border-line transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
@@ -699,7 +718,19 @@ export default function ProductsPage() {
       </>
       )}
 
-      <ProductDetailModal detalhe={detalheView} periodo={periodoAtual.rotulo} onClose={() => setDetalhe(null)} />
+      <ProductDetailModal
+        detalhe={detalheView}
+        periodo={periodoAtual.rotulo}
+        onClose={() => setDetalhe(null)}
+        onProduto={(chave) => {
+          const row = view.produtos.find((p) => p.chave === chave);
+          if (row && detalhe?.tipo === "linha") setDetalhe({ tipo: "produto", row, linha: detalhe.row });
+        }}
+        voltarLinha={detalhe?.tipo === "produto" ? detalhe.linha : undefined}
+        onVoltar={() => {
+          if (detalhe?.tipo === "produto" && detalhe.linha) setDetalhe({ tipo: "linha", row: detalhe.linha });
+        }}
+      />
     </div>
   );
 }
@@ -751,13 +782,45 @@ function MetricaDetalhe({
   );
 }
 
-function ProductDetailModal({ detalhe, periodo, onClose }: { detalhe: ProductDetail | null; periodo: string; onClose: () => void }) {
+function ProductDetailModal({
+  detalhe,
+  periodo,
+  onClose,
+  onProduto,
+  voltarLinha,
+  onVoltar,
+}: {
+  detalhe: ProductDetail | null;
+  periodo: string;
+  onClose: () => void;
+  onProduto: (chave: string) => void;
+  /** Produto aberto a partir do detalhe de uma linha. */
+  voltarLinha?: Pick<ProductLineRow, "nome">;
+  onVoltar: () => void;
+}) {
   const cmp = detalhe?.comparativo;
+  const linha = detalhe?.tipo === "linha";
+  const subtitulo = !detalhe
+    ? ""
+    : linha
+      ? [
+          "Linha de produto",
+          `${detalhe.produtos.length} produto${detalhe.produtos.length === 1 ? "" : "s"}`,
+          periodo,
+        ].join(" · ")
+      : [detalhe.codigo, periodo].filter(Boolean).join(" · ");
   return (
     <Modal open={detalhe != null} onClose={onClose} title={detalhe?.nome} size="lg">
       {detalhe && (
         <div className="flex flex-col gap-5">
-          <p className="-mt-1 text-[12px] font-semibold text-t2">{[detalhe.codigo, periodo].filter(Boolean).join(" · ")}</p>
+          <div className="-mt-1">
+            {voltarLinha && (
+              <button type="button" onClick={onVoltar} className="mb-1.5 text-[12px] font-semibold text-acc hover:underline">
+                ← Voltar para {voltarLinha.nome}
+              </button>
+            )}
+            <p className="text-[12px] font-semibold text-t2">{subtitulo}</p>
+          </div>
 
           <div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -767,15 +830,20 @@ function ProductDetailModal({ detalhe, periodo, onClose }: { detalhe: ProductDet
               <MetricaDetalhe
                 label="Participação"
                 valor={pctFmt(detalhe.participacaoPct)}
-                tip="Fatia do produto no faturamento de todos os produtos do período."
+                tip={`Fatia ${linha ? "da linha" : "do produto"} no faturamento de todos os produtos do período.`}
               />
               <MetricaDetalhe label="CMV" valor={moneyOrDash(detalhe.cmv)} />
               <MetricaDetalhe label="Lucro bruto" valor={moneyOrDash(detalhe.lucro)} destaque />
               <MetricaDetalhe label="Margem" valor={pctFmt(detalhe.margemPct)} delta={cmp?.margem} />
             </div>
             <p className="mt-2.5 text-[11.5px] text-t2">
-              {cmp ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}` : "Sem vendas do produto no período anterior para comparar."}
-              {detalhe.cmv == null && " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo."}
+              {cmp
+                ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}`
+                : `Sem vendas ${linha ? "da linha" : "do produto"} no período anterior para comparar.`}
+              {detalhe.cmv == null &&
+                (linha
+                  ? " CMV, lucro e margem ficam em “—” quando algum produto da linha está sem custo."
+                  : " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo.")}
             </p>
           </div>
 
@@ -791,6 +859,34 @@ function ProductDetailModal({ detalhe, periodo, onClose }: { detalhe: ProductDet
                 height={200}
                 showAxisLabels
               />
+            </section>
+          )}
+
+          {linha && detalhe.produtos.length > 0 && (
+            <section>
+              <h4 className="text-[13px] font-bold text-t0">Produtos da linha</h4>
+              {detalhe.tipos.length > 0 && <p className="mt-0.5 text-[11.5px] text-t2">{detalhe.tipos.join(" · ")}</p>}
+              <div className="mt-2 flex flex-col">
+                {detalhe.produtos.map((p, idx) => (
+                  <button
+                    key={p.chave}
+                    type="button"
+                    onClick={() => onProduto(p.chave)}
+                    className="flex items-center gap-2.5 rounded-[var(--radius-vela-sm)] border-b border-line px-1 py-2.5 text-left transition-colors last:border-b-0 hover:bg-bg-3"
+                  >
+                    <AvatarIniciais nome={p.nome} idx={idx} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-bold text-t0">{p.nome}</span>
+                      {p.codigo && <span className="block text-[11px] text-t2">{p.codigo}</span>}
+                    </span>
+                    <span className="shrink-0 text-[11.5px] text-t2">
+                      {num(p.itens)} ite{p.itens === 1 ? "m" : "ns"}
+                    </span>
+                    <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(p.faturamento)}</span>
+                    <span className="min-w-[40px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pctFmt(p.pct, 0)}</span>
+                  </button>
+                ))}
+              </div>
             </section>
           )}
 

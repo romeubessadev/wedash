@@ -2588,6 +2588,8 @@ export interface ProductLineRow {
   /** null = algum produto da linha sem custo gravado. */
   margemPct: number | null;
   variacaoPct: number | null;
+  /** Chaves (`ProductItemRow.chave`) de todos os produtos da linha — abre o detalhe. */
+  chaves: string[];
 }
 
 /** Classifica categorias em A/B/C (80%/95% acumulado), já ordenadas por fat. desc. */
@@ -2788,10 +2790,11 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
     fatCmp: number;
     fatAnt: number;
     tipos: Map<string, number>;
+    chaves: string[];
   };
   const lineAcc = new Map<string, LineAcc>();
   let semLinhaFaturamento = 0;
-  for (const p of prodAcc.values()) {
+  for (const [chave, p] of prodAcc) {
     const l = p.nome ? lineIndex.lineOf(p.nome) : null;
     if (!l) {
       semLinhaFaturamento += p.fat;
@@ -2806,7 +2809,9 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
       fatCmp: 0,
       fatAnt: 0,
       tipos: new Map<string, number>(),
+      chaves: [],
     };
+    acc.chaves.push(chave);
     acc.fatCmp += p.fatCmp;
     acc.fatAnt += p.fatAnt;
     if (p.fat > 0) {
@@ -2830,6 +2835,7 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
       participacaoPct: divSeguro(l.fat, totalProdutos) * 100,
       margemPct: l.semCusto ? null : divSeguro(l.lucro, l.fat) * 100,
       variacaoPct: l.fatAnt > 0 && l.fatCmp > 0 ? ((l.fatCmp - l.fatAnt) / l.fatAnt) * 100 : null,
+      chaves: l.chaves,
     }))
     .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
 
@@ -2863,7 +2869,19 @@ export interface ProductDetailStore {
   pct: number;
 }
 
+export interface ProductDetailItem {
+  chave: string;
+  codigo: string;
+  nome: string;
+  faturamento: number;
+  itens: number;
+  /** Fatia do faturamento da linha (0–100). */
+  pct: number;
+}
+
 export interface ProductDetail {
+  tipo: "produto" | "linha";
+  /** Produto = `ProductItemRow.chave`; linha = nome da linha. */
   chave: string;
   codigo: string;
   nome: string;
@@ -2886,14 +2904,19 @@ export interface ProductDetail {
     itens?: ReturnType<typeof kpiDelta>;
     margem?: ReturnType<typeof kpiDeltaPp>;
   } | null;
+  /** Linha: produtos vendidos no período (maior faturamento primeiro). Produto: vazio. */
+  produtos: ProductDetailItem[];
+  /** Linha: tipos vendidos (desodorante colônia, body splash…). */
+  tipos: string[];
 }
 
-/** Detalhe de 1 produto (chave da `ProductItemRow`) — mesmas regras de custo/impostos do `buildProductsView`. */
-export function buildProductDetail(
-  escopo: Scope,
-  input: ProductsAggInput,
-  produto: Pick<ProductItemRow, "chave" | "codigo" | "nome" | "participacaoPct">,
-): ProductDetail {
+type ItemsDetail = Omit<ProductDetail, "tipo" | "chave" | "codigo" | "nome" | "participacaoPct" | "tipos">;
+
+/** Mesma chave do `buildProductsView`: `COD_PRODUTO` ou `#productId`. */
+const productRowKey = (r: { productCode: string; productId: number }) => r.productCode.trim() || `#${r.productId}`;
+
+/** Detalhe de um conjunto de produtos — mesmas regras de custo/impostos do `buildProductsView`. */
+function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<string>): ItemsDetail {
   const esc: Scope = { ...escopo, divisao: null };
   const periodo = resolvePeriod(esc.periodo, calendarTodayIso());
   const storeById = new Map(storesInScope(esc).map((f) => [f.id, f]));
@@ -2907,19 +2930,15 @@ export function buildProductDetail(
   const noAtualCmp = (d: string) => d >= periodo.inicio && d <= fimCmp;
   const noAntCmp = (d: string) => d >= ant.inicio && d <= antFimCmp;
 
-  const code = produto.codigo;
-  const linhas = (input.productDayAggs ?? []).filter(
-    (r) => storeById.has(r.storeId) && (code ? r.productCode.trim() === code : `#${r.productId}` === produto.chave),
-  );
+  const linhas = (input.productDayAggs ?? []).filter((r) => storeById.has(r.storeId) && chaves.has(productRowKey(r)));
 
-  const custoKey = (storeId: string, day: string) => `${storeId}|${day}`;
+  const custoKey = (storeId: string, day: string, code: string) => `${storeId}|${day}|${code}`;
   const custos = new Map<string, number>();
-  if (code) {
-    for (const r of input.productCostDayAggs ?? []) {
-      if (!storeById.has(r.storeId) || r.productCode.trim() !== code) continue;
-      const k = custoKey(r.storeId, r.day);
-      custos.set(k, (custos.get(k) ?? 0) + r.cmvCents / 100);
-    }
+  for (const r of input.productCostDayAggs ?? []) {
+    const code = r.productCode.trim();
+    if (!storeById.has(r.storeId) || !code || !chaves.has(code)) continue;
+    const k = custoKey(r.storeId, r.day, code);
+    custos.set(k, (custos.get(k) ?? 0) + r.cmvCents / 100);
   }
   const taxas = new Map<string, ReturnType<typeof custosDaFilialReal>>();
   const taxaDaLoja = (storeId: string) => {
@@ -2946,7 +2965,8 @@ export function buildProductDetail(
       const taxa = taxaDaLoja(r.storeId);
       impostos += (v * taxa.icmsPct) / 100;
       if (v > 0) {
-        const k = custoKey(r.storeId, r.day);
+        const code = r.productCode.trim();
+        const k = custoKey(r.storeId, r.day, code);
         const c = code ? custos.get(k) : undefined;
         if (c == null) semCusto = true;
         else if (!usados.has(k)) {
@@ -2981,10 +3001,9 @@ export function buildProductDetail(
       acc.itens += r.itemCount;
       porDia.set(k, acc);
     }
-    const chaves =
-      serieGranularidade === "mes" ? [...new Set(dias.map((d) => d.slice(0, 7)))] : dias;
+    const eixo = serieGranularidade === "mes" ? [...new Set(dias.map((d) => d.slice(0, 7)))] : dias;
     const variosAnos = periodo.inicio.slice(0, 4) !== periodo.fim.slice(0, 4);
-    serie = chaves.map((k) => ({
+    serie = eixo.map((k) => ({
       label:
         serieGranularidade === "mes"
           ? `${mesCurto(`${k}-01`)}${variosAnos ? `/${k.slice(2, 4)}` : ""}`
@@ -3016,6 +3035,32 @@ export function buildProductDetail(
       .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
   }
 
+  const porProduto = new Map<string, { nome: string; nomeDia: string; faturamento: number; itens: number }>();
+  for (const r of linhas) {
+    const key = productRowKey(r);
+    const acc = porProduto.get(key) ?? { nome: "", nomeDia: "", faturamento: 0, itens: 0 };
+    if (r.productName && r.day >= acc.nomeDia) {
+      acc.nome = r.productName;
+      acc.nomeDia = r.day;
+    }
+    if (noAtual(r.day)) {
+      acc.faturamento += r.revenueCents / 100;
+      acc.itens += r.itemCount;
+    }
+    porProduto.set(key, acc);
+  }
+  const produtos: ProductDetailItem[] = [...porProduto.entries()]
+    .filter(([, p]) => p.faturamento > 0)
+    .map(([key, p]) => ({
+      chave: key,
+      codigo: key.startsWith("#") ? "" : key,
+      nome: labelUpper(p.nome || key),
+      faturamento: p.faturamento,
+      itens: p.itens,
+      pct: divSeguro(p.faturamento, atual.fat) * 100,
+    }))
+    .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
+
   const cmpAtual = acumular(noAtualCmp);
   const cmpAnt = acumular(noAntCmp);
   const comparativo: ProductDetail["comparativo"] =
@@ -3031,19 +3076,10 @@ export function buildProductDetail(
         }
       : null;
 
-  const nomeDia = linhas.reduce<{ nome: string; dia: string }>(
-    (m, r) => (r.productName && r.day >= m.dia ? { nome: r.productName, dia: r.day } : m),
-    { nome: "", dia: "" },
-  );
-
   return {
-    chave: produto.chave,
-    codigo: code,
-    nome: nomeDia.nome ? labelUpper(nomeDia.nome) : produto.nome,
     faturamento: atual.fat,
     itens: atual.itens,
     precoMedio: divSeguro(atual.fat, atual.itens),
-    participacaoPct: produto.participacaoPct,
     cmv: atual.cmv,
     lucro: atual.lucro,
     margemPct: atual.margemPct,
@@ -3051,6 +3087,44 @@ export function buildProductDetail(
     serieGranularidade,
     lojas,
     comparativo,
+    produtos,
+  };
+}
+
+/** Detalhe de 1 produto (chave da `ProductItemRow`). */
+export function buildProductDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  produto: Pick<ProductItemRow, "chave" | "codigo" | "nome" | "participacaoPct">,
+): ProductDetail {
+  const d = buildItemsDetail(escopo, input, new Set([produto.chave]));
+  return {
+    ...d,
+    tipo: "produto",
+    chave: produto.chave,
+    codigo: produto.codigo,
+    nome: d.produtos[0]?.nome ?? produto.nome,
+    participacaoPct: produto.participacaoPct,
+    produtos: [],
+    tipos: [],
+  };
+}
+
+/** Detalhe de uma linha de produto (fragrância) — soma dos produtos dela + lista dos produtos. */
+export function buildProductLineDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  linha: Pick<ProductLineRow, "nome" | "chaves" | "tipos" | "participacaoPct">,
+): ProductDetail {
+  const d = buildItemsDetail(escopo, input, new Set(linha.chaves));
+  return {
+    ...d,
+    tipo: "linha",
+    chave: linha.nome,
+    codigo: "",
+    nome: linha.nome,
+    participacaoPct: linha.participacaoPct,
+    tipos: linha.tipos,
   };
 }
 
