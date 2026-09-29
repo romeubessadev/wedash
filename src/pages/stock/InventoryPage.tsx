@@ -26,7 +26,7 @@ import {
 import { useStockData } from "./useStockData";
 
 type StatusFiltro = "todos" | StockStatus;
-type SortKey = "nome" | "estoque" | "status" | `local:${string}`;
+type SortKey = "nome" | "estoque" | "status";
 
 const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant }> = {
   negativo: { label: "Negativo", variant: "danger" },
@@ -77,7 +77,6 @@ export function InventoryPage() {
 
   const locais = useMemo(() => (view ? stockLocations(view.rows) : []), [view]);
   const mostraTotal = locais.length !== 1;
-  const sortAtivo: SortKey = sortKey.startsWith("local:") && !locais.includes(sortKey.slice(6)) ? "nome" : sortKey;
 
   const linhas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -89,15 +88,15 @@ export function InventoryPage() {
     );
     const dir = sortDir === "asc" ? 1 : -1;
     const valor = ({ r, status: s }: (typeof out)[number]): number =>
-      sortAtivo === "status" ? STATUS_PESO[s] : sortAtivo.startsWith("local:") ? localQty(r, sortAtivo.slice(6)) : r.estoque;
+      (sortKey === "status" ? STATUS_PESO[s] : r.estoque);
     out.sort((a, b) => {
-      if (sortAtivo === "nome") return a.r.nome.localeCompare(b.r.nome, "pt-BR") * dir;
+      if (sortKey === "nome") return a.r.nome.localeCompare(b.r.nome, "pt-BR") * dir;
       return (valor(a) - valor(b)) * dir || a.r.nome.localeCompare(b.r.nome, "pt-BR");
     });
     return out;
-  }, [comStatus, busca, status, categoria, sortAtivo, sortDir]);
+  }, [comStatus, busca, status, categoria, sortKey, sortDir]);
 
-  useEffect(() => setPage(1), [busca, status, categoria, sortAtivo, sortDir, storeKey]);
+  useEffect(() => setPage(1), [busca, status, categoria, sortKey, sortDir, storeKey]);
 
   const totalPages = Math.max(1, Math.ceil(linhas.length / TABLE_PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -198,11 +197,10 @@ export function InventoryPage() {
               className="mb-3"
               options={[
                 { key: "nome" as SortKey, label: "Produto", text: true },
-                ...locais.map((nome) => ({ key: `local:${nome}` as SortKey, label: nome })),
-                ...(mostraTotal ? [{ key: "estoque" as SortKey, label: locais.length > 0 ? "Total" : "Estoque" }] : []),
+                { key: "estoque" as SortKey, label: locais.length > 1 ? "Total" : "Estoque" },
                 { key: "status" as SortKey, label: "Status" },
               ]}
-              sortKey={sortAtivo}
+              sortKey={sortKey}
               sortDir={sortDir}
               onChange={(k, d) => {
                 setSortKey(k);
