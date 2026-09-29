@@ -252,30 +252,6 @@ export function TeamPage() {
     }
   }
 
-  function exportCsv() {
-    const header = ["Nome", "Loja", "Turno", "Faturamento", "Nº de vendas", "Ticket médio", "P.A.", "Participação %", "Variação %"];
-    const dec = (v: number | null, casas = 2) => (v == null ? "" : v.toFixed(casas).replace(".", ","));
-    const rows = linhasTabela.map((p) => [
-      csvCell(p.nome),
-      csvCell(p.lojas.join(", ")),
-      csvCell(p.turno ?? TEAM_SEM_TURNO),
-      dec(p.faturamento),
-      String(p.vendas),
-      dec(p.ticketMedio),
-      dec(p.pa),
-      dec(p.participacaoPct, 1),
-      dec(p.variacaoPct, 1),
-    ]);
-    const csv = [header.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "equipe.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const tipVariacao = `Faturamento ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
@@ -556,9 +532,6 @@ export function TeamPage() {
             onChange={(e) => setBusca(e.target.value)}
             className={cn(filtroInputClass, "sm:w-56")}
           />
-          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
-            Exportar CSV
-          </Button>
         </div>
 
         {/* Desktop */}
@@ -735,11 +708,6 @@ function SemResultado({ temDados, onLimpar }: { temDados: boolean; onLimpar: () 
       }
     />
   );
-}
-
-function csvCell(v: string): string {
-  if (/[";\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-  return v;
 }
 
 type MetricasLinha = Pick<TeamMemberRow, "faturamento" | "vendas" | "ticketMedio" | "pa" | "participacaoPct">;
