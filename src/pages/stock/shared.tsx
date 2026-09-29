@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Avatar, Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import type { StockProductRow, StockTransfer } from "@/data/wedash/stockProducts";
+import type { StockProductRow } from "@/data/wedash/stockProducts";
 import { brlCent, num } from "@/lib/format";
 
 export const TipHelp = ({ label }: { label: string }) => (
@@ -16,11 +16,6 @@ export const money = (v: number | null) => (v == null ? "—" : brlCent(v));
 export const pct = (v: number | null) => (v == null ? "—" : `${v.toFixed(1).replace(".", ",")}%`);
 export const pctRate = (v: number) => `${num(v, v % 1 === 0 ? 0 : 2)}%`;
 export const qty = (v: number) => num(v, v % 1 === 0 ? 0 : 3);
-
-export function transferText(t: StockTransfer): string {
-  const origem = t.de.length === 1 ? `do ${t.de[0]}` : `de ${t.de.join(" / ")}`;
-  return `Transferir ${qty(t.qtd)} ${origem} para o ${t.para}`;
-}
 
 /** Saldo do produto num local de estoque, somando as lojas do filtro. */
 export function localQty(r: StockProductRow, nome: string): number {
