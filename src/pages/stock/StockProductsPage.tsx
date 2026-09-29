@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, Badge, Button, Card, Dropdown, Modal, Pagination, Select, TagSelect, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardTitle, Dropdown, Modal, Pagination, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -62,6 +62,9 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
+const filtroInputClass =
+  "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
+
 const money = (v: number | null) => (v == null ? "—" : brlCent(v));
 const pct = (v: number | null) => (v == null ? "—" : `${v.toFixed(1).replace(".", ",")}%`);
 const pctRate = (v: number) => `${num(v, v % 1 === 0 ? 0 : 2)}%`;
@@ -78,7 +81,7 @@ function transferTip(lojas: StockStoreDetail[], variasLojas: boolean): string {
     .join(" · ");
 }
 
-type Situacao = "com" | "transferir" | "negativo";
+type Situacao = "com" | "todos" | "transferir" | "negativo";
 
 const temNegativo = (r: StockProductRow) => r.lojas.some((l) => l.estoque < 0);
 
@@ -145,7 +148,7 @@ export function StockProductsPage() {
   const [syncing, setSyncing] = useState(false);
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<string | null>(null);
-  const [situacoesSel, setSituacoes] = useState<Situacao[]>(["com"]);
+  const [situacaoSel, setSituacao] = useState<Situacao>("com");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -283,21 +286,20 @@ export function StockProductsPage() {
 
   const nTransferir = useMemo(() => view?.rows.filter((r) => r.transferir > 0).length ?? 0, [view]);
   const nNegativo = useMemo(() => view?.rows.filter(temNegativo).length ?? 0, [view]);
-  const situacaoOpcoes = [
-    { value: "com" as const, label: "Com estoque" },
+  const situacaoOpcoes: { value: Situacao; label: string }[] = [
+    { value: "com", label: "Com estoque" },
+    { value: "todos", label: "Todos os produtos" },
     ...(nTransferir > 0 ? [{ value: "transferir" as const, label: `Transferir (${nTransferir})` }] : []),
     ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Estoque negativo (${nNegativo})` }] : []),
   ];
-  const situacoes = situacoesSel.filter((s) => situacaoOpcoes.some((o) => o.value === s));
-  const situacoesKey = situacoes.join(",");
+  const situacao: Situacao = situacaoOpcoes.some((o) => o.value === situacaoSel) ? situacaoSel : "com";
 
   const linhas = useMemo(() => {
     if (!view) return [];
     const q = busca.trim().toLowerCase();
-    const sel = situacoesKey ? (situacoesKey.split(",") as Situacao[]) : [];
     const passaFiltro = (r: StockProductRow) =>
-      sel.length === 0 ||
-      sel.some((s) => (s === "transferir" ? r.transferir > 0 : s === "negativo" ? temNegativo(r) : r.estoque > 0));
+      situacao === "todos" ||
+      (situacao === "transferir" ? r.transferir > 0 : situacao === "negativo" ? temNegativo(r) : r.estoque > 0);
     const out = view.rows.filter(
       (r) =>
         passaFiltro(r) &&
@@ -315,9 +317,9 @@ export function StockProductsPage() {
       return (va - vb) * dir || a.nome.localeCompare(b.nome, "pt-BR");
     });
     return out;
-  }, [view, busca, situacoesKey, categoria, sortKey, sortDir]);
+  }, [view, busca, situacao, categoria, sortKey, sortDir]);
 
-  useEffect(() => setPage(1), [busca, situacoesKey, categoria, sortKey, sortDir, storeKey]);
+  useEffect(() => setPage(1), [busca, situacao, categoria, sortKey, sortDir, storeKey]);
 
   const totalPages = Math.max(1, Math.ceil(linhas.length / TABLE_PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -349,7 +351,7 @@ export function StockProductsPage() {
   const limpar = () => {
     setBusca("");
     setCategoria(null);
-    setSituacoes([]);
+    setSituacao("todos");
   };
   const umaLoja = lojas.length === 1;
 
@@ -449,37 +451,36 @@ export function StockProductsPage() {
           )}
 
           <Card className="mt-4" padding="none">
-            <div className="flex flex-wrap items-center gap-2.5 border-b border-line px-5 py-4 print:hidden">
-              <div className="flex h-9 w-full items-center gap-2 rounded-[10px] border border-line bg-bg-inset px-3 sm:w-60">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
+            <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Custo e lucro por produto</CardTitle>
+                <TipHelp label={`Lucro por peça vendendo na tabela ${tabelaNome}, já descontando impostos, royalties, marketing e aluguel. Clique no produto para ver a conta.`} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 print:hidden">
+                <Dropdown
+                  align="right"
+                  trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Com estoque"} />}
+                  items={situacaoOpcoes.map((o) => ({ label: o.label, active: o.value === situacao, onClick: () => setSituacao(o.value) }))}
+                />
+                {view.categorias.length > 1 && (
+                  <Dropdown
+                    align="right"
+                    menuClassName="max-h-72 overflow-y-auto"
+                    trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
+                    items={[
+                      { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
+                      ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
+                    ]}
+                  />
+                )}
                 <input
                   type="search"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar produto ou código"
-                  className="min-w-0 flex-1 bg-transparent text-[12.5px] text-t0 outline-none placeholder:text-t2"
+                  placeholder="Buscar por produto ou código…"
+                  className={cn(filtroInputClass, "w-full sm:w-56")}
                 />
               </div>
-              {view.categorias.length > 1 && (
-                <Select value={categoria ?? ""} onChange={(e) => setCategoria(e.target.value || null)} className="!h-9 w-full sm:w-auto">
-                  <option value="">Todas as categorias</option>
-                  {view.categorias.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              <TagSelect
-                options={situacaoOpcoes}
-                value={situacoes}
-                onChange={setSituacoes}
-                placeholder="Todos os produtos"
-                className="w-full sm:w-auto sm:min-w-[200px]"
-              />
             </div>
 
             {linhas.length === 0 ? (
@@ -490,7 +491,7 @@ export function StockProductsPage() {
                   <EmptyBlock
                     icon="🔍"
                     title="Nenhum produto encontrado"
-                    description={situacoesKey === "com" && !busca && !categoria ? "Nenhum produto com estoque nas lojas selecionadas." : "Tente buscar por outro nome ou código."}
+                    description={situacao === "com" && !busca && !categoria ? "Nenhum produto com estoque nas lojas selecionadas." : "Tente buscar por outro nome ou código."}
                     action={
                       <Button variant="outline" size="sm" onClick={limpar}>
                         Limpar filtros
@@ -549,31 +550,32 @@ export function StockProductsPage() {
                       onClick={() => setDetalhe(r.codigo)}
                       className={cn("rounded-xl border p-3.5 text-left", r.transferir > 0 ? "border-warn/40 bg-warn-soft" : "border-line bg-bg-inset")}
                     >
-                      <div className="mb-3 flex items-center gap-2.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13.5px] font-bold text-t0">{r.nome}</p>
-                          <p className="truncate text-[11.5px] text-t2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[13.5px] font-bold text-t0">{r.nome}</p>
+                          <p className="mt-0.5 text-[11px] font-semibold text-t2">
                             {r.codigo}
-                            {r.categoria && ` · ${r.categoria}`}
                             {r.variaPorLoja && " · média das lojas"}
                           </p>
                         </div>
-                        <span className={cn("shrink-0 text-[13px] font-extrabold tabular-nums", r.estoque < 0 ? "text-bad" : "text-t0")}>
-                          {qty(r.estoque)} un.
-                        </span>
+                        {r.transferir > 0 && <Badge variant="warning">Transferir {qty(r.transferir)}</Badge>}
+                      </div>
+                      {r.transferir > 0 && <p className="mt-1.5 text-[11.5px] font-semibold text-warn">{transferTip(r.lojas, !umaLoja)}</p>}
+                      <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
+                        <Metrica label="Estoque" value={<span className={r.estoque < 0 ? "text-bad" : undefined}>{qty(r.estoque)}</span>} />
+                        <Metrica label="Preço de custo" value={money(r.custo)} />
+                        <Metrica label="Preço de venda" value={money(r.preco)} />
+                        <Metrica
+                          label="Lucro por peça"
+                          value={<span className={r.lucro == null ? "text-t2" : r.lucro < 0 ? "text-bad" : "text-ok"}>{money(r.lucro)}</span>}
+                        />
+                        <Metrica label="Margem" value={pct(r.margemPct)} />
                       </div>
                       {umaLoja && r.lojas[0] && r.lojas[0].locais.length > 1 && (
-                        <p className="mb-2 text-[11px] text-t2">
+                        <p className="mt-1.5 text-[11px] text-t2">
                           <Locais locais={r.lojas[0].locais} />
                         </p>
                       )}
-                      {r.transferir > 0 && <p className="mb-2 text-[11.5px] font-semibold text-warn">{transferTip(r.lojas, !umaLoja)}</p>}
-                      <div className="flex items-center justify-between gap-2 border-t border-line pt-2.5">
-                        <span className="text-xs text-t2">
-                          Custo {money(r.custo)} · Venda {money(r.preco)}
-                        </span>
-                        <Lucro valor={r.lucro} margem={r.margemPct} inline />
-                      </div>
                     </button>
                   ))}
                 </div>
@@ -655,6 +657,15 @@ function EstoqueCell({ row, umaLoja }: { row: StockProductRow; umaLoja: boolean 
         </Tooltip>
       )}
     </span>
+  );
+}
+
+function Metrica({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-t2">{label}</span>
+      <span className="font-semibold tabular-nums text-t0">{value}</span>
+    </div>
   );
 }
 
