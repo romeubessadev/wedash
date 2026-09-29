@@ -19,14 +19,16 @@ function useReportScope() {
   const session = useActiveSession();
   const { escopo } = useScope();
   const lojas = storesForSession(session.stores);
-  const loja = escopo.filialIds[0] ? lojas.find((s) => s.id === escopo.filialIds[0]) : undefined;
+  const loja = escopo.filialIds[0] ? lojas.find((s) => s.id === escopo.filialIds[0]) : lojas.length === 1 ? lojas[0] : undefined;
   const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
   const datas = periodo.inicio === periodo.fim ? dataBr(periodo.inicio) : `${dataBr(periodo.inicio)} a ${dataBr(periodo.fim)}`;
   const preset = periodDisplayLabel(escopo.periodo);
   return {
     lojaNome: loja ? loja.fantasia : "Todas as lojas",
+    lojaArquivo: loja ? [loja.codFilial.trim(), loja.fantasia].filter(Boolean).join(" ") : "Todas as lojas",
     todas: !loja,
     lojaCnpj: loja?.cnpj?.trim() || null,
+    lojaCodigo: loja?.codFilial.trim() || null,
     periodoTexto: preset ? `${preset} · ${datas}` : datas,
     periodoArquivo: preset ?? datas,
   };
@@ -34,10 +36,10 @@ function useReportScope() {
 
 /** Exportar da tela: abre a impressão com o layout do relatório (salvar como PDF). */
 export function useExportPdf(tela: string, extra?: string | null, { periodo = true }: { periodo?: boolean } = {}) {
-  const { lojaNome, periodoArquivo } = useReportScope();
+  const { lojaArquivo, periodoArquivo } = useReportScope();
   return useCallback(
-    () => exportPdf([tela, lojaNome, extra ?? "", periodo ? periodoArquivo : ""]),
-    [tela, lojaNome, extra, periodo, periodoArquivo],
+    () => exportPdf([tela, lojaArquivo, extra ?? "", periodo ? periodoArquivo : ""]),
+    [tela, lojaArquivo, extra, periodo, periodoArquivo],
   );
 }
 
@@ -53,7 +55,7 @@ export function ReportHeader({
   /** Substitui a linha "Vendas de hoje atualizadas…". */
   atualizado?: string;
 }) {
-  const { lojaNome, lojaCnpj, todas, periodoTexto } = useReportScope();
+  const { lojaNome, lojaCnpj, lojaCodigo, todas, periodoTexto } = useReportScope();
   const agora = new Date();
   const geradoEm = `${agora.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })} às ${agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`;
   return (
@@ -69,6 +71,7 @@ export function ReportHeader({
         <p>
           <span className="text-t2">{todas ? "Lojas: " : "Loja: "}</span>
           <span className={todas ? "font-bold text-t0" : "font-bold uppercase text-t0"}>{lojaNome}</span>
+          {lojaCodigo && <span className="text-t2"> · Filial {lojaCodigo}</span>}
           {lojaCnpj && <span className="text-t2"> · {lojaCnpj}</span>}
         </p>
         {periodo && (
