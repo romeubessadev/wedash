@@ -2,6 +2,7 @@
  * Estoque > Produtos: leitura (estoque da loja, tabelas/preços de venda, tabela usada nas vendas, catálogo)
  * e busca no Millennium sob demanda (Edge `erp-stock-sync`).
  */
+import { titleName } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllPages } from "./salesRepo";
 import type { StockCatalogItem, StockInput } from "./stockProducts";
@@ -76,10 +77,20 @@ export async function fetchStoreStock(
       storeId: r.store_id,
       code: String(r.product_code).trim(),
       qty: Number(r.quantity) || 0,
-      locations: Object.fromEntries(Object.entries(r.locations ?? {}).map(([k, v]) => [k, Number(v) || 0])),
+      locations: locationsTitleCase(r.locations ?? {}),
     })),
     syncedAt,
   };
+}
+
+/** Nome do local em Title Case ("QUIOSQUE" → "Quiosque", "SHOP010" → "Shop010"); mesma grafia no ERP soma junto. */
+function locationsTitleCase(raw: Record<string, number | string>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const nome = titleName(k.trim()) || "Estoque";
+    out[nome] = (out[nome] ?? 0) + (Number(v) || 0);
+  }
+  return out;
 }
 
 /** Itens vendidos por tabela de preço (loja × dia) no período. */
