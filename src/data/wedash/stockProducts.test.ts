@@ -116,7 +116,7 @@ describe("buildStockProductsView", () => {
     expect(view.rows.find((r) => r.codigo === "X")!.transferir).toBe(0);
   });
 
-  it("negativo = total da loja abaixo de zero; aguardando = Estoque com mais que a Loja; senão ok", () => {
+  it("negativo = total da loja abaixo de zero; aguardando = Loja negativa e Estoque positivo; senão ok", () => {
     const view = buildStockProductsView({
       stores: [store({ id: "a" }), store({ id: "b" })],
       catalog: new Map(),
@@ -127,6 +127,7 @@ describe("buildStockProductsView", () => {
         { storeId: "a", code: "P3", qty: 2 },
         { storeId: "a", code: "P5", qty: 10, locations: { Estoque: 4, Loja: 6 } },
         { storeId: "b", code: "P6", qty: 3, locations: { Estoque: 3 } },
+        { storeId: "a", code: "P7", qty: -10, locations: { Estoque: 10, Loja: -20 } },
       ],
       costPrices: new Map(),
       salePrices: new Map(),
@@ -138,7 +139,8 @@ describe("buildStockProductsView", () => {
     expect(status("P2")).toBe("aguardando");
     expect(status("P3")).toBe("ok");
     expect(status("P5")).toBe("ok");
-    expect(status("P6")).toBe("aguardando");
+    expect(status("P6")).toBe("ok");
+    expect(status("P7")).toBe("negativo");
     expect(view.rows.some((r) => r.codigo === "P4")).toBe(false);
   });
 });
