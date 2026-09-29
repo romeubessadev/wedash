@@ -98,10 +98,8 @@ export function InventoryPage() {
 
   useEffect(() => setPage(1), [busca, status, categoria, sortKey, sortDir, storeKey]);
 
-  const locais = useMemo(() => {
-    const nomes = view ? stockLocations(view.rows) : [];
-    return nomes.length > 1 ? nomes : [];
-  }, [view]);
+  const locais = useMemo(() => (view ? stockLocations(view.rows) : []), [view]);
+  const mostraTotal = locais.length !== 1;
 
   const totalPages = Math.max(1, Math.ceil(linhas.length / TABLE_PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -109,41 +107,46 @@ export function InventoryPage() {
 
   type Linha = (typeof linhas)[number];
   const columns: DataTableColumn<Linha>[] = [
-    { key: "produto", header: "Produto", render: ({ r }) => <ProductCell r={r} /> },
-    ...locais.map<DataTableColumn<Linha>>((nome) => ({
-      key: `local:${nome}`,
-      header: nome,
-      align: "right",
-      render: ({ r }) => {
-        const v = localQty(r, nome);
-        return <span className={cn("tabular-nums", v < 0 ? "font-semibold text-bad" : v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
-      },
-    })),
     {
-      key: "estoque",
-      header: locais.length > 0 ? "Total" : "Estoque",
-      align: "right",
-      render: ({ r }) => <span className={cn("font-extrabold tabular-nums", r.estoque < 0 ? "text-bad" : "text-t0")}>{qty(r.estoque)}</span>,
-    },
-    {
-      key: "vendidos",
-      header: "Vendidos (30 dias)",
-      align: "right",
-      render: ({ r }) => <span className={cn("tabular-nums", r.itensVendidos30d === 0 ? "text-t2" : "text-t1")}>{qty(r.itensVendidos30d)}</span>,
+      key: "produto",
+      header: "Produto",
+      render: ({ r }) => (
+        <div className="min-w-[220px] max-w-[340px] whitespace-normal">
+          <ProductCell r={r} />
+        </div>
+      ),
     },
     {
       key: "status",
       header: "Status",
       render: ({ r, status: s }) => (
-        <div className="min-w-[220px] max-w-[300px]">
-          <Badge variant={STATUS_BADGE[s].variant}>{s === "transferir" ? `Transferir ${qty(r.transferir)}` : STATUS_BADGE[s].label}</Badge>
-          {statusLines(r, s, variasLojas).map((t) => (
-            <p key={t} className="mt-1 whitespace-normal text-[11.5px] leading-snug text-t2">
-              {t}
-            </p>
-          ))}
+        <div className="min-w-[200px] max-w-[280px]">
+          <StatusBadge r={r} status={s} />
+          <StatusText lines={statusLines(r, s, variasLojas)} />
         </div>
       ),
+    },
+    ...locais.map<DataTableColumn<Linha>>((nome) => ({
+      key: `local:${nome}`,
+      header: nome,
+      align: "right",
+      render: ({ r }) => <LocalQty v={localQty(r, nome)} />,
+    })),
+    ...(mostraTotal
+      ? [
+          {
+            key: "estoque",
+            header: locais.length > 0 ? "Total" : "Estoque",
+            align: "right",
+            render: ({ r }: Linha) => <TotalQty v={r.estoque} />,
+          } satisfies DataTableColumn<Linha>,
+        ]
+      : []),
+    {
+      key: "vendidos",
+      header: "Vendidos 30 dias",
+      align: "right",
+      render: ({ r }) => <SoldQty v={r.itensVendidos30d} />,
     },
   ];
 
@@ -230,20 +233,24 @@ export function InventoryPage() {
             />
           )}
 
-          <DataTable
-            columns={columns}
-            data={pageRows}
-            rowKey={({ r }) => r.codigo}
-            empty={
-              <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
-                {view.rows.length === 0 ? (
-                  <EmptyBlock icon="📦" title="Sem estoque" description={syncing ? "Buscando o estoque no Millennium…" : "Nenhum produto com saldo nas lojas selecionadas."} />
-                ) : (
-                  <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
-                )}
+          {linhas.length === 0 ? (
+            <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
+              {view.rows.length === 0 ? (
+                <EmptyBlock icon="📦" title="Sem estoque" description={syncing ? "Buscando o estoque no Millennium…" : "Nenhum produto com saldo nas lojas selecionadas."} />
+              ) : (
+                <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+              )}
+            </div>
+          ) : (
+            <>
+              <DataTable className="hidden md:block print:block" columns={columns} data={pageRows} rowKey={({ r }) => r.codigo} />
+              <div className="flex flex-col gap-3 md:hidden print:hidden">
+                {pageRows.map(({ r, status: s }) => (
+                  <InventoryCard key={r.codigo} r={r} status={s} locais={locais} mostraTotal={mostraTotal} lines={statusLines(r, s, variasLojas)} />
+                ))}
               </div>
-            }
-          />
+            </>
+          )}
           {linhas.length > 0 && <TableFooter shown={pageRows.length} total={linhas.length} page={pageSafe} totalPages={totalPages} onPage={setPage} />}
         </>
       )}
@@ -252,3 +259,66 @@ export function InventoryPage() {
 }
 
 export default InventoryPage;
+
+function StatusBadge({ r, status }: { r: StockProductRow; status: StockStatus }) {
+  return <Badge variant={STATUS_BADGE[status].variant}>{status === "transferir" ? `Transferir ${qty(r.transferir)}` : STATUS_BADGE[status].label}</Badge>;
+}
+
+function StatusText({ lines }: { lines: string[] }) {
+  return lines.map((t) => (
+    <p key={t} className="mt-1 whitespace-normal text-[11.5px] leading-snug text-t2">
+      {t}
+    </p>
+  ));
+}
+
+function LocalQty({ v }: { v: number }) {
+  return <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", v < 0 ? "font-bold text-bad" : v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
+}
+
+function TotalQty({ v }: { v: number }) {
+  return <span className={cn("whitespace-nowrap font-mono text-[13px] font-bold tabular-nums", v < 0 ? "text-bad" : "text-t0")}>{qty(v)}</span>;
+}
+
+function SoldQty({ v }: { v: number }) {
+  return <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
+}
+
+function InventoryCard({
+  r,
+  status,
+  locais,
+  mostraTotal,
+  lines,
+}: {
+  r: StockProductRow;
+  status: StockStatus;
+  locais: string[];
+  mostraTotal: boolean;
+  lines: string[];
+}) {
+  const celulas = [
+    ...locais.map((nome) => ({ label: nome, value: <LocalQty v={localQty(r, nome)} /> })),
+    ...(mostraTotal ? [{ label: locais.length > 0 ? "Total" : "Estoque", value: <TotalQty v={r.estoque} /> }] : []),
+    { label: "Vendidos 30 dias", value: <SoldQty v={r.itensVendidos30d} /> },
+  ];
+  return (
+    <div className="rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <ProductCell r={r} />
+        <div className="shrink-0">
+          <StatusBadge r={r} status={status} />
+        </div>
+      </div>
+      <StatusText lines={lines} />
+      <dl className="mt-3 grid grid-cols-3 gap-2">
+        {celulas.map((c) => (
+          <div key={c.label} className="min-w-0 rounded-[var(--radius-vela-sm)] bg-bg-inset px-2.5 py-2">
+            <dt className="truncate text-[10.5px] font-bold uppercase tracking-wide text-t2">{c.label}</dt>
+            <dd className="mt-0.5">{c.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
