@@ -3128,7 +3128,7 @@ export function buildTeamDashboardView(
       valor: brlCent(totAtual.fat),
       sub: n > 0 ? `${n} ${n === 1 ? "pessoa" : "pessoas"} · média de ${brlCent(totAtual.fat / n)}` : undefined,
       delta: comparavel ? kpiDelta(totCmp.fat, totAnt.fat, vsCmp) : undefined,
-      tooltip: "Faturamento realizado pela equipe de vendas. Não inclui vendas sem vendedor identificado ou realizadas pela gerência.",
+      tooltip: "Faturamento das vendas atribuídas à equipe. Não inclui vendas sem vendedor identificado ou realizadas pela gerência.",
     },
     {
       label: "Nº de vendas",
