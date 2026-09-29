@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, DataTable, Modal, type DataTableColumn, type SortDir } from "@/components/ui";
+import { Alert, Badge, DataTable, type DataTableColumn, type SortDir } from "@/components/ui";
 import type { StatusVariant } from "@/lib/status";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { stockStatus, type StockProductRow, type StockStatus } from "@/data/wedash/stockProducts";
 import { cn } from "@/lib/cn";
-import { num } from "@/lib/format";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
@@ -37,21 +35,20 @@ const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant 
   ok: { label: "Ok", variant: "success" },
 };
 
-function statusTip(r: StockProductRow, status: StockStatus, variasLojas: boolean): string {
+/** O que fazer com o produto, uma linha por loja (vai abaixo do status, na própria linha da tabela). */
+function statusLines(r: StockProductRow, status: StockStatus, variasLojas: boolean): string[] {
   const loja = (nome: string) => (variasLojas ? `${nome}: ` : "");
   if (status === "negativo")
     return r.lojas
       .filter((l) => l.estoque < 0)
-      .map((l) => `${loja(l.store.fantasia)}saldo ${qty(l.estoque)} no Millennium. Confira as entradas e saídas.`)
-      .join(" · ");
+      .map((l) => `${loja(l.store.fantasia)}saldo ${qty(l.estoque)} no Millennium. Confira as entradas e saídas.`);
   if (status === "transferir")
-    return r.lojas.flatMap((l) => l.transferencias.map((t) => `${loja(l.store.fantasia)}${transferText(t)}`)).join(" · ");
+    return r.lojas.flatMap((l) => l.transferencias.map((t) => `${loja(l.store.fantasia)}${transferText(t)}`));
   if (status === "falta")
     return r.lojas
       .filter((l) => l.estoque <= 0 && l.vendidos30d > 0)
-      .map((l) => `${loja(l.store.fantasia)}sem saldo e ${qty(l.vendidos30d)} vendidos nos últimos 30 dias.`)
-      .join(" · ");
-  return "Saldo positivo em todos os locais.";
+      .map((l) => `${loja(l.store.fantasia)}sem saldo e ${qty(l.vendidos30d)} vendidos nos últimos 30 dias.`);
+  return [];
 }
 
 export function InventoryPage() {
@@ -62,7 +59,6 @@ export function InventoryPage() {
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
-  const [detalhe, setDetalhe] = useState<string | null>(null);
   const printing = usePrintMode();
   const showSkeleton = useMinSkeleton(loading);
   const exportar = useExportPdf("Estoque", null, { periodo: false });
@@ -139,16 +135,18 @@ export function InventoryPage() {
       key: "status",
       header: "Status",
       render: ({ r, status: s }) => (
-        <Tooltip label={statusTip(r, s, variasLojas)}>
-          <span>
-            <Badge variant={STATUS_BADGE[s].variant}>{s === "transferir" ? `Transferir ${qty(r.transferir)}` : STATUS_BADGE[s].label}</Badge>
-          </span>
-        </Tooltip>
+        <div className="min-w-[220px] max-w-[300px]">
+          <Badge variant={STATUS_BADGE[s].variant}>{s === "transferir" ? `Transferir ${qty(r.transferir)}` : STATUS_BADGE[s].label}</Badge>
+          {statusLines(r, s, variasLojas).map((t) => (
+            <p key={t} className="mt-1 whitespace-normal text-[11.5px] leading-snug text-t2">
+              {t}
+            </p>
+          ))}
+        </div>
       ),
     },
   ];
 
-  const produtoDetalhe = detalhe ? (view?.rows.find((r) => r.codigo === detalhe) ?? null) : null;
   const statusLabel = statusOpcoes.find((o) => o.value === status)?.label ?? "Todos os status";
 
   return (
@@ -236,7 +234,6 @@ export function InventoryPage() {
             columns={columns}
             data={pageRows}
             rowKey={({ r }) => r.codigo}
-            onRowClick={({ r }) => setDetalhe(r.codigo)}
             empty={
               <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
                 {view.rows.length === 0 ? (
@@ -250,56 +247,8 @@ export function InventoryPage() {
           {linhas.length > 0 && <TableFooter shown={pageRows.length} total={linhas.length} page={pageSafe} totalPages={totalPages} onPage={setPage} />}
         </>
       )}
-
-      {produtoDetalhe && <InventoryDetailModal row={produtoDetalhe} onClose={() => setDetalhe(null)} />}
     </div>
   );
 }
 
 export default InventoryPage;
-
-function InventoryDetailModal({ row, onClose }: { row: StockProductRow; onClose: () => void }) {
-  const varias = row.lojas.length > 1;
-  return (
-    <Modal open onClose={onClose} title={row.nome} size="lg">
-      <p className="-mt-1 text-[12px] text-t2">
-        {row.codigo}
-        {row.categoria && ` · ${row.categoria}`} · Estoque {qty(row.estoque)} · Vendidos nos últimos 30 dias {num(row.itensVendidos30d)}
-      </p>
-      <div className="mt-4 flex flex-col gap-3">
-        {row.lojas
-          .filter((l) => l.locais.length > 0 || l.estoque !== 0 || l.vendidos30d > 0)
-          .map((l) => (
-          <div key={l.store.id} className="flex flex-col gap-2">
-            <div className="rounded-[var(--radius-vela-sm)] bg-bg-inset px-3 py-2.5 text-[12.5px]">
-              {varias && <p className="mb-1 font-semibold uppercase text-t0">{l.store.fantasia}</p>}
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {l.locais.map((x) => (
-                  <span key={x.nome} className="text-t1">
-                    {x.nome} <span className={cn("font-bold tabular-nums", x.qtd < 0 ? "text-bad" : "text-t0")}>{qty(x.qtd)}</span>
-                  </span>
-                ))}
-                <span className="text-t2">
-                  Total <span className={cn("font-bold tabular-nums", l.estoque < 0 ? "text-bad" : "text-t0")}>{qty(l.estoque)}</span>
-                </span>
-                <span className="text-t2">
-                  Vendidos (30 dias) <span className="font-bold tabular-nums text-t0">{qty(l.vendidos30d)}</span>
-                </span>
-              </div>
-            </div>
-            {l.transferencias.map((t) => (
-              <Alert key={t.para} variant="warning" title={transferText(t)}>
-                O {t.para} está com saldo negativo e o produto está no {t.de.join(" / ")}.
-              </Alert>
-            ))}
-            {l.estoque <= 0 && l.vendidos30d > 0 && (
-              <Alert variant="danger" title="Produto em falta">
-                Vendeu {qty(l.vendidos30d)} nos últimos 30 dias e está sem saldo{varias ? " nesta loja" : ""}.
-              </Alert>
-            )}
-          </div>
-        ))}
-      </div>
-    </Modal>
-  );
-}
