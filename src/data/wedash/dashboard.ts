@@ -2577,6 +2577,8 @@ export type ProductsAggInput = FinanceAggInput & {
   productCostDayAggs?: import("./salesTypes").SalesProductCostDayAgg[];
   /** Descrições do catálogo — nome estável das linhas de produto. */
   catalogDescriptions?: string[];
+  /** id do produto no ERP → tipo (categoria) — detalhe da Curva ABC. */
+  catalogTypes?: Record<number, number>;
 };
 
 export interface ProductLineRow {
@@ -2886,9 +2888,20 @@ export interface ProductDetailItem {
   margemPct: number | null;
 }
 
+export interface ProductDetailCategory {
+  categoriaId: number;
+  nome: string;
+  itens: number;
+  faturamento: number;
+  margemPct: number | null;
+  /** Participação no faturamento de todas as categorias (0–100). */
+  pct: number;
+  pctAcumulado: number;
+}
+
 export interface ProductDetail {
-  tipo: "produto" | "linha";
-  /** Produto = `ProductItemRow.chave`; linha = nome da linha. */
+  tipo: "produto" | "linha" | "categoria" | "classe";
+  /** Produto = `ProductItemRow.chave`; linha = nome; categoria = id; classe = A/B/C. */
   chave: string;
   codigo: string;
   nome: string;
@@ -2915,15 +2928,25 @@ export interface ProductDetail {
   produtos: ProductDetailItem[];
   /** Linha: tipos vendidos (desodorante colônia, body splash…). */
   tipos: string[];
+  /** Classe da Curva ABC: categorias da classe. */
+  categorias: ProductDetailCategory[];
+  /** Categoria: classe dela na Curva ABC. */
+  classe?: AbcClass;
 }
 
-type ItemsDetail = Omit<ProductDetail, "tipo" | "chave" | "codigo" | "nome" | "participacaoPct" | "tipos">;
+type ItemsDetail = Omit<ProductDetail, "tipo" | "chave" | "codigo" | "nome" | "participacaoPct" | "tipos" | "categorias" | "classe">;
 
 /** Mesma chave do `buildProductsView`: `COD_PRODUTO` ou `#productId`. */
 const productRowKey = (r: { productCode: string; productId: number }) => r.productCode.trim() || `#${r.productId}`;
 
 /** Detalhe de um conjunto de produtos — mesmas regras de custo/impostos do `buildProductsView`. */
-function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<string>): ItemsDetail {
+function buildItemsDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  chaves: Set<string>,
+  opts: { margemPorProduto?: boolean } = {},
+): ItemsDetail {
+  const margemPorProduto = opts.margemPorProduto ?? true;
   const esc: Scope = { ...escopo, divisao: null };
   const periodo = resolvePeriod(esc.periodo, calendarTodayIso());
   const storeById = new Map(storesInScope(esc).map((f) => [f.id, f]));
@@ -3065,7 +3088,7 @@ function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<st
       faturamento: p.faturamento,
       itens: p.itens,
       pct: divSeguro(p.faturamento, atual.fat) * 100,
-      margemPct: acumular(noAtual, key).margemPct,
+      margemPct: margemPorProduto ? acumular(noAtual, key).margemPct : null,
     }))
     .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
 
@@ -3115,6 +3138,7 @@ export function buildProductDetail(
     participacaoPct: produto.participacaoPct,
     produtos: [],
     tipos: [],
+    categorias: [],
   };
 }
 
@@ -3133,6 +3157,83 @@ export function buildProductLineDetail(
     nome: linha.nome,
     participacaoPct: linha.participacaoPct,
     tipos: linha.tipos,
+    categorias: [],
+  };
+}
+
+/** Mesmo join da `sales_category_day_view`: produto fora do catálogo = INDEFINIDO. */
+const CATEGORIA_INDEFINIDA = -2000000000;
+
+function productKeysByCategory(input: ProductsAggInput): Map<number, Set<string>> {
+  const tipos = input.catalogTypes ?? {};
+  const out = new Map<number, Set<string>>();
+  for (const r of input.productDayAggs ?? []) {
+    const cat = tipos[r.productId] ?? CATEGORIA_INDEFINIDA;
+    let set = out.get(cat);
+    if (!set) {
+      set = new Set();
+      out.set(cat, set);
+    }
+    set.add(productRowKey(r));
+  }
+  return out;
+}
+
+/** Detalhe de uma categoria (tipo de produto) — soma dos produtos dela + lista dos produtos. */
+export function buildCategoryDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  categoria: Pick<AbcCategory, "categoriaId" | "nome" | "pct" | "classe">,
+): ProductDetail {
+  const chaves = productKeysByCategory(input).get(categoria.categoriaId) ?? new Set<string>();
+  const d = buildItemsDetail(escopo, input, chaves);
+  return {
+    ...d,
+    tipo: "categoria",
+    chave: String(categoria.categoriaId),
+    codigo: "",
+    nome: categoria.nome,
+    participacaoPct: categoria.pct,
+    tipos: [],
+    categorias: [],
+    classe: categoria.classe,
+  };
+}
+
+/** Detalhe de uma classe da Curva ABC — soma das categorias dela + lista das categorias. */
+export function buildAbcClassDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  view: Pick<ProductsView, "curvaAbcCategorias" | "categorias">,
+  classe: AbcClass,
+): ProductDetail {
+  const porCategoria = productKeysByCategory(input);
+  const daClasse = view.curvaAbcCategorias.itens.filter((i) => i.classe === classe);
+  const chaves = new Set<string>();
+  for (const c of daClasse) for (const k of porCategoria.get(c.categoriaId) ?? []) chaves.add(k);
+  const d = buildItemsDetail(escopo, input, chaves, { margemPorProduto: false });
+  const categorias: ProductDetailCategory[] = daClasse.map((c) => {
+    const det = buildItemsDetail(escopo, input, porCategoria.get(c.categoriaId) ?? new Set<string>(), { margemPorProduto: false });
+    return {
+      categoriaId: c.categoriaId,
+      nome: c.nome,
+      itens: view.categorias.find((x) => x.categoriaId === c.categoriaId)?.itens ?? det.itens,
+      faturamento: c.faturamento,
+      margemPct: det.margemPct,
+      pct: c.pct,
+      pctAcumulado: c.pctAcumulado,
+    };
+  });
+  return {
+    ...d,
+    tipo: "classe",
+    chave: classe,
+    codigo: "",
+    nome: `Classe ${classe}`,
+    participacaoPct: view.curvaAbcCategorias.resumo.find((r) => r.classe === classe)?.pctReceita ?? 0,
+    produtos: [],
+    tipos: [],
+    categorias,
   };
 }
 

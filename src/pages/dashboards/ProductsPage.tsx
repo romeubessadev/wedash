@@ -5,14 +5,18 @@ import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
+  buildAbcClassDetail,
+  buildCategoryDetail,
   buildProductDetail,
   buildProductLineDetail,
   buildProductsView,
   financeFetchRange,
   productsFetchRange,
   resolvePeriod,
+  type AbcCategory,
   type AbcClass,
   type ProductDetail,
+  type ProductDetailCategory,
   type ProductDetailItem,
   type ProductItemRow,
   type ProductLineRow,
@@ -21,6 +25,7 @@ import {
 } from "@/data/wedash/dashboard";
 import {
   fetchProductCatalogDescriptions,
+  fetchProductCatalogTypes,
   fetchSalesCategoryDayAggs,
   fetchSalesCoverage,
   fetchSalesDayAggs,
@@ -87,6 +92,12 @@ const KPI_COLORS = [
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
 ];
+
+type Selecao =
+  | { tipo: "produto"; row: ProductItemRow }
+  | { tipo: "linha"; row: ProductLineRow }
+  | { tipo: "categoria"; row: AbcCategory }
+  | { tipo: "classe"; classe: AbcClass };
 
 type SortKey = "nome" | "faturamento" | "itens" | "lucro" | "margemPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
@@ -166,9 +177,11 @@ export default function ProductsPage() {
   const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [detalhe, setDetalhe] = useState<
-    { tipo: "produto"; row: ProductItemRow; linha?: ProductLineRow } | { tipo: "linha"; row: ProductLineRow } | null
-  >(null);
+  // Pilha do detalhe: classe → categoria → produto / linha → produto; "Voltar" desempilha.
+  const [pilha, setPilha] = useState<Selecao[]>([]);
+  const detalhe = pilha.at(-1) ?? null;
+  const abrir = (s: Selecao) => setPilha([s]);
+  const empilhar = (s: Selecao) => setPilha((p) => [...p, s]);
   const printing = usePrintMode();
   const exportar = useExportPdf("Produtos");
   // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
@@ -189,7 +202,7 @@ export default function ProductsPage() {
     const storeIds = escopo.filialIds;
     const tenantId = session.tenantId;
     try {
-      const [dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, cov, catalogDescriptions] = await Promise.all([
+      const [dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, cov, catalogDescriptions, catalogTypes] = await Promise.all([
         fetchSalesDayAggs({ tenantId, storeIds, from: range.from, to: range.to, brand: null }),
         periodo.inicio === periodo.fim
           ? fetchSalesHourAggs({ tenantId, storeIds, day: periodo.inicio, brand: null })
@@ -202,9 +215,10 @@ export default function ProductsPage() {
         fetchSalesProductCostDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to }),
         fetchSalesCoverage(tenantId, storeIds),
         fetchProductCatalogDescriptions(),
+        fetchProductCatalogTypes(),
       ]);
       if (gen !== reloadGen.current) return;
-      setAggs({ dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, catalogDescriptions });
+      setAggs({ dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, catalogDescriptions, catalogTypes });
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
       if (gen !== reloadGen.current) return;
@@ -321,19 +335,25 @@ export default function ProductsPage() {
   }, [busca, sortKey, sortDir, escopo]);
 
   useEffect(() => {
-    setDetalhe(null);
+    setPilha([]);
   }, [escopo]);
 
-  const detalheView = useMemo(
-    () =>
-      !detalhe
-        ? null
-        : detalhe.tipo === "linha"
-          ? buildProductLineDetail(escopo, aggs, detalhe.row)
-          : buildProductDetail(escopo, aggs, detalhe.row),
+  const detalheView = useMemo(() => {
+    if (!detalhe) return null;
+    switch (detalhe.tipo) {
+      case "linha":
+        return buildProductLineDetail(escopo, aggs, detalhe.row);
+      case "categoria":
+        return buildCategoryDetail(escopo, aggs, detalhe.row);
+      case "classe":
+        return buildAbcClassDetail(escopo, aggs, view, detalhe.classe);
+      default:
+        return buildProductDetail(escopo, aggs, detalhe.row);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detalhe, escopo, aggs, storesTick],
-  );
+  }, [detalhe, escopo, aggs, view, storesTick]);
+
+  const nomeSelecao = (s: Selecao) => (s.tipo === "classe" ? `Classe ${s.classe}` : s.row.nome);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -449,12 +469,17 @@ export default function ProductsPage() {
                       centerValue={brlCent(total)}
                     />
                   </div>
-                  <div className="mt-2 flex flex-col gap-3">
+                  <div className="mt-2 flex flex-col gap-1">
                     {classes.map((r) => {
                       const pct = Math.round((r.faturamento / total) * 100);
                       const nomes = view.curvaAbcCategorias.itens.filter((i) => i.classe === r.classe).map((i) => i.nome);
                       return (
-                        <div key={r.classe} className="flex items-start gap-2.5">
+                        <button
+                          key={r.classe}
+                          type="button"
+                          onClick={() => abrir({ tipo: "classe", classe: r.classe })}
+                          className="-mx-2 flex items-start gap-2.5 rounded-[var(--radius-vela-sm)] px-2 py-1.5 text-left transition-colors hover:bg-bg-3"
+                        >
                           <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CORES_ABC[r.classe] }} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
@@ -464,7 +489,7 @@ export default function ProductsPage() {
                             </div>
                             <p className="mt-0.5 text-[11.5px] leading-snug text-t2">{nomes.join(" · ")}</p>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -503,11 +528,11 @@ export default function ProductsPage() {
                   <tr
                     key={l.nome}
                     tabIndex={0}
-                    onClick={() => setDetalhe({ tipo: "linha", row: l })}
+                    onClick={() => abrir({ tipo: "linha", row: l })}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setDetalhe({ tipo: "linha", row: l });
+                        abrir({ tipo: "linha", row: l });
                       }
                     }}
                     className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
@@ -568,11 +593,11 @@ export default function ProductsPage() {
                   <tr
                     key={p.chave}
                     tabIndex={0}
-                    onClick={() => setDetalhe({ tipo: "produto", row: p })}
+                    onClick={() => abrir({ tipo: "produto", row: p })}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setDetalhe({ tipo: "produto", row: p });
+                        abrir({ tipo: "produto", row: p });
                       }
                     }}
                     className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
@@ -657,11 +682,11 @@ export default function ProductsPage() {
                     <tr
                       key={p.chave}
                       tabIndex={0}
-                      onClick={() => setDetalhe({ tipo: "produto", row: p })}
+                      onClick={() => abrir({ tipo: "produto", row: p })}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setDetalhe({ tipo: "produto", row: p });
+                          abrir({ tipo: "produto", row: p });
                         }
                       }}
                       className="cursor-pointer border-b border-line transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
@@ -739,15 +764,17 @@ export default function ProductsPage() {
       <ProductDetailModal
         detalhe={detalheView}
         periodo={periodoAtual.rotulo}
-        onClose={() => setDetalhe(null)}
+        onClose={() => setPilha([])}
         onProduto={(chave) => {
           const row = view.produtos.find((p) => p.chave === chave);
-          if (row && detalhe?.tipo === "linha") setDetalhe({ tipo: "produto", row, linha: detalhe.row });
+          if (row) empilhar({ tipo: "produto", row });
         }}
-        voltarLinha={detalhe?.tipo === "produto" ? detalhe.linha : undefined}
-        onVoltar={() => {
-          if (detalhe?.tipo === "produto" && detalhe.linha) setDetalhe({ tipo: "linha", row: detalhe.linha });
+        onCategoria={(id) => {
+          const row = view.curvaAbcCategorias.itens.find((c) => c.categoriaId === id);
+          if (row) empilhar({ tipo: "categoria", row });
         }}
+        voltarPara={pilha.length > 1 ? nomeSelecao(pilha[pilha.length - 2]) : undefined}
+        onVoltar={() => setPilha((p) => p.slice(0, -1))}
       />
     </div>
   );
@@ -801,7 +828,7 @@ function MetricaDetalhe({
 }
 
 /** Mesmo padrão da tabela Top produtos (# · Produto · Itens · Faturamento · Margem); clique abre o produto. */
-function ProdutosDaLinha({ produtos, onProduto }: { produtos: ProductDetailItem[]; onProduto: (chave: string) => void }) {
+function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[]; onProduto: (chave: string) => void }) {
   const [sort, setSort] = useState<TopProdSort>("faturamento");
   const [dir, setDir] = useState<SortDir>("desc");
   const linhas = useMemo(() => {
@@ -872,41 +899,132 @@ function ProdutosDaLinha({ produtos, onProduto }: { produtos: ProductDetailItem[
   );
 }
 
+/** Categorias de uma classe da Curva ABC — padrão da tabela Top produtos; clique abre a categoria. */
+function CategoriasDaClasse({
+  categorias,
+  onCategoria,
+}: {
+  categorias: ProductDetailCategory[];
+  onCategoria: (categoriaId: number) => void;
+}) {
+  const [sort, setSort] = useState<TopProdSort>("faturamento");
+  const [dir, setDir] = useState<SortDir>("desc");
+  const linhas = useMemo(() => {
+    const d = dir === "asc" ? 1 : -1;
+    return [...categorias].sort((a, b) => {
+      if (sort === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * d;
+      const va = sort === "itens" ? a.itens : sort === "margem" ? a.margemPct : a.faturamento;
+      const vb = sort === "itens" ? b.itens : sort === "margem" ? b.margemPct : b.faturamento;
+      if (va == null && vb == null) return b.faturamento - a.faturamento;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (va - vb) * d || b.faturamento - a.faturamento;
+    });
+  }, [categorias, sort, dir]);
+  const alternar = (k: TopProdSort) => {
+    if (sort === k) setDir((x) => (x === "asc" ? "desc" : "asc"));
+    else {
+      setSort(k);
+      setDir(k === "nome" ? "asc" : "desc");
+    }
+  };
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[620px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+            <th className="px-1 pb-3 text-left font-bold">#</th>
+            <ThSort label="Categoria" active={sort === "nome"} dir={dir} onClick={() => alternar("nome")} align="left" className="px-1 pb-3" />
+            <ThSort label="Itens vendidos" active={sort === "itens"} dir={dir} onClick={() => alternar("itens")} className="px-1 pb-3" />
+            <ThSort label="Faturamento" active={sort === "faturamento"} dir={dir} onClick={() => alternar("faturamento")} className="px-1 pb-3" />
+            <ThSort label="Margem" active={sort === "margem"} dir={dir} onClick={() => alternar("margem")} className="px-1 pb-3" />
+            <th className="px-1 pb-3 text-right font-bold">
+              <span className="inline-flex items-center gap-1">
+                Participação
+                <TipHelp label="Fatia da categoria no faturamento de todas as categorias e, abaixo, o acumulado que define a classe (A até 80%, B até 95%)." />
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((c, idx) => (
+            <tr
+              key={c.categoriaId}
+              tabIndex={0}
+              onClick={() => onCategoria(c.categoriaId)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onCategoria(c.categoriaId);
+                }
+              }}
+              className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+            >
+              <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+              <td className="px-1 py-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <AvatarIniciais nome={c.nome} idx={idx} />
+                  <p className="truncate text-[13px] font-bold text-t0">{c.nome}</p>
+                </div>
+              </td>
+              <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(c.itens)}</td>
+              <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(c.faturamento)}</td>
+              <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", c.margemPct == null ? "text-t2" : "text-ok")}>
+                {pctFmt(c.margemPct)}
+              </td>
+              <td className="px-1 py-3 text-right">
+                <p className="font-mono text-[13px] font-bold text-t0">{pctFmt(c.pct)}</p>
+                <p className="text-[11px] text-t2">acum. {pctFmt(c.pctAcumulado)}</p>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ProductDetailModal({
   detalhe,
   periodo,
   onClose,
   onProduto,
-  voltarLinha,
+  onCategoria,
+  voltarPara,
   onVoltar,
 }: {
   detalhe: ProductDetail | null;
   periodo: string;
   onClose: () => void;
   onProduto: (chave: string) => void;
-  /** Produto aberto a partir do detalhe de uma linha. */
-  voltarLinha?: Pick<ProductLineRow, "nome">;
+  onCategoria: (categoriaId: number) => void;
+  /** Nome do detalhe anterior (aberto a partir dele). */
+  voltarPara?: string;
   onVoltar: () => void;
 }) {
   const cmp = detalhe?.comparativo;
-  const linha = detalhe?.tipo === "linha";
+  const tipo = detalhe?.tipo ?? "produto";
+  const artigo = { produto: "do produto", linha: "da linha", categoria: "da categoria", classe: "da classe" }[tipo];
+  const plural = (n: number, s: string) => `${n} ${s}${n === 1 ? "" : "s"}`;
   const subtitulo = !detalhe
     ? ""
-    : linha
-      ? [
-          "Linha de produto",
-          `${detalhe.produtos.length} produto${detalhe.produtos.length === 1 ? "" : "s"}`,
-          periodo,
-        ].join(" · ")
-      : [detalhe.codigo, periodo].filter(Boolean).join(" · ");
+    : tipo === "linha"
+      ? ["Linha de produto", plural(detalhe.produtos.length, "produto"), periodo].join(" · ")
+      : tipo === "categoria"
+        ? ["Categoria", detalhe.classe ? `Classe ${detalhe.classe}` : "", plural(detalhe.produtos.length, "produto"), periodo]
+            .filter(Boolean)
+            .join(" · ")
+        : tipo === "classe"
+          ? ["Curva ABC", plural(detalhe.categorias.length, "categoria"), periodo].join(" · ")
+          : [detalhe.codigo, periodo].filter(Boolean).join(" · ");
   return (
     <Modal open={detalhe != null} onClose={onClose} title={detalhe?.nome} size="lg">
       {detalhe && (
         <div className="flex flex-col gap-5">
           <div className="-mt-1">
-            {voltarLinha && (
+            {voltarPara && (
               <button type="button" onClick={onVoltar} className="mb-1.5 text-[12px] font-semibold text-acc hover:underline">
-                ← Voltar para {voltarLinha.nome}
+                ← Voltar para {voltarPara}
               </button>
             )}
             <p className="text-[12px] font-semibold text-t2">{subtitulo}</p>
@@ -920,7 +1038,7 @@ function ProductDetailModal({
               <MetricaDetalhe
                 label="Participação"
                 valor={pctFmt(detalhe.participacaoPct)}
-                tip={`Fatia ${linha ? "da linha" : "do produto"} no faturamento de todos os produtos do período.`}
+                tip={`Fatia ${artigo} no faturamento de todos os produtos do período.`}
               />
               <MetricaDetalhe label="CMV" valor={moneyOrDash(detalhe.cmv)} />
               <MetricaDetalhe label="Lucro bruto" valor={moneyOrDash(detalhe.lucro)} destaque />
@@ -929,11 +1047,11 @@ function ProductDetailModal({
             <p className="mt-2.5 text-[11.5px] text-t2">
               {cmp
                 ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}`
-                : `Sem vendas ${linha ? "da linha" : "do produto"} no período anterior para comparar.`}
+                : `Sem vendas ${artigo} no período anterior para comparar.`}
               {detalhe.cmv == null &&
-                (linha
-                  ? " CMV, lucro e margem ficam em “—” quando algum produto da linha está sem custo."
-                  : " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo.")}
+                (tipo === "produto"
+                  ? " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo."
+                  : ` CMV, lucro e margem ficam em “—” quando algum produto ${artigo} está sem custo.`)}
             </p>
           </div>
 
@@ -952,11 +1070,18 @@ function ProductDetailModal({
             </section>
           )}
 
-          {linha && detalhe.produtos.length > 0 && (
+          {(tipo === "linha" || tipo === "categoria") && detalhe.produtos.length > 0 && (
             <section>
-              <h4 className="text-[13px] font-bold text-t0">Produtos da linha</h4>
+              <h4 className="text-[13px] font-bold text-t0">Produtos {artigo}</h4>
               {detalhe.tipos.length > 0 && <p className="mt-0.5 text-[11.5px] text-t2">{detalhe.tipos.join(" · ")}</p>}
-              <ProdutosDaLinha key={detalhe.chave} produtos={detalhe.produtos} onProduto={onProduto} />
+              <ProdutosDoGrupo key={`${tipo}-${detalhe.chave}`} produtos={detalhe.produtos} onProduto={onProduto} />
+            </section>
+          )}
+
+          {tipo === "classe" && detalhe.categorias.length > 0 && (
+            <section>
+              <h4 className="text-[13px] font-bold text-t0">Categorias da classe</h4>
+              <CategoriasDaClasse key={detalhe.chave} categorias={detalhe.categorias} onCategoria={onCategoria} />
             </section>
           )}
 

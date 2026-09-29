@@ -617,6 +617,38 @@ export function fetchProductCatalogDescriptions(clientOverride?: SalesQueryClien
   return run;
 }
 
+let catalogTypes: Promise<Record<number, number>> | null = null;
+
+/**
+ * id do produto no ERP → tipo (categoria), mesmo join da `sales_category_day_view`.
+ * Global (~600 linhas), 1× por sessão. Falha → {} (detalhe da Curva ABC fica sem produtos).
+ */
+export function fetchProductCatalogTypes(clientOverride?: SalesQueryClient): Promise<Record<number, number>> {
+  if (catalogTypes && !clientOverride) return catalogTypes;
+  const client = clientOrNull(clientOverride);
+  if (!client) return Promise.resolve({});
+  const run = (async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const q: any = (client.from("product_catalog") as any).select("erp_product_id, type_id").order("product_code");
+      const rows = await fetchAllPages<{ erp_product_id: number; type_id: number | null }>(q, "fetchProductCatalogTypes");
+      const out: Record<number, number> = {};
+      for (const r of rows) if (r.type_id != null) out[Number(r.erp_product_id)] = Number(r.type_id);
+      return out;
+    } catch (e) {
+      console.error("fetchProductCatalogTypes:", e);
+      return {};
+    }
+  })();
+  if (!clientOverride) {
+    catalogTypes = run;
+    void run.then((m) => {
+      if (Object.keys(m).length === 0) catalogTypes = null;
+    });
+  }
+  return run;
+}
+
 /** COD_PRODUTO → descrição do catálogo. Falha de leitura → {} (aviso mostra só o código). */
 export async function fetchProductNames(
   codes: string[],
