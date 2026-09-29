@@ -4,7 +4,7 @@
  */
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllPages } from "./salesRepo";
-import type { StockCatalogItem } from "./stockProducts";
+import type { StockCatalogItem, StockInput } from "./stockProducts";
 
 export type SaleTable = { id: number; code: string; description: string; updatedAt: string; pricesAt: string | null };
 
@@ -54,20 +54,30 @@ export const fetchCostPrices = (ids: number[]) => priceMap("product_cost_table_p
 export async function fetchStoreStock(
   tenantId: string,
   storeIds: string[],
-): Promise<{ rows: Array<{ storeId: string; code: string; qty: number }>; syncedAt: Map<string, string | null> }> {
+): Promise<{ rows: StockInput["stock"]; syncedAt: Map<string, string | null> }> {
   const syncedAt = new Map<string, string | null>();
   const q = from("store_stock");
   if (!q || storeIds.length === 0) return { rows: [], syncedAt };
   const [rows, stores] = await Promise.all([
-    fetchAllPages<{ store_id: string; product_code: string; quantity: number | string }>(
-      q.select("store_id, product_code, quantity").eq("tenant_id", tenantId).in("store_id", storeIds).order("store_id").order("product_code"),
+    fetchAllPages<{ store_id: string; product_code: string; quantity: number | string; locations: Record<string, number | string> | null }>(
+      q
+        .select("store_id, product_code, quantity, locations")
+        .eq("tenant_id", tenantId)
+        .in("store_id", storeIds)
+        .order("store_id")
+        .order("product_code"),
       "fetchStoreStock",
     ),
     from("store").select("id, stock_synced_at").in("id", storeIds),
   ]);
   for (const s of (stores.data ?? []) as Array<{ id: string; stock_synced_at: string | null }>) syncedAt.set(s.id, s.stock_synced_at);
   return {
-    rows: rows.map((r) => ({ storeId: r.store_id, code: String(r.product_code).trim(), qty: Number(r.quantity) || 0 })),
+    rows: rows.map((r) => ({
+      storeId: r.store_id,
+      code: String(r.product_code).trim(),
+      qty: Number(r.quantity) || 0,
+      locations: Object.fromEntries(Object.entries(r.locations ?? {}).map(([k, v]) => [k, Number(v) || 0])),
+    })),
     syncedAt,
   };
 }

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Badge, Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -14,7 +14,10 @@ import {
   type PriceComposition,
   type StockCatalogItem,
   type StockInput,
+  type StockLocation,
   type StockProductRow,
+  type StockStoreDetail,
+  type StockTransfer,
 } from "@/data/wedash/stockProducts";
 import {
   fetchCostPrices,
@@ -71,6 +74,19 @@ const money = (v: number | null) => (v == null ? "—" : brlCent(v));
 const pct = (v: number | null) => (v == null ? "—" : `${v.toFixed(1).replace(".", ",")}%`);
 const pctRate = (v: number) => `${num(v, v % 1 === 0 ? 0 : 2)}%`;
 const qty = (v: number) => num(v, v % 1 === 0 ? 0 : 3);
+
+function transferText(t: StockTransfer): string {
+  const origem = t.de.length === 1 ? `do ${t.de[0]}` : `de ${t.de.join(" / ")}`;
+  return `Transferir ${qty(t.qtd)} ${origem} para o ${t.para}`;
+}
+
+function transferTip(lojas: StockStoreDetail[], variasLojas: boolean): string {
+  return lojas
+    .flatMap((l) => l.transferencias.map((t) => (variasLojas ? `${l.store.fantasia}: ${transferText(t)}` : transferText(t))))
+    .join(" · ");
+}
+
+type EstoqueFiltro = "com" | "todos" | "transferir";
 
 function hora(iso: string): string {
   const d = new Date(iso);
@@ -135,7 +151,7 @@ export function StockProductsPage() {
   const [syncing, setSyncing] = useState(false);
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<string | null>(null);
-  const [soComEstoque, setSoComEstoque] = useState<"com" | "todos">("com");
+  const [filtroEstoque, setFiltroEstoque] = useState<EstoqueFiltro>("com");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -271,12 +287,15 @@ export function StockProductsPage() {
     [data, lojas, salePrices, tabelaAtiva],
   );
 
+  const nTransferir = useMemo(() => view?.rows.filter((r) => r.transferir > 0).length ?? 0, [view]);
+  const soComEstoque: EstoqueFiltro = filtroEstoque === "transferir" && nTransferir === 0 ? "com" : filtroEstoque;
+
   const linhas = useMemo(() => {
     if (!view) return [];
     const q = busca.trim().toLowerCase();
     const out = view.rows.filter(
       (r) =>
-        (soComEstoque === "todos" || r.estoque > 0) &&
+        (soComEstoque === "todos" || (soComEstoque === "transferir" ? r.transferir > 0 : r.estoque > 0)) &&
         (categoria == null || r.categoria === categoria) &&
         (!q || r.nome.toLowerCase().includes(q) || r.codigo.toLowerCase().includes(q)),
     );
@@ -325,8 +344,9 @@ export function StockProductsPage() {
   const limpar = () => {
     setBusca("");
     setCategoria(null);
-    setSoComEstoque("todos");
+    setFiltroEstoque("todos");
   };
+  const umaLoja = lojas.length === 1;
 
   return (
     <div className="flex flex-col p-4 sm:p-6 print:p-0">
@@ -401,6 +421,28 @@ export function StockProductsPage() {
               )}
             </Notice>
           )}
+          {nTransferir > 0 && (
+            <Notice
+              action={
+                soComEstoque !== "transferir" && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstoque("transferir")}
+                    className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline"
+                  >
+                    Ver produtos
+                  </button>
+                )
+              }
+            >
+              <span className="font-semibold">
+                {nTransferir === 1
+                  ? "1 produto precisa de transferência entre locais de estoque."
+                  : `${nTransferir} produtos precisam de transferência entre locais de estoque.`}
+              </span>
+              <span className="text-t1"> Um local está com saldo negativo e outro local da loja tem o produto.</span>
+            </Notice>
+          )}
           <NegativeStockNotice negativos={view.negativos} variasLojas={lojas.length > 1} />
 
           <Card className="mt-4" padding="none">
@@ -414,9 +456,10 @@ export function StockProductsPage() {
                   options={[
                     { value: "com", label: "Com estoque" },
                     { value: "todos", label: "Todos" },
+                    ...(nTransferir > 0 ? [{ value: "transferir" as const, label: `Transferir (${nTransferir})` }] : []),
                   ]}
                   value={soComEstoque}
-                  onChange={(v) => v && setSoComEstoque(v)}
+                  onChange={(v) => v && setFiltroEstoque(v)}
                 />
                 {view.categorias.length > 1 && (
                   <Dropdown
@@ -471,7 +514,11 @@ export function StockProductsPage() {
                     </thead>
                     <tbody>
                       {pageRows.map((r) => (
-                        <tr key={r.codigo} className="cursor-pointer border-b border-line hover:bg-bg-3" onClick={() => setDetalhe(r.codigo)}>
+                        <tr
+                          key={r.codigo}
+                          className={cn("cursor-pointer border-b border-line", r.transferir > 0 ? "bg-warn-soft hover:bg-warn/20" : "hover:bg-bg-3")}
+                          onClick={() => setDetalhe(r.codigo)}
+                        >
                           <td className="px-3 py-2.5">
                             <p className="text-[13px] font-bold text-t0">{r.nome}</p>
                             <p className="text-[11px] text-t2">
@@ -480,7 +527,9 @@ export function StockProductsPage() {
                               {r.variaPorLoja && " · média das lojas"}
                             </p>
                           </td>
-                          <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", r.estoque < 0 ? "text-bad" : "text-t0")}>{qty(r.estoque)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <EstoqueCell row={r} umaLoja={umaLoja} />
+                          </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.custo)}</td>
                           <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{money(r.preco)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">
@@ -498,7 +547,7 @@ export function StockProductsPage() {
                       key={r.codigo}
                       type="button"
                       onClick={() => setDetalhe(r.codigo)}
-                      className="rounded-xl border border-line bg-bg-inset p-3.5 text-left"
+                      className={cn("rounded-xl border p-3.5 text-left", r.transferir > 0 ? "border-warn/40 bg-warn-soft" : "border-line bg-bg-inset")}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -512,6 +561,12 @@ export function StockProductsPage() {
                           {qty(r.estoque)} un.
                         </span>
                       </div>
+                      {umaLoja && r.lojas[0] && r.lojas[0].locais.length > 1 && (
+                        <p className="mt-1.5 text-[11px] text-t2">
+                          <Locais locais={r.lojas[0].locais} />
+                        </p>
+                      )}
+                      {r.transferir > 0 && <p className="mt-1.5 text-[11.5px] font-semibold text-warn">{transferTip(r.lojas, !umaLoja)}</p>}
                       <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5 text-[11.5px]">
                         <Metrica label="Preço de custo" value={money(r.custo)} />
                         <Metrica label="Preço de venda" value={money(r.preco)} />
@@ -563,6 +618,40 @@ function Lucro({ valor, margem, inline = false }: { valor: number | null; margem
     <span className="block">
       <span className={cn("block font-extrabold", cor)}>{brlCent(valor)}</span>
       <span className="block text-[11px] text-t2">{pct(margem)}</span>
+    </span>
+  );
+}
+
+function Locais({ locais }: { locais: StockLocation[] }) {
+  return (
+    <>
+      {locais.map((l, i) => (
+        <Fragment key={l.nome}>
+          {i > 0 && " · "}
+          {l.nome} <span className={cn("font-semibold tabular-nums", l.qtd < 0 ? "text-bad" : "text-t1")}>{qty(l.qtd)}</span>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function EstoqueCell({ row, umaLoja }: { row: StockProductRow; umaLoja: boolean }) {
+  const locais = umaLoja ? (row.lojas[0]?.locais ?? []) : [];
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <span className={cn("font-semibold tabular-nums", row.estoque < 0 ? "text-bad" : "text-t0")}>{qty(row.estoque)}</span>
+      {locais.length > 1 && (
+        <span className="whitespace-nowrap text-[11px] text-t2">
+          <Locais locais={locais} />
+        </span>
+      )}
+      {row.transferir > 0 && (
+        <Tooltip label={transferTip(row.lojas, !umaLoja)}>
+          <span>
+            <Badge variant="warning">Transferir {qty(row.transferir)}</Badge>
+          </span>
+        </Tooltip>
+      )}
     </span>
   );
 }
@@ -676,6 +765,44 @@ function ProductDetailModal({
         {row.codigo}
         {row.categoria && ` · ${row.categoria}`} · Estoque {qty(row.estoque)} un.
       </p>
+
+      {row.lojas.some((l) => l.locais.length > 1 || l.transferencias.length > 0) && (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-t2">Estoque por local</p>
+          <div className="flex flex-col gap-2">
+            {row.lojas
+              .filter((l) => l.locais.length > 0)
+              .map((l) => (
+                <div
+                  key={l.store.id}
+                  className={cn(
+                    "rounded-[var(--radius-vela-sm)] px-3 py-2.5 text-[12.5px]",
+                    l.transferencias.length > 0 ? "border border-warn/30 bg-warn-soft" : "bg-bg-inset",
+                  )}
+                >
+                  {row.lojas.length > 1 && <p className="mb-1 font-semibold uppercase text-t0">{l.store.fantasia}</p>}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {l.locais.map((x) => (
+                      <span key={x.nome} className="text-t1">
+                        {x.nome}{" "}
+                        <span className={cn("font-bold tabular-nums", x.qtd < 0 ? "text-bad" : "text-t0")}>{qty(x.qtd)}</span>
+                      </span>
+                    ))}
+                    <span className="text-t2">
+                      Total <span className="font-bold tabular-nums text-t0">{qty(l.estoque)}</span>
+                    </span>
+                  </div>
+                  {l.transferencias.map((t) => (
+                    <p key={t.para} className="mt-1.5 flex items-center gap-1.5 font-semibold text-warn">
+                      <AlertTriangleIcon size={14} className="shrink-0" />
+                      {transferText(t)}
+                    </p>
+                  ))}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {row.lojas.length > 1 && (
         <div className="mt-4">

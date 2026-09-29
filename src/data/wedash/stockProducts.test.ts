@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStockProductsView, composePrice, productBrand, suggestSaleTable } from "./stockProducts";
+import { buildStockProductsView, composePrice, productBrand, stockTransfers, suggestSaleTable } from "./stockProducts";
 import { EMPTY_STORE_COSTS, type Store } from "./stores";
 
 const store = (over: Partial<Store> & Pick<Store, "id">): Store =>
@@ -90,6 +90,42 @@ describe("buildStockProductsView", () => {
     expect(p1.custo).toBeCloseTo(35);
     expect(p1.precoPraticado).toBeCloseTo(90);
     expect(view.negativos).toEqual([{ codigo: "P2", nome: "P2", quantidade: -2, lojas: ["B"] }]);
+  });
+
+  it("local negativo com outro local positivo = transferência; total = soma dos locais", () => {
+    const view = buildStockProductsView({
+      stores: [store({ id: "a" })],
+      catalog: new Map(),
+      stock: [
+        { storeId: "a", code: "OLEBOS", qty: 73, locations: { ESTOQUE: 144, QUIOSQUE: -71 } },
+        { storeId: "a", code: "X", qty: -3, locations: { QUIOSQUE: -3 } },
+      ],
+      costPrices: new Map(),
+      salePrices: new Map(),
+      saleTableId: null,
+      charged: [],
+    });
+    const p = view.rows.find((r) => r.codigo === "OLEBOS")!;
+    expect(p.estoque).toBe(73);
+    expect(p.transferir).toBe(71);
+    expect(p.lojas[0].locais).toEqual([
+      { nome: "ESTOQUE", qtd: 144 },
+      { nome: "QUIOSQUE", qtd: -71 },
+    ]);
+    expect(p.lojas[0].transferencias).toEqual([{ para: "QUIOSQUE", de: ["ESTOQUE"], qtd: 71 }]);
+    expect(view.rows.find((r) => r.codigo === "X")!.transferir).toBe(0);
+  });
+});
+
+describe("stockTransfers", () => {
+  it("transfere no máximo o que os locais positivos têm", () => {
+    expect(
+      stockTransfers([
+        { nome: "ESTOQUE", qtd: 10 },
+        { nome: "SHOP010", qtd: 5 },
+        { nome: "QUIOSQUE", qtd: -20 },
+      ]),
+    ).toEqual([{ para: "QUIOSQUE", de: ["ESTOQUE", "SHOP010"], qtd: 15 }]);
   });
 });
 

@@ -12,7 +12,8 @@ export type StockCatalogItem = { code: string; name: string; category: string };
 export type StockInput = {
   stores: Store[];
   catalog: Map<string, StockCatalogItem>;
-  stock: Array<{ storeId: string; code: string; qty: number }>;
+  /** qty = soma dos locais; locations = saldo por local de estoque (ESTOQUE, QUIOSQUE, SHOP010…). */
+  stock: Array<{ storeId: string; code: string; qty: number; locations?: Record<string, number> }>;
   /** tabela de custo → COD_PRODUTO → custo unitário (centavos). */
   costPrices: Map<number, Map<string, number>>;
   /** tabela de venda → COD_PRODUTO → preço (centavos). */
@@ -91,9 +92,31 @@ export function composePrice(store: Store, code: string, priceCents: number | nu
   };
 }
 
+export type StockLocation = { nome: string; qtd: number };
+
+/** Local negativo coberto por outro local positivo da mesma loja: `qtd` peças `de` → `para`. */
+export type StockTransfer = { para: string; de: string[]; qtd: number };
+
+/** Transferências pendentes entre locais de estoque de uma loja (a venda sai de um local e a entrada caiu em outro). */
+export function stockTransfers(locais: StockLocation[]): StockTransfer[] {
+  const positivos = locais.filter((l) => l.qtd > 0).sort((a, b) => b.qtd - a.qtd);
+  let disponivel = positivos.reduce((s, l) => s + l.qtd, 0);
+  const out: StockTransfer[] = [];
+  for (const l of [...locais].filter((x) => x.qtd < 0).sort((a, b) => a.qtd - b.qtd)) {
+    const qtd = Math.min(-l.qtd, disponivel);
+    if (qtd <= 0) continue;
+    disponivel -= qtd;
+    out.push({ para: l.nome, de: positivos.map((p) => p.nome), qtd });
+  }
+  return out;
+}
+
 export type StockStoreDetail = {
   store: Store;
   estoque: number;
+  /** Saldo por local (só locais com saldo ≠ 0), maior primeiro. */
+  locais: StockLocation[];
+  transferencias: StockTransfer[];
   composicao: PriceComposition;
   praticado: { preco: number; itens: number; lucro: number | null; margemPct: number | null } | null;
 };
@@ -103,6 +126,8 @@ export type StockProductRow = {
   nome: string;
   categoria: string;
   estoque: number;
+  /** Peças a transferir entre locais de estoque, somando as lojas do filtro. */
+  transferir: number;
   custo: number | null;
   impostos: number | null;
   franquiaAluguel: number | null;
@@ -141,7 +166,14 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
 export function buildStockProductsView(input: StockInput): StockProductsView {
   const prices = input.saleTableId == null ? new Map<string, number>() : (input.salePrices.get(input.saleTableId) ?? new Map());
   const stockBy = new Map<string, number>();
-  for (const s of input.stock) stockBy.set(`${s.storeId}|${s.code}`, (stockBy.get(`${s.storeId}|${s.code}`) ?? 0) + s.qty);
+  const locationsBy = new Map<string, Record<string, number>>();
+  for (const s of input.stock) {
+    const k = `${s.storeId}|${s.code}`;
+    stockBy.set(k, (stockBy.get(k) ?? 0) + s.qty);
+    const acc = locationsBy.get(k) ?? {};
+    for (const [nome, q] of Object.entries(s.locations ?? {})) acc[nome] = (acc[nome] ?? 0) + q;
+    locationsBy.set(k, acc);
+  }
   const chargedBy = new Map<string, { revenueCents: number; items: number }>();
   for (const c of input.charged) {
     const k = `${c.storeId}|${c.code}`;
@@ -152,7 +184,9 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
   }
   const storeIds = new Set(input.stores.map((s) => s.id));
   const codes = new Set<string>(prices.keys());
-  for (const s of input.stock) if (storeIds.has(s.storeId) && s.qty !== 0) codes.add(s.code);
+  for (const s of input.stock) {
+    if (storeIds.has(s.storeId) && (s.qty !== 0 || Object.values(s.locations ?? {}).some((q) => q !== 0))) codes.add(s.code);
+  }
 
   const rows: StockProductRow[] = [];
   const negativos: NegativeStock[] = [];
@@ -163,6 +197,10 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
     const priceCents = prices.get(code) ?? null;
     const lojas: StockStoreDetail[] = input.stores.map((store) => {
       const estoque = stockBy.get(`${store.id}|${code}`) ?? 0;
+      const locais = Object.entries(locationsBy.get(`${store.id}|${code}`) ?? {})
+        .filter(([, q]) => q !== 0)
+        .map(([nome, q]) => ({ nome, qtd: q }))
+        .sort((a, b) => b.qtd - a.qtd);
       const costCents = costCentsFor(input.costPrices, store, code);
       const composicao = composePrice(store, code, priceCents, costCents);
       const ch = chargedBy.get(`${store.id}|${code}`);
@@ -171,7 +209,7 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
         const p = composePrice(store, code, Math.round(ch.revenueCents / ch.items), costCents);
         praticado = { preco: ch.revenueCents / ch.items / 100, itens: ch.items, lucro: p.lucro, margemPct: p.margemPct };
       }
-      return { store, estoque, composicao, praticado };
+      return { store, estoque, locais, transferencias: stockTransfers(locais), composicao, praticado };
     });
 
     const neg = lojas.filter((l) => l.estoque < 0);
@@ -197,6 +235,7 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
       nome,
       categoria: cat?.category || "Sem categoria",
       estoque: lojas.reduce((s, l) => s + l.estoque, 0),
+      transferir: lojas.reduce((s, l) => s + l.transferencias.reduce((t, x) => t + x.qtd, 0), 0),
       custo: pick((c) => c.custo),
       impostos: pick((c) => c.impostos),
       franquiaAluguel: pick((c) => c.franquiaAluguel),

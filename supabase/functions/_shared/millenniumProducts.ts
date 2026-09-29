@@ -231,14 +231,16 @@ export async function fetchSalePrices(session: string, costTableId: number, sale
   return out;
 }
 
+export type StoreStockItem = { total: number; locations: Record<string, number> };
+
 /**
- * COD_PRODUTO → estoque da loja = `SALDO` do ESTOQUEEMCOMPRA, somado em todos os locais da filial
- * (ESTOQUE, QUIOSQUE, SHOP010…). O report {9701602B} com o gerador traz só o local de venda (QUIOSQUE):
- * a entrada cai em ESTOQUE e a venda sai do QUIOSQUE, então por local fica negativo e só a soma é real.
+ * COD_PRODUTO → estoque da loja por local (ESTOQUEPORLOCAL: ESTOQUE, QUIOSQUE, SHOP010…) e total = soma dos
+ * locais (bate 100% com o SALDO do ESTOQUEEMCOMPRA). A entrada cai em ESTOQUE e a venda sai do QUIOSQUE:
+ * local negativo com outro positivo = transferência pendente; só a soma é o estoque real.
  */
-export async function fetchStoreStock(session: string, millenniumStoreId: number): Promise<Map<string, number>> {
+export async function fetchStoreStock(session: string, millenniumStoreId: number): Promise<Map<string, StoreStockItem>> {
   const payload = await call(
-    `${baseUrl()}/MILLENIUM!FRANQUIAS.RELATORIOS.ESTOQUEEMCOMPRA`,
+    `${baseUrl()}/MILLENIUM!FRANQUIAS.RELATORIOS.ESTOQUEPORLOCAL`,
     {
       method: "POST",
       headers: {
@@ -249,16 +251,21 @@ export async function fetchStoreStock(session: string, millenniumStoreId: number
         "X-HTTP-Method": "GET",
         "X-IdentifierCase": "upper",
       },
-      body: JSON.stringify({ FILIAL: millenniumStoreId, DESC: null, TIPO: null, DATAI: null, DATAF: null }),
+      body: JSON.stringify({ FILIAL: millenniumStoreId }),
       signal: AbortSignal.timeout(120_000),
     },
     `estoque filial ${millenniumStoreId}`,
   );
-  const out = new Map<string, number>();
+  const out = new Map<string, StoreStockItem>();
   for (const r of rowsOf(payload)) {
     const code = asStr(r.COD_PRODUTO);
+    const qty = asNum(r.SALDO) ?? 0;
     if (!code) continue;
-    out.set(code, (out.get(code) ?? 0) + (asNum(r.SALDO) ?? 0));
+    const item = out.get(code) ?? { total: 0, locations: {} };
+    const local = asStr(r.LOCAL) || "ESTOQUE";
+    item.total += qty;
+    item.locations[local] = (item.locations[local] ?? 0) + qty;
+    out.set(code, item);
   }
   return out;
 }

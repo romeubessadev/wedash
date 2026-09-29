@@ -3,7 +3,7 @@
  * Corpo (qualquer combinação; cada parte é independente — falhou uma, as outras seguem):
  * - `saleTables: true` → lista de tabelas de preço de venda (`tabela_venda.TABELA`, 1 chamada).
  * - `salePriceTableIds: number[]` → preços de venda de cada tabela (wtsreports {24B9BF6D}, ~3,5s cada).
- * - `stockStoreIds: string[]` → estoque atual de cada loja (ESTOQUEEMCOMPRA, todos os locais somados; 2 por vez).
+ * - `stockStoreIds: string[]` → estoque atual de cada loja por local (ESTOQUEPORLOCAL; total = soma dos locais; 2 por vez).
  * Gerente só busca estoque das lojas dele (membership_store vazio = todas).
  * Reusa o token salvo em erp_credential; 401 → login com a senha cifrada e persiste o token novo.
  */
@@ -110,7 +110,13 @@ async function refreshStock(
           admin,
           "store_stock",
           { store_id: s.id },
-          [...stock].map(([code, qty]) => ({ tenant_id: tenantId, store_id: s.id, product_code: code, quantity: qty })),
+          [...stock].map(([code, item]) => ({
+            tenant_id: tenantId,
+            store_id: s.id,
+            product_code: code,
+            quantity: item.total,
+            locations: item.locations,
+          })),
           "store_id,product_code",
         );
         const { error } = await admin.from("store").update({ stock_synced_at: new Date().toISOString() }).eq("id", s.id);
