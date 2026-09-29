@@ -4,6 +4,7 @@ import {
   couponSellers,
   groupCouponLines,
   parseCouponReportRawData,
+  priceTableDayAggsFromCouponLines,
   productDayAggsFromCouponLines,
 } from "./millenniumCouponReport.ts";
 
@@ -20,6 +21,8 @@ const raw = (o: Record<string, unknown>) => ({
   FUNCIONARIO_GERADOR_GERADOR: 66161,
   FUNCIONARIO_GERADOR_NOME: "GABRIELA DE LIMA",
   DATA_DATA_DATA: "2026-09-24T00:00:00",
+  VENDA_TABELA_PRECO_TABELA: 114,
+  VENDA_TABELA_PRECO_DESCRICAO: "TABELA + 10",
   ...o,
 });
 
@@ -43,7 +46,27 @@ describe("parseCouponReportRawData", () => {
         revenueCents: 5490,
         sellerGeradorId: 66161,
         sellerName: "GABRIELA DE LIMA",
+        priceTableId: 114,
+        priceTableName: "TABELA + 10",
       },
+    ]);
+  });
+});
+
+describe("priceTableDayAggsFromCouponLines", () => {
+  it("soma itens e R$ por dia × tabela; linha sem tabela fica de fora", () => {
+    const lines = parseCouponReportRawData({
+      RAW_DATA: [
+        raw({}),
+        raw({ VENDA_MOVIMENTO_NFS: "53846", F_3887607047: 2, F_366619977: 100 }),
+        raw({ VENDA_MOVIMENTO_NFS: "53847", VENDA_TABELA_PRECO_TABELA: 120, VENDA_TABELA_PRECO_DESCRICAO: "TABELA + 20" }),
+        raw({ VENDA_MOVIMENTO_NFS: "53848", VENDA_TABELA_PRECO_TABELA: -2000000000 }),
+      ],
+    });
+    const aggs = priceTableDayAggsFromCouponLines(groupCouponLines(lines), (_k, ls) => ls[0]?.day ?? null);
+    expect(aggs).toEqual([
+      { day: "2026-09-24", tableId: 114, tableName: "TABELA + 10", itemCount: 3, revenueCents: 15490 },
+      { day: "2026-09-24", tableId: 120, tableName: "TABELA + 20", itemCount: 1, revenueCents: 5490 },
     ]);
   });
 });

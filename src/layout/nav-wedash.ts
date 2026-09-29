@@ -17,6 +17,16 @@ const ICONE = {
   /** Pessoa com engrenagem — metas, desafios, turnos e equipe. */
   gestao:
     "M18 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M10 15H6a4 4 0 0 0-4 4v2M21.7 16.4l-.9-.3M15.2 13.9l-.9-.3M16.6 18.7l.3-.9M19.1 12.2l.3-.9M19.6 18.7l-.4-1M16.8 12.3l-.4-1M14.3 16.6l1-.4M20.7 13.8l1-.4",
+  /** Caixa — estoque. */
+  estoque: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12.01l8.73-5.05M12 22.08V12",
+};
+
+/** Produtos (Gestor e Gerente); depois entram Previsão de estoque etc. */
+const estoque: NavGroup = {
+  label: "Estoque",
+  description: "Veja o custo, o preço e o estoque de cada produto.",
+  icon: ICONE.estoque,
+  items: [{ label: "Produtos", to: paths.stock.products }],
 };
 
 /** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */
@@ -45,6 +55,7 @@ const operacao: NavGroup = {
 };
 
 /** Abas das telas de cada grupo = os mesmos itens do menu. */
+export const stockTabs = estoque.items.map(({ label, to }) => ({ label, to }));
 export const managementTabs = gestao.items.map(({ label, to }) => ({ label, to }));
 export const operationTabs = operacao.items.map(({ label, to }) => ({ label, to }));
 
@@ -59,6 +70,7 @@ const navGestor: NavEntry[] = [
       { label: "Equipe", to: paths.team, dot: "var(--info)" },
     ],
   },
+  estoque,
   gestao,
   operacao,
 ];
@@ -74,6 +86,7 @@ const navGerente: NavEntry[] = [
       { label: "Equipe", to: paths.team, dot: "var(--info)" },
     ],
   },
+  estoque,
   gestao,
 ];
 

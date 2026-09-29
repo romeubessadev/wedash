@@ -311,7 +311,7 @@ const PAGE_SIZE = 1000;
  * (inclua a chave da linha no `order`) para as páginas não repetirem/pularem linhas.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAllPages<Row>(ordered: any, label: string): Promise<Row[]> {
+export async function fetchAllPages<Row>(ordered: any, label: string): Promise<Row[]> {
   if (typeof ordered.range !== "function") {
     const { data, error } = await ordered;
     if (error) {

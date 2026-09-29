@@ -17,6 +17,7 @@ import { metasRoutes } from "@/pages/goals/routes";
 import { aoVivoRoutes } from "@/pages/live/routes";
 import { emBreveRoutes } from "@/pages/coming-soon/routes";
 import { managementRoutes } from "@/pages/management/routes";
+import { stockRoutes } from "@/pages/stock/routes";
 import { operationRoutes } from "@/pages/operation/routes";
 
 /* Template Vela (referência, acessível por URL) */
@@ -85,6 +86,7 @@ const routeTree: RouteObject[] = [
           ...equipeRoutes,
           ...aoVivoRoutes,
           ...metasRoutes,
+          ...stockRoutes,
           ...managementRoutes,
           ...operationRoutes,
           ...settingsRoutes,

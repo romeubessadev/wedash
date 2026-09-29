@@ -909,6 +909,31 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       if (error) throw error;
     },
 
+    async replacePriceTableDayAggs(args) {
+      const { error: delErr } = await sb
+        .from("sales_price_table_day_agg")
+        .delete()
+        .eq("tenant_id", args.tenantId)
+        .eq("store_id", args.storeId)
+        .gte("day", args.from)
+        .lte("day", args.to);
+      if (delErr) throw delErr;
+      if (args.rows.length === 0) return;
+      const { error } = await sb.from("sales_price_table_day_agg").upsert(
+        args.rows.map((r) => ({
+          tenant_id: args.tenantId,
+          store_id: args.storeId,
+          day: r.day,
+          table_id: r.tableId,
+          table_name: r.tableName,
+          item_count: r.itemCount,
+          revenue_cents: r.revenueCents,
+        })),
+        { onConflict: "store_id,day,table_id" },
+      );
+      if (error) throw error;
+    },
+
     async replaceProductCostDayAggs(args: {
       tenantId: string;
       storeId: string;

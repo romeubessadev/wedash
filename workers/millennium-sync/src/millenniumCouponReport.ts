@@ -27,6 +27,9 @@ export type CouponReportLine = {
   revenueCents: number;
   sellerGeradorId: number | null;
   sellerName: string;
+  /** Tabela de preço de venda usada no cupom (VENDA_TABELA_PRECO_TABELA); null = sem tabela / INDEFINIDO. */
+  priceTableId?: number | null;
+  priceTableName?: string;
 };
 
 export type CouponSeller = { geradorId: number; name: string };
@@ -93,6 +96,7 @@ export function parseCouponReportRawData(payload: unknown): CouponReportLine[] {
     if (qty === 0 && revenue === 0) continue;
     const tipo = asStr(o.VENDA_MOVIMENTO_TIPO_OPERACAO) || "S";
     const gerador = asNum(o.FUNCIONARIO_GERADOR_GERADOR);
+    const priceTable = asNum(o.VENDA_TABELA_PRECO_TABELA);
     out.push({
       couponKey: couponKey({ millenniumOpCode: opCode, nf, tipoOperacao: tipo }),
       day: asDay(o.DATA_DATA_DATA),
@@ -103,6 +107,8 @@ export function parseCouponReportRawData(payload: unknown): CouponReportLine[] {
       revenueCents: Math.round(revenue * 100),
       sellerGeradorId: gerador != null && gerador > 0 ? gerador : null,
       sellerName: asStr(o.FUNCIONARIO_GERADOR_NOME),
+      priceTableId: priceTable != null && priceTable > 0 ? priceTable : null,
+      priceTableName: asStr(o.VENDA_TABELA_PRECO_DESCRICAO),
     });
   }
   return out;
@@ -222,6 +228,36 @@ export function productDayAggsFromCouponLines(
     }
   }
   return [...map.values()].sort((a, b) => a.day.localeCompare(b.day) || b.revenueCents - a.revenueCents);
+}
+
+export type PriceTableDayAgg = {
+  day: string;
+  tableId: number;
+  tableName: string;
+  itemCount: number;
+  revenueCents: number;
+};
+
+/** Itens e R$ por tabela de preço de venda (loja × dia). Linha sem tabela (detalhe do movimento) fica de fora. */
+export function priceTableDayAggsFromCouponLines(
+  byCoupon: Map<string, CouponReportLine[]>,
+  dayOf: (couponKey: string, lines: CouponReportLine[]) => string | null,
+): PriceTableDayAgg[] {
+  const map = new Map<string, PriceTableDayAgg>();
+  for (const [key, lines] of byCoupon) {
+    const day = dayOf(key, lines);
+    if (!day) continue;
+    for (const line of lines) {
+      if (line.priceTableId == null) continue;
+      const k = `${day}|${line.priceTableId}`;
+      const acc = map.get(k) ?? { day, tableId: line.priceTableId, tableName: "", itemCount: 0, revenueCents: 0 };
+      acc.itemCount += Math.round(line.qty);
+      acc.revenueCents += line.revenueCents;
+      if (line.priceTableName) acc.tableName = line.priceTableName;
+      map.set(k, acc);
+    }
+  }
+  return [...map.values()].sort((a, b) => a.day.localeCompare(b.day) || b.itemCount - a.itemCount);
 }
 
 export type FetchCouponReportParams = {

@@ -11,7 +11,6 @@ import { MillenniumHttpError } from "./millenniumSellers.ts";
 export type ProductType = { typeId: number; description: string };
 export type CatalogProduct = { erpProductId: number; code: string; description: string; typeId: number };
 export type CostTable = { tableId: number; code: string; description: string };
-
 const PRODUCT_DIVISION_CATALOG_GUID = "{9701602B-B363-4770-989C-8C4459B7E105}";
 
 function rowsOf(payload: unknown): Record<string, unknown>[] {
@@ -135,11 +134,10 @@ export async function fetchCostTables(session: string): Promise<CostTable[]> {
   return out;
 }
 
-/** COD_PRODUTO → custo unitário em centavos (só > 0). */
-export async function fetchCostTablePrices(session: string, tableId: number): Promise<Map<string, number>> {
+function report(session: string, guid: string, params: Record<string, unknown>, label: string): Promise<unknown> {
   const base = baseUrl();
   const origin = base.replace(/\/api\/?$/, "");
-  const payload = await call(
+  return call(
     `${base}/millenium:wtsreports/reports/process`,
     {
       method: "POST",
@@ -154,16 +152,24 @@ export async function fetchCostTablePrices(session: string, tableId: number): Pr
         "X-IdentifierCase": "upper",
       },
       body: JSON.stringify({
-        CATALOG_GUID: PRODUCT_DIVISION_CATALOG_GUID,
-        PARAMETERS_MODEL: [
-          { SCRIPT: null, DATASOURCE: null, TABELA_DE_CUSTO: tableId, FILIAL_GERADOR_GERADOR: "", PRODUTO_DIVISAO_DIVISAO: null },
-        ],
+        CATALOG_GUID: guid,
+        PARAMETERS_MODEL: [{ SCRIPT: null, DATASOURCE: null, ...params }],
         UNIVERSE_NAME: "millenium.mdu",
         REPORT_FORMAT: "raw",
-        PARAMETERS_DESCRIPTION: `Tabela=${tableId}`,
+        PARAMETERS_DESCRIPTION: label,
       }),
       signal: AbortSignal.timeout(120_000),
     },
+    label,
+  );
+}
+
+/** COD_PRODUTO → custo unitário em centavos (só > 0). */
+export async function fetchCostTablePrices(session: string, tableId: number): Promise<Map<string, number>> {
+  const payload = await report(
+    session,
+    PRODUCT_DIVISION_CATALOG_GUID,
+    { TABELA_DE_CUSTO: tableId, FILIAL_GERADOR_GERADOR: "", PRODUTO_DIVISAO_DIVISAO: null },
     `tabela de custo ${tableId}`,
   );
   const out = new Map<string, number>();
@@ -173,6 +179,72 @@ export async function fetchCostTablePrices(session: string, tableId: number): Pr
     if (!code || unit == null || unit <= 0) continue;
     const cents = Math.round(unit * 100);
     if (cents > (out.get(code) ?? 0)) out.set(code, cents);
+  }
+  return out;
+}
+
+/* ---------- Estoque > Produtos (só Edge `erp-stock-sync`; o worker não usa) ---------- */
+
+export type SaleTable = { tableId: number; code: string; description: string };
+
+const SALE_PRICE_CATALOG_GUID = "{24B9BF6D-E463-4ED9-B74E-DF3AF5E1E02F}";
+
+/** Tabelas de preço de venda (`$lookup=tabela_venda.TABELA`); sem INDEFINIDO (id ≤ 0). */
+export async function fetchSaleTables(session: string): Promise<SaleTable[]> {
+  const payload = await lookup(session, "tabela_venda.TABELA", 501, {
+    SCRIPT: null,
+    DATASOURCE: null,
+    TABELA_VENDA_TABELA: null,
+    _DETAILS: true,
+    PARAM_6: null,
+    PARAM_7: null,
+  });
+  const out: SaleTable[] = [];
+  for (const r of rowsOf(payload)) {
+    const id = asNum(r.TABELA_VENDA_TABELA);
+    if (id == null || id <= 0) continue;
+    out.push({ tableId: id, code: asStr(r.TABELA_VENDA_CODIGO), description: asStr(r.TABELA_VENDA_DESCRICAO) });
+  }
+  return out;
+}
+
+/**
+ * COD_PRODUTO → preço de venda em centavos da tabela (wtsreports {24B9BF6D}; `F_3554079995` = venda,
+ * `F_3294710456` = custo da tabela de custo passada). Produto com venda bloqueada fica de fora. Só > 0.
+ */
+export async function fetchSalePrices(session: string, costTableId: number, saleTableId: number): Promise<Map<string, number>> {
+  const payload = await report(
+    session,
+    SALE_PRICE_CATALOG_GUID,
+    { TABELA_DE_CUSTO: costTableId, TABELA_DE_VENDA: saleTableId, PRODUTO_DIVISAO_DIVISAO: null },
+    `tabela de venda ${saleTableId}`,
+  );
+  const out = new Map<string, number>();
+  for (const r of rowsOf(payload)) {
+    const code = asStr(r.PRODUTO_PRODUTO_COD_PRODUTO);
+    const price = asNum(r.F_3554079995);
+    const blocked = r.PRODUTO_PRODUTO_BLOQUEIA_VENDA === true || asStr(r.PRODUTO_PRODUTO_BLOQUEIA_VENDA).toUpperCase() === "S";
+    if (!code || price == null || price <= 0 || blocked) continue;
+    const cents = Math.round(price * 100);
+    if (cents > (out.get(code) ?? 0)) out.set(code, cents);
+  }
+  return out;
+}
+
+/** COD_PRODUTO → estoque da loja (report {9701602B} com o gerador; cores somadas; pode ser negativo). */
+export async function fetchStoreStock(session: string, costTableId: number, geradorId: number): Promise<Map<string, number>> {
+  const payload = await report(
+    session,
+    PRODUCT_DIVISION_CATALOG_GUID,
+    { TABELA_DE_CUSTO: costTableId, FILIAL_GERADOR_GERADOR: `(${geradorId})`, PRODUTO_DIVISAO_DIVISAO: null },
+    `estoque filial ${geradorId}`,
+  );
+  const out = new Map<string, number>();
+  for (const r of rowsOf(payload)) {
+    const code = asStr(r.PRODUTO_PRODUTO_COD_PRODUTO);
+    const qty = asNum(r.SUM_ESTOQUE_QUANTIDADE_);
+    if (!code || qty == null) continue;
+    out.set(code, (out.get(code) ?? 0) + qty);
   }
   return out;
 }

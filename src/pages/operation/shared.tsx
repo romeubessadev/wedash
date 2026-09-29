@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button, Card, CardHeader, CardSubtitle, CardTitle, EmptyState, FormField, Input, PageHeader, Select, TabNav } from "@/components/ui";
-import { managementTabs, operationTabs } from "@/layout/nav-wedash";
+import { managementTabs, operationTabs, stockTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -39,15 +39,17 @@ export function useScopedStores() {
   return { session, lojas, loading, refresh: () => setTick((n) => n + 1) };
 }
 
-export type SectionName = "Gestão" | "Configurações";
+export type SectionName = "Estoque" | "Gestão" | "Configurações";
 
 const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
+  Estoque: stockTabs,
   Gestão: managementTabs,
   "Configurações": operationTabs,
 };
 
 /** Código das outras abas da seção — baixado junto para a troca de aba não esperar o download. */
 const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
+  Estoque: [],
   Gestão: [
     () => import("@/pages/goals/GoalsPage"),
     () => import("@/pages/management/ChallengesPage"),
@@ -66,10 +68,11 @@ export function SectionHeader({ section, title, subtitle, actions }: { section: 
   useEffect(() => {
     for (const load of SECTION_PAGES[section]) void load().catch(() => {});
   }, [section]);
+  const tabs = SECTION_TABS[section];
   return (
     <>
       <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} />
-      <TabNav items={SECTION_TABS[section]} />
+      {tabs.length > 1 && <TabNav items={tabs} />}
     </>
   );
 }

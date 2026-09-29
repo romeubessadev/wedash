@@ -40,9 +40,11 @@ import {
   couponSellers,
   detMovToCouponLines,
   groupCouponLines,
+  priceTableDayAggsFromCouponLines,
   productDayAggsFromCouponLines,
   type CouponReportLine,
   type CouponSeller,
+  type PriceTableDayAgg,
 } from "./millenniumCouponReport.ts";
 import type {
   SalesPaymentDayAgg,
@@ -1001,6 +1003,7 @@ async function saveCouponProducts(
     storeId: args.store.id,
     dayOf: (key) => dayByCoupon.get(key) ?? null,
   });
+  const tableRows = priceTableDayAggsFromCouponLines(byCoupon, (key) => dayByCoupon.get(key) ?? null);
   for (const w of args.coupon.okWindows) {
     await deps.replaceProductDayAggs({
       tenantId: args.tenantId,
@@ -1008,6 +1011,13 @@ async function saveCouponProducts(
       from: w.from,
       to: w.to,
       rows: rows.filter((r) => r.day >= w.from && r.day <= w.to),
+    });
+    await savePriceTableDayAggs(deps, {
+      tenantId: args.tenantId,
+      store: args.store,
+      from: w.from,
+      to: w.to,
+      rows: tableRows.filter((r) => r.day >= w.from && r.day <= w.to),
     });
   }
   detail(
@@ -1044,17 +1054,38 @@ async function syncCouponProductsForDays(
       store: args.store,
       timings: args.timings,
     });
+    const byCoupon = groupCouponLines(fetched.lines);
     await deps.replaceProductDayAggs({
       tenantId: args.tenantId,
       storeId: args.store.id,
       from: day,
       to: day,
-      rows: productDayAggsFromCouponLines(groupCouponLines(fetched.lines), {
+      rows: productDayAggsFromCouponLines(byCoupon, {
         tenantId: args.tenantId,
         storeId: args.store.id,
         dayOf: () => day,
       }),
     });
+    await savePriceTableDayAggs(deps, {
+      tenantId: args.tenantId,
+      store: args.store,
+      from: day,
+      to: day,
+      rows: priceTableDayAggsFromCouponLines(byCoupon, () => day),
+    });
+  }
+}
+
+/** Soft-fail: a tabela de preço das vendas só sugere a tabela padrão de Estoque > Produtos. */
+async function savePriceTableDayAggs(
+  deps: SyncJobDeps,
+  args: { tenantId: string; store: SyncStore; from: string; to: string; rows: PriceTableDayAgg[] },
+): Promise<void> {
+  if (!deps.replacePriceTableDayAggs) return;
+  try {
+    await deps.replacePriceTableDayAggs({ tenantId: args.tenantId, storeId: args.store.id, from: args.from, to: args.to, rows: args.rows });
+  } catch (e) {
+    console.warn(`  [${args.store.code}] tabela de preço das vendas: ${e instanceof Error ? e.message : e}`);
   }
 }
 
@@ -1328,6 +1359,14 @@ export type SyncJobDeps = {
     from: string;
     to: string;
     rows: SalesProductDayAgg[];
+  }) => Promise<void>;
+  /** Substitui a tabela de preço usada nas vendas no intervalo [from,to] da loja (relatório de cupom). */
+  replacePriceTableDayAggs?: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+    rows: PriceTableDayAgg[];
   }) => Promise<void>;
   /** Substitui o CMV por produto (RELATORIOMARGEM) nos dias informados da loja. */
   replaceProductCostDayAggs: (args: {

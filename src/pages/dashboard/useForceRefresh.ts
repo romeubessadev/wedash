@@ -22,6 +22,9 @@ import { calendarTodayIso } from "@/data/wedash/clock";
 /** Disparado no `window` quando um Atualizar (FORCE) termina — telas com dados do ERP recarregam. */
 export const SALES_SYNCED_EVENT = "wedash:sales-synced";
 
+/** Disparado quando o usuário clica em Atualizar — tela com dado pesado próprio (estoque) busca junto. */
+export const FORCE_REFRESH_CLICK_EVENT = "wedash:force-refresh-click";
+
 const DISCONNECTED_MSG = "A conexão com o Millennium está desconectada. Verifique a integração para continuar.";
 
 export type ForceRefreshState = {
@@ -173,6 +176,7 @@ export function useForceRefresh({
     }
     setRefreshing(true);
     setForceError(null);
+    window.dispatchEvent(new Event(FORCE_REFRESH_CLICK_EVENT));
     const enqueuedAt = new Date();
     const today = calendarTodayIso();
     const result = await requestForceRefresh({ from: today, to: today, storeIds });

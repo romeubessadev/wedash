@@ -40,6 +40,10 @@ export const paths = {
   team: "/dashboard/team",
   /** CRUD de metas (fora do Dashboard). */
   goals: "/goals",
+  /** Estoque: custo e preço dos produtos (depois: previsão de estoque…). */
+  stock: {
+    products: "/stock/products",
+  },
   /** Gestão: operação e equipe (Metas fica em `goals`). */
   management: {
     challenges: "/management/challenges",

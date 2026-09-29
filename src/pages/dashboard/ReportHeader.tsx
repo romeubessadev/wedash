@@ -32,16 +32,26 @@ function useReportScope() {
 }
 
 /** Exportar da tela: abre a impressão com o layout do relatório (salvar como PDF). */
-export function useExportPdf(tela: string, extra?: string | null) {
+export function useExportPdf(tela: string, extra?: string | null, { periodo = true }: { periodo?: boolean } = {}) {
   const { lojaNome, periodoArquivo } = useReportScope();
   return useCallback(
-    () => exportPdf([tela, lojaNome, extra ?? "", periodoArquivo]),
-    [tela, lojaNome, extra, periodoArquivo],
+    () => exportPdf([tela, lojaNome, extra ?? "", periodo ? periodoArquivo : ""]),
+    [tela, lojaNome, extra, periodo, periodoArquivo],
   );
 }
 
 /** Cabeçalho que só aparece no PDF: marca, loja, período, filtros da tela e horário dos dados. */
-export function ReportHeader({ filtros = [] }: { filtros?: Array<{ label: string; valor: string }> }) {
+export function ReportHeader({
+  filtros = [],
+  periodo = true,
+  atualizado,
+}: {
+  filtros?: Array<{ label: string; valor: string }>;
+  /** Telas de retrato (ex.: estoque) não têm período. */
+  periodo?: boolean;
+  /** Substitui a linha "Vendas de hoje atualizadas…". */
+  atualizado?: string;
+}) {
   const { lojaNome, lojaCnpj, periodoTexto } = useReportScope();
   const geradoEm = new Date().toLocaleString("pt-BR", {
     day: "2-digit",
@@ -57,9 +67,7 @@ export function ReportHeader({ filtros = [] }: { filtros?: Array<{ label: string
         <WedashBrand size={28} />
         <div className="text-right text-[11px] leading-5 text-t2">
           <p>Gerado em {geradoEm}</p>
-          <p>
-            <LastUpdated plain />
-          </p>
+          <p>{atualizado ?? <LastUpdated plain />}</p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-[12.5px]">
@@ -68,10 +76,12 @@ export function ReportHeader({ filtros = [] }: { filtros?: Array<{ label: string
           <span className="font-bold uppercase text-t0">{lojaNome}</span>
           {lojaCnpj && <span className="text-t2"> · {lojaCnpj}</span>}
         </p>
-        <p>
-          <span className="text-t2">Período: </span>
-          <span className="font-bold text-t0">{periodoTexto}</span>
-        </p>
+        {periodo && (
+          <p>
+            <span className="text-t2">Período: </span>
+            <span className="font-bold text-t0">{periodoTexto}</span>
+          </p>
+        )}
         {filtros.map((f) => (
           <p key={f.label}>
             <span className="text-t2">{f.label}: </span>
