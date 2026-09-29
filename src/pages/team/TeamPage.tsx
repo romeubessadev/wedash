@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { FilterIcons, HeaderFilter } from "@/pages/dashboard/HeaderFilter";
+import { HeaderFilter } from "@/pages/dashboard/HeaderFilter";
 import { Button, Card, CardHeader, CardTitle, DateRangePicker, PageHeader, Pagination, StatCard, Tabs, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { DonutChart } from "@/components/charts";
@@ -293,7 +293,6 @@ export function TeamPage() {
               />
               {view.turnosDisponiveis.length > 0 && (
                 <HeaderFilter
-                  icon={FilterIcons.clock}
                   label="Turno"
                   value={view.turnoFiltro ?? ""}
                   onChange={(v) => setTurnoSel(v || null)}

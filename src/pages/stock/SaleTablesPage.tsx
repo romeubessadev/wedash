@@ -14,7 +14,7 @@ import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { SectionHeader } from "@/pages/operation/shared";
 import { ExportButton, HeaderFilters, ProductCell, TableFooter, TipHelp, UpdatedLine, money, pct, pctRate } from "./shared";
-import { FilterIcons, HeaderFilter, HeaderSearch } from "@/pages/dashboard/HeaderFilter";
+import { HeaderFilter, HeaderSearch } from "@/pages/dashboard/HeaderFilter";
 import { tableLabel, uniqueIds, useStockData } from "./useStockData";
 
 type SortKey = "nome" | "preco" | "lucro" | "margem";
@@ -121,7 +121,6 @@ export function SaleTablesPage() {
             <HeaderSearch value={busca} onChange={setBusca} />
             {tabelaOpcoes.length > 0 && (
               <HeaderFilter
-                icon={FilterIcons.table}
                 label="Tabela de venda"
                 value={String(tabelaAtiva ?? "")}
                 onChange={(v) => escolherTabela(Number(v))}
@@ -130,7 +129,6 @@ export function SaleTablesPage() {
             )}
             {categorias.length > 1 && (
               <HeaderFilter
-                icon={FilterIcons.category}
                 label="Categoria"
                 value={categoria}
                 onChange={setCategoria}

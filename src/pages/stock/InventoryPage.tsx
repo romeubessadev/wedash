@@ -13,7 +13,7 @@ import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { SectionHeader } from "@/pages/operation/shared";
-import { FilterIcons, HeaderFilter, HeaderSearch } from "@/pages/dashboard/HeaderFilter";
+import { HeaderFilter, HeaderSearch } from "@/pages/dashboard/HeaderFilter";
 import {
   ExportButton,
   ProductCell,
@@ -170,10 +170,9 @@ export function InventoryPage() {
             updated={<UpdatedLine text={atualizadoTexto} tip="Estoque buscado no Millennium ao abrir a tela (a cada 30 minutos) e no botão Atualizar do topo." />}
           >
             <HeaderSearch value={busca} onChange={setBusca} />
-            <HeaderFilter icon={FilterIcons.status} label="Status" value={status} onChange={setStatus} options={statusOpcoes} />
+            <HeaderFilter label="Status" value={status} onChange={setStatus} options={statusOpcoes} />
             {categorias.length > 1 && (
               <HeaderFilter
-                icon={FilterIcons.category}
                 label="Categoria"
                 value={categoria}
                 onChange={setCategoria}
