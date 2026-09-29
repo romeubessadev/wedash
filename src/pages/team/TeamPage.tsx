@@ -119,6 +119,11 @@ function Variacao({ v }: { v: number | null }) {
   );
 }
 
+/** "a semana passada, até o mesmo dia" → "semana passada" (rótulo curto do card do celular). */
+function vsCurto(vs: string): string {
+  return vs.split(",")[0]!.replace(/^(os|o|as|a) /, "");
+}
+
 /** "Manhã · 09:00–15:00" → nome + horário. */
 function partesTurno(turno?: string): { nome: string; horario?: string } {
   if (!turno) return { nome: TEAM_SEM_TURNO };
@@ -642,9 +647,16 @@ export function TeamPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 text-xs">
-                      <Variacao v={p.variacaoPct} />
-                    </span>
+                    {p.variacaoPct != null && (
+                      <Tooltip label={tipVariacao}>
+                        <div className="shrink-0 text-right">
+                          <span className="text-xs">
+                            <Variacao v={p.variacaoPct} />
+                          </span>
+                          <p className="text-[10.5px] text-t2">vs {vsCurto(view.vsVariacao)}</p>
+                        </div>
+                      </Tooltip>
+                    )}
                   </div>
                   <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
                 </div>
