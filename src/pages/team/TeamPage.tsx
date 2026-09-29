@@ -539,7 +539,7 @@ export function TeamPage() {
       <div className="flex flex-col">
         <BlocoRanking ranking={podio} formatValor={brlCent} />
 
-        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5 sm:justify-end print:hidden">
+        <div className="mt-6 flex flex-wrap items-center gap-2 sm:justify-end print:hidden">
           <input
             type="search"
             placeholder="Buscar..."
