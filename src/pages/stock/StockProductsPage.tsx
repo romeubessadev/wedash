@@ -13,7 +13,6 @@ import {
   type PriceComposition,
   type StockCatalogItem,
   type StockInput,
-  type StockLocation,
   type StockProductRow,
   type StockStoreDetail,
   type StockTransfer,
@@ -53,7 +52,22 @@ type Loaded = {
   charged: StockInput["charged"];
 };
 
-type SortKey = "nome" | "estoque" | "custo" | "preco" | "lucro";
+const LOCAL_PREFIX = "local:";
+type LocalKey = `local:${string}`;
+type SortKey = "nome" | "estoque" | "custo" | "preco" | "lucro" | LocalKey;
+
+/** Saldo do produto num local de estoque, somando as lojas do filtro. */
+function localQty(r: StockProductRow, nome: string): number {
+  return r.lojas.reduce((s, l) => s + (l.locais.find((x) => x.nome === nome)?.qtd ?? 0), 0);
+}
+
+/** Locais de estoque com saldo em algum produto (ESTOQUE, QUIOSQUE, depois os demais em ordem alfabética). */
+function stockLocations(rows: StockProductRow[]): string[] {
+  const nomes = new Set<string>();
+  for (const r of rows) for (const l of r.lojas) for (const x of l.locais) nomes.add(x.nome);
+  const ordem = (n: string) => (n === "ESTOQUE" ? 0 : n === "QUIOSQUE" ? 1 : 2);
+  return [...nomes].sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b, "pt-BR"));
+}
 
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>
@@ -308,10 +322,12 @@ export function StockProductsPage() {
         (!q || r.nome.toLowerCase().includes(q) || r.codigo.toLowerCase().includes(q)),
     );
     const dir = sortDir === "asc" ? 1 : -1;
+    const valor = (r: StockProductRow): number | null =>
+      sortKey.startsWith(LOCAL_PREFIX) ? localQty(r, sortKey.slice(LOCAL_PREFIX.length)) : r[sortKey as Exclude<SortKey, "nome" | LocalKey>];
     out.sort((a, b) => {
       if (sortKey === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * dir;
-      const va = a[sortKey];
-      const vb = b[sortKey];
+      const va = valor(a);
+      const vb = valor(b);
       if (va == null && vb == null) return a.nome.localeCompare(b.nome, "pt-BR");
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -321,6 +337,11 @@ export function StockProductsPage() {
   }, [view, busca, situacao, categoria, sortKey, sortDir]);
 
   useEffect(() => setPage(1), [busca, situacao, categoria, sortKey, sortDir, storeKey]);
+
+  const locaisColunas = useMemo(() => {
+    const nomes = view ? stockLocations(view.rows) : [];
+    return nomes.length > 1 ? nomes : [];
+  }, [view]);
 
   const totalPages = Math.max(1, Math.ceil(linhas.length / TABLE_PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -526,7 +547,21 @@ export function StockProductsPage() {
                     <thead>
                       <tr className="border-b-2 border-line">
                         <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
-                        <ThSort label="Estoque" active={sortKey === "estoque"} dir={sortDir} onClick={() => toggleSort("estoque")} />
+                        {locaisColunas.map((nome) => (
+                          <ThSort
+                            key={nome}
+                            label={nome}
+                            active={sortKey === `${LOCAL_PREFIX}${nome}`}
+                            dir={sortDir}
+                            onClick={() => toggleSort(`${LOCAL_PREFIX}${nome}`)}
+                          />
+                        ))}
+                        <ThSort
+                          label={locaisColunas.length > 0 ? "Total" : "Estoque"}
+                          active={sortKey === "estoque"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("estoque")}
+                        />
                         <ThSort label="Preço de custo" active={sortKey === "custo"} dir={sortDir} onClick={() => toggleSort("custo")} />
                         <ThSort label="Preço de venda" active={sortKey === "preco"} dir={sortDir} onClick={() => toggleSort("preco")} />
                         <ThSort label="Lucro por peça" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
@@ -546,9 +581,15 @@ export function StockProductsPage() {
                             </p>
                             <Pendencias itens={pend} />
                           </td>
-                          <td className="px-3 py-2.5 text-right">
-                            <EstoqueCell row={r} umaLoja={umaLoja} />
-                          </td>
+                          {locaisColunas.map((nome) => {
+                            const q = localQty(r, nome);
+                            return (
+                              <td key={nome} className={cn("px-3 py-2.5 text-right tabular-nums", q < 0 ? "font-semibold text-bad" : q === 0 ? "text-t2" : "text-t1")}>
+                                {qty(q)}
+                              </td>
+                            );
+                          })}
+                          <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", r.estoque < 0 ? "text-bad" : "text-t0")}>{qty(r.estoque)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.custo)}</td>
                           <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{money(r.preco)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">
@@ -585,7 +626,14 @@ export function StockProductsPage() {
                         </ul>
                       )}
                       <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
-                        <Metrica label="Estoque" value={<span className={r.estoque < 0 ? "text-bad" : undefined}>{qty(r.estoque)}</span>} />
+                        {locaisColunas.map((nome) => {
+                          const q = localQty(r, nome);
+                          return <Metrica key={nome} label={nome} value={<span className={q < 0 ? "text-bad" : undefined}>{qty(q)}</span>} />;
+                        })}
+                        <Metrica
+                          label={locaisColunas.length > 0 ? "Total" : "Estoque"}
+                          value={<span className={r.estoque < 0 ? "text-bad" : undefined}>{qty(r.estoque)}</span>}
+                        />
                         <Metrica label="Preço de custo" value={money(r.custo)} />
                         <Metrica label="Preço de venda" value={money(r.preco)} />
                         <Metrica
@@ -594,11 +642,6 @@ export function StockProductsPage() {
                         />
                         <Metrica label="Margem" value={pct(r.margemPct)} />
                       </div>
-                      {umaLoja && r.lojas[0] && r.lojas[0].locais.length > 1 && (
-                        <p className="mt-1.5 text-[11px] text-t2">
-                          <Locais locais={r.lojas[0].locais} />
-                        </p>
-                      )}
                     </button>
                     );
                   })}
@@ -646,33 +689,6 @@ function Lucro({ valor, margem, inline = false }: { valor: number | null; margem
     <span className="block">
       <span className={cn("block font-extrabold", cor)}>{brlCent(valor)}</span>
       <span className="block text-[11px] text-t2">{pct(margem)}</span>
-    </span>
-  );
-}
-
-function Locais({ locais }: { locais: StockLocation[] }) {
-  return (
-    <>
-      {locais.map((l, i) => (
-        <Fragment key={l.nome}>
-          {i > 0 && " · "}
-          {l.nome} <span className={cn("font-semibold tabular-nums", l.qtd < 0 ? "text-bad" : "text-t1")}>{qty(l.qtd)}</span>
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-function EstoqueCell({ row, umaLoja }: { row: StockProductRow; umaLoja: boolean }) {
-  const locais = umaLoja ? (row.lojas[0]?.locais ?? []) : [];
-  return (
-    <span className="flex flex-col items-end gap-1">
-      <span className={cn("font-semibold tabular-nums", row.estoque < 0 ? "text-bad" : "text-t0")}>{qty(row.estoque)}</span>
-      {locais.length > 1 && (
-        <span className="whitespace-nowrap text-[11px] text-t2">
-          <Locais locais={locais} />
-        </span>
-      )}
     </span>
   );
 }
