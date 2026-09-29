@@ -341,7 +341,7 @@ export function StockProductsPage() {
   const lojasSemTabela = lojas.filter((s) => s.costTableId == null);
   const produtoDetalhe = detalhe ? view?.rows.find((r) => r.codigo === detalhe) ?? null : null;
   const usadas = data?.usage.usadas ?? [];
-  const outras = (data?.saleTables ?? []).filter((t) => !usadas.includes(t.id));
+  const todasTabelas = uniqueIds([...(data?.saleTables ?? []).map((t) => t.id), ...usadas]);
 
   const limpar = () => {
     setBusca("");
@@ -370,27 +370,17 @@ export function StockProductsPage() {
                       title="Tabela de venda"
                       icon={
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
-                          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                          <line x1="7" y1="7" x2="7.01" y2="7" />
+                          <line x1="12" y1="2" x2="12" y2="22" />
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                         </svg>
                       }
                     />
                   }
-                  items={[
-                    ...(usadas.length > 0 ? [{ label: "Usadas nos últimos 30 dias", heading: true }] : []),
-                    ...usadas.map((id) => ({
-                      label: tableLabel(id, data.saleTables, data.usageNames),
-                      active: id === tabelaAtiva,
-                      trailing: id === data.usage.sugerida ? <span className="text-[10.5px] text-t2">mais usada</span> : undefined,
-                      onClick: () => escolherTabela(id),
-                    })),
-                    ...(usadas.length > 0 && outras.length > 0 ? [{ label: "", divider: true }, { label: "Outras tabelas", heading: true }] : []),
-                    ...outras.map((t) => ({
-                      label: tableLabel(t.id, data.saleTables, data.usageNames),
-                      active: t.id === tabelaAtiva,
-                      onClick: () => escolherTabela(t.id),
-                    })),
-                  ]}
+                  items={todasTabelas.map((id) => ({
+                    label: tableLabel(id, data.saleTables, data.usageNames),
+                    active: id === tabelaAtiva,
+                    onClick: () => escolherTabela(id),
+                  }))}
                 />
               )}
               <Button
