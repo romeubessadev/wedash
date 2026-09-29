@@ -56,7 +56,7 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0 print:block print:bg-white">
+    <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0 print:block print:overflow-visible print:bg-white">
       <div className="contents print:hidden">
         <Sidebar collapsed={collapsed} />
         <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />

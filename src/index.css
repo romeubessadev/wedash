@@ -534,6 +534,21 @@ input[type="range"]::-moz-range-thumb {
     white-space: normal !important;
     text-overflow: clip !important;
   }
+  /* Tudo na célula pode quebrar linha: a tabela nunca passa da largura da folha. */
+  td,
+  td * {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  td .font-mono {
+    overflow-wrap: normal;
+  }
+  td .whitespace-pre-line {
+    white-space: pre-line !important;
+  }
+  td .vela-avatar {
+    display: none !important;
+  }
   td [class*="text-[12"],
   td [class*="text-[13"],
   td [class*="text-[14"],

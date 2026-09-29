@@ -54,7 +54,7 @@ export function Avatar({ name, src, size = "md", status, className, ring }: Avat
   const [falhou, setFalhou] = useState<string | null>(null);
   const foto = src && falhou !== src ? src : null;
   return (
-    <span className={cn("relative inline-flex shrink-0", className)}>
+    <span className={cn("vela-avatar relative inline-flex shrink-0", className)}>
       {foto ? (
         <img
           src={foto}

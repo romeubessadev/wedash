@@ -132,12 +132,17 @@ export function InventoryPage() {
       render: ({ r, status: s }) => {
         const badge = <Badge variant={STATUS_BADGE[s].variant}>{STATUS_BADGE[s].label}</Badge>;
         if (s !== "aguardando") return badge;
+        const tip = transferTip(r, variasLojas);
         return (
-          <Tooltip label={transferTip(r, variasLojas)}>
-            <span tabIndex={0} className="cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-acc">
-              {badge}
-            </span>
-          </Tooltip>
+          <>
+            <Tooltip label={tip}>
+              <span tabIndex={0} className="cursor-help rounded-[999px] outline-none focus-visible:ring-2 focus-visible:ring-acc">
+                {badge}
+              </span>
+            </Tooltip>
+            {/* No papel não há tooltip: a instrução vai escrita abaixo do badge. */}
+            <p className="mt-1 hidden whitespace-pre-line text-[11px] leading-4 text-t2 print:block">{tip}</p>
+          </>
         );
       },
     },
