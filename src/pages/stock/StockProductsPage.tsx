@@ -364,7 +364,18 @@ export function StockProductsPage() {
                 <Dropdown
                   align="right"
                   menuClassName="max-h-80 overflow-y-auto"
-                  trigger={<FiltroTrigger rotulo={tabelaNome} prefixo="Tabela de venda" />}
+                  trigger={
+                    <FiltroTrigger
+                      rotulo={tabelaNome}
+                      title="Tabela de venda"
+                      icon={
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
+                          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                          <line x1="7" y1="7" x2="7.01" y2="7" />
+                        </svg>
+                      }
+                    />
+                  }
                   items={[
                     ...(usadas.length > 0 ? [{ label: "Usadas nos últimos 30 dias", heading: true }] : []),
                     ...usadas.map((id) => ({
@@ -667,16 +678,15 @@ function Metrica({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function FiltroTrigger({ rotulo, prefixo }: { rotulo: string; prefixo?: string }) {
+function FiltroTrigger({ rotulo, icon, title }: { rotulo: string; icon?: ReactNode; title?: string }) {
   return (
     <button
       type="button"
+      title={title}
       className="flex h-8 min-w-0 max-w-[280px] items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-left transition-colors hover:border-acc"
     >
-      <span className="min-w-0 truncate text-xs font-semibold text-t0">
-        {prefixo && <span className="font-normal text-t2">{prefixo}: </span>}
-        {rotulo}
-      </span>
+      {icon}
+      <span className="min-w-0 truncate text-xs font-semibold text-t0">{rotulo}</span>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
         <path d="m6 9 6 6 6-6" />
       </svg>
