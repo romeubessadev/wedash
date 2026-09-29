@@ -3,7 +3,7 @@
  * Corpo (qualquer combinação; cada parte é independente — falhou uma, as outras seguem):
  * - `saleTables: true` → lista de tabelas de preço de venda (`tabela_venda.TABELA`, 1 chamada).
  * - `salePriceTableIds: number[]` → preços de venda de cada tabela (wtsreports {24B9BF6D}, ~3,5s cada).
- * - `stockStoreIds: string[]` → estoque atual de cada loja (report {9701602B} com o gerador, ~7s cada; 2 por vez).
+ * - `stockStoreIds: string[]` → estoque atual de cada loja (ESTOQUEEMCOMPRA, todos os locais somados; 2 por vez).
  * Gerente só busca estoque das lojas dele (membership_store vazio = todas).
  * Reusa o token salvo em erp_credential; 401 → login com a senha cifrada e persiste o token novo.
  */
@@ -44,7 +44,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 type Request = { saleTables: boolean; salePriceTableIds: number[]; stockStoreIds: string[] };
-type StoreRow = { id: string; code: string | null; millennium_gerador_id: number | null; cost_table_id: number | null };
+type StoreRow = { id: string; code: string | null; millennium_store_id: number | null; cost_table_id: number | null };
 type Part = "saleTables" | "salePrices" | "stock";
 
 async function replaceRows(
@@ -100,13 +100,12 @@ async function refreshStock(
   session: string,
   tenantId: string,
   stores: StoreRow[],
-  fallbackCostTable: number,
 ): Promise<number> {
   let done = 0;
   for (const group of chunk(stores, STOCK_CONCURRENCY)) {
     await Promise.all(
       group.map(async (s) => {
-        const stock = await fetchStoreStock(session, s.cost_table_id ?? fallbackCostTable, s.millennium_gerador_id!);
+        const stock = await fetchStoreStock(session, s.millennium_store_id!);
         await replaceRows(
           admin,
           "store_stock",
@@ -177,12 +176,12 @@ Deno.serve(async (req) => {
   if (body.stockStoreIds.length > 0) {
     const { data, error } = await admin
       .from("store")
-      .select("id, code, millennium_gerador_id, cost_table_id")
+      .select("id, code, millennium_store_id, cost_table_id")
       .eq("tenant_id", tenantId)
       .eq("active", true)
       .in("id", body.stockStoreIds);
     if (error) return json({ ok: false, error: "erp_request_failed" });
-    stores = ((data ?? []) as StoreRow[]).filter((s) => s.millennium_gerador_id != null);
+    stores = ((data ?? []) as StoreRow[]).filter((s) => s.millennium_store_id != null);
     if (membership.role === "MANAGER") {
       const { data: allowed } = await admin.from("membership_store").select("store_id").eq("membership_id", membership.id);
       const ids = new Set((allowed ?? []).map((r) => r.store_id as string));
@@ -203,7 +202,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     fallbackCostTable = (tenantStore?.cost_table_id as number | null) ?? (anyCostTable?.table_id as number | null) ?? null;
   }
-  if (fallbackCostTable == null && (body.salePriceTableIds.length > 0 || stores.some((s) => s.cost_table_id == null))) {
+  if (fallbackCostTable == null && body.salePriceTableIds.length > 0) {
     return json({ ok: false, error: "no_cost_table" });
   }
 
@@ -237,7 +236,7 @@ Deno.serve(async (req) => {
   if (body.salePriceTableIds.length > 0) {
     parts.push({ part: "salePrices", run: (s) => refreshSalePrices(admin, s, body.salePriceTableIds, fallbackCostTable!) });
   }
-  if (stores.length > 0) parts.push({ part: "stock", run: (s) => refreshStock(admin, s, tenantId, stores, fallbackCostTable!) });
+  if (stores.length > 0) parts.push({ part: "stock", run: (s) => refreshStock(admin, s, tenantId, stores) });
   if (parts.length === 0) return json({ ok: true, stores: 0 });
 
   let session = (cred.millennium_session as string | null)?.trim() || null;

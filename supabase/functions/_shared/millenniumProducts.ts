@@ -231,20 +231,34 @@ export async function fetchSalePrices(session: string, costTableId: number, sale
   return out;
 }
 
-/** COD_PRODUTO → estoque da loja (report {9701602B} com o gerador; cores somadas; pode ser negativo). */
-export async function fetchStoreStock(session: string, costTableId: number, geradorId: number): Promise<Map<string, number>> {
-  const payload = await report(
-    session,
-    PRODUCT_DIVISION_CATALOG_GUID,
-    { TABELA_DE_CUSTO: costTableId, FILIAL_GERADOR_GERADOR: `(${geradorId})`, PRODUTO_DIVISAO_DIVISAO: null },
-    `estoque filial ${geradorId}`,
+/**
+ * COD_PRODUTO → estoque da loja = `SALDO` do ESTOQUEEMCOMPRA, somado em todos os locais da filial
+ * (ESTOQUE, QUIOSQUE, SHOP010…). O report {9701602B} com o gerador traz só o local de venda (QUIOSQUE):
+ * a entrada cai em ESTOQUE e a venda sai do QUIOSQUE, então por local fica negativo e só a soma é real.
+ */
+export async function fetchStoreStock(session: string, millenniumStoreId: number): Promise<Map<string, number>> {
+  const payload = await call(
+    `${baseUrl()}/MILLENIUM!FRANQUIAS.RELATORIOS.ESTOQUEEMCOMPRA`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json",
+        "WTS-Session": session,
+        "X-DateFormat": "ISOTZ",
+        "X-HTTP-Method": "GET",
+        "X-IdentifierCase": "upper",
+      },
+      body: JSON.stringify({ FILIAL: millenniumStoreId, DESC: null, TIPO: null, DATAI: null, DATAF: null }),
+      signal: AbortSignal.timeout(120_000),
+    },
+    `estoque filial ${millenniumStoreId}`,
   );
   const out = new Map<string, number>();
   for (const r of rowsOf(payload)) {
-    const code = asStr(r.PRODUTO_PRODUTO_COD_PRODUTO);
-    const qty = asNum(r.SUM_ESTOQUE_QUANTIDADE_);
-    if (!code || qty == null) continue;
-    out.set(code, (out.get(code) ?? 0) + qty);
+    const code = asStr(r.COD_PRODUTO);
+    if (!code) continue;
+    out.set(code, (out.get(code) ?? 0) + (asNum(r.SALDO) ?? 0));
   }
   return out;
 }
