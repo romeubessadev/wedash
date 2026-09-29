@@ -372,12 +372,11 @@ export function ProductsSkeleton() {
   );
 }
 
-/** Estoque > Produtos: KPIs + tabela de produtos (busca e filtros no topo). */
+/** Estoque > Produtos: listagem de produtos (busca e filtros no topo). */
 export function StockProductsSkeleton() {
   return (
     <Busy>
-      <KpiRowSkeleton />
-      <WideTableSkeleton cols={10} rows={8} actions />
+      <WideTableSkeleton cols={5} rows={10} actions />
     </Busy>
   );
 }

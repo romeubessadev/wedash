@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, CardTitle, Dropdown, Modal, Pagination, Segmented, StatCard, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -54,55 +54,7 @@ type Loaded = {
   charged: StockInput["charged"];
 };
 
-type SortKey =
-  | "nome"
-  | "estoque"
-  | "custo"
-  | "impostos"
-  | "franquiaAluguel"
-  | "custoTotal"
-  | "preco"
-  | "lucro"
-  | "precoMinimo"
-  | "precoPraticado";
-
-const KPI_COLORS = [
-  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
-  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
-  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
-  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
-];
-
-const svg = (children: ReactNode) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {children}
-  </svg>
-);
-const IconBox = () =>
-  svg(
-    <>
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-      <line x1="12" y1="22.08" x2="12" y2="12" />
-    </>,
-  );
-const IconLayers = () =>
-  svg(
-    <>
-      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-      <polyline points="2 17 12 22 22 17" />
-      <polyline points="2 12 12 17 22 12" />
-    </>,
-  );
-const IconMoney = () => svg(<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />);
-const IconPct = () =>
-  svg(
-    <>
-      <line x1="19" y1="5" x2="5" y2="19" />
-      <circle cx="6.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="17.5" r="2.5" />
-    </>,
-  );
+type SortKey = "nome" | "estoque" | "custo" | "preco" | "lucro";
 
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>
@@ -451,38 +403,13 @@ export function StockProductsPage() {
           )}
           <NegativeStockNotice negativos={view.negativos} variasLojas={lojas.length > 1} />
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi i={0} Icon={IconBox} label="Produtos com estoque" value={num(view.kpis.produtosComEstoque)} />
-            <Kpi i={1} Icon={IconLayers} label="Peças em estoque" value={qty(view.kpis.pecas)} />
-            <Kpi
-              i={2}
-              Icon={IconMoney}
-              label="Valor em estoque"
-              value={brlCent(view.kpis.valorEstoque)}
-              sub={view.kpis.valorEstoqueCompleto ? "A preço de custo" : "A preço de custo · alguns produtos sem custo"}
-              tooltip="Peças em estoque × custo do produto na tabela de custo da loja (sem impostos)."
-            />
-            <Kpi
-              i={3}
-              Icon={IconPct}
-              label="Margem média"
-              value={pct(view.kpis.margemMediaPct)}
-              sub={tabelaNome}
-              tooltip="Média da margem por peça dos produtos, vendendo pela tabela de venda selecionada."
-            />
-          </div>
-
           <Card className="mt-4" padding="none">
             <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Produtos</CardTitle>
-                <TipHelp
-                  label={
-                    "Custo total = custo do produto + impostos (ICMS ST sobre o custo e ICMS sobre o preço) + royalties, taxa de marketing e aluguel percentual sobre o preço.\n\nPreço mínimo = menor preço que não dá prejuízo.\n\nPreço praticado = preço médio cobrado nos últimos 30 dias."
-                  }
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <p className="text-[12px] text-t2">
+                Lucro por peça vendendo na tabela <span className="font-semibold text-t0">{tabelaNome}</span>, já descontando impostos, royalties,
+                marketing e aluguel. Clique no produto para ver a conta.
+              </p>
+              <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
                 <Segmented
                   options={[
                     { value: "com", label: "Com estoque" },
@@ -532,19 +459,14 @@ export function StockProductsPage() {
             ) : (
               <>
                 <div className="hidden overflow-x-auto p-4 md:block">
-                  <table className="w-full min-w-[1180px] border-collapse text-[13px]">
+                  <table className="w-full min-w-[720px] border-collapse text-[13px]">
                     <thead>
                       <tr className="border-b-2 border-line">
                         <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
                         <ThSort label="Estoque" active={sortKey === "estoque"} dir={sortDir} onClick={() => toggleSort("estoque")} />
-                        <ThSort label="Custo" active={sortKey === "custo"} dir={sortDir} onClick={() => toggleSort("custo")} />
-                        <ThSort label="Impostos" active={sortKey === "impostos"} dir={sortDir} onClick={() => toggleSort("impostos")} />
-                        <ThSort label="Franquia e aluguel" active={sortKey === "franquiaAluguel"} dir={sortDir} onClick={() => toggleSort("franquiaAluguel")} />
-                        <ThSort label="Custo total" active={sortKey === "custoTotal"} dir={sortDir} onClick={() => toggleSort("custoTotal")} />
+                        <ThSort label="Preço de custo" active={sortKey === "custo"} dir={sortDir} onClick={() => toggleSort("custo")} />
                         <ThSort label="Preço de venda" active={sortKey === "preco"} dir={sortDir} onClick={() => toggleSort("preco")} />
                         <ThSort label="Lucro por peça" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
-                        <ThSort label="Preço mínimo" active={sortKey === "precoMinimo"} dir={sortDir} onClick={() => toggleSort("precoMinimo")} />
-                        <ThSort label="Preço praticado" active={sortKey === "precoPraticado"} dir={sortDir} onClick={() => toggleSort("precoPraticado")} />
                       </tr>
                     </thead>
                     <tbody>
@@ -560,25 +482,9 @@ export function StockProductsPage() {
                           </td>
                           <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", r.estoque < 0 ? "text-bad" : "text-t0")}>{qty(r.estoque)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.custo)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.impostos)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.franquiaAluguel)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.custoTotal)}</td>
                           <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{money(r.preco)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">
                             <Lucro valor={r.lucro} margem={r.margemPct} />
-                          </td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-t1">{money(r.precoMinimo)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums">
-                            {r.precoPraticado == null ? (
-                              <span className="text-t2">—</span>
-                            ) : (
-                              <Tooltip label={`${num(r.itensVendidos30d)} ${r.itensVendidos30d === 1 ? "peça vendida" : "peças vendidas"} nos últimos 30 dias.`}>
-                                <span className="block">
-                                  <span className="block font-semibold text-t0">{brlCent(r.precoPraticado)}</span>
-                                  <span className={cn("block text-[11px]", margemCor(r.margemPraticadaPct))}>{pct(r.margemPraticadaPct)}</span>
-                                </span>
-                              </Tooltip>
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -606,13 +512,10 @@ export function StockProductsPage() {
                           {qty(r.estoque)} un.
                         </span>
                       </div>
-                      <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
-                        <Metrica label="Custo total" value={money(r.custoTotal)} />
+                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5 text-[11.5px]">
+                        <Metrica label="Preço de custo" value={money(r.custo)} />
                         <Metrica label="Preço de venda" value={money(r.preco)} />
                         <Metrica label="Lucro por peça" value={<Lucro valor={r.lucro} margem={r.margemPct} inline />} />
-                        <Metrica label="Preço mínimo" value={money(r.precoMinimo)} />
-                        <Metrica label="Preço praticado" value={money(r.precoPraticado)} />
-                        <Metrica label="Margem praticada" value={pct(r.margemPraticadaPct)} />
                       </div>
                     </button>
                   ))}
@@ -647,11 +550,6 @@ export function StockProductsPage() {
 
 export default StockProductsPage;
 
-function margemCor(m: number | null): string {
-  if (m == null) return "text-t2";
-  return m < 0 ? "text-bad" : "text-ok";
-}
-
 function Lucro({ valor, margem, inline = false }: { valor: number | null; margem: number | null; inline?: boolean }) {
   if (valor == null) return <span className="text-t2">—</span>;
   const cor = valor < 0 ? "text-bad" : "text-ok";
@@ -676,11 +574,6 @@ function Metrica({ label, value }: { label: string; value: ReactNode }) {
       <span className="font-semibold tabular-nums text-t0">{value}</span>
     </div>
   );
-}
-
-function Kpi({ i, Icon, label, value, sub, tooltip }: { i: number; Icon: () => React.JSX.Element; label: string; value: string; sub?: string; tooltip?: string }) {
-  const c = KPI_COLORS[i % KPI_COLORS.length];
-  return <StatCard label={label} value={value} icon={<Icon />} iconColor={c.iconColor} iconBg={c.iconBg} sub={sub} tooltip={tooltip} />;
 }
 
 function FiltroTrigger({ rotulo, prefixo }: { rotulo: string; prefixo?: string }) {

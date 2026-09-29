@@ -124,13 +124,6 @@ export type NegativeStock = { codigo: string; nome: string; quantidade: number; 
 export type StockProductsView = {
   rows: StockProductRow[];
   categorias: string[];
-  kpis: {
-    produtosComEstoque: number;
-    pecas: number;
-    valorEstoque: number;
-    valorEstoqueCompleto: boolean;
-    margemMediaPct: number | null;
-  };
   negativos: NegativeStock[];
 };
 
@@ -163,9 +156,6 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
 
   const rows: StockProductRow[] = [];
   const negativos: NegativeStock[] = [];
-  let pecas = 0;
-  let valorEstoque = 0;
-  let valorEstoqueCompleto = true;
 
   for (const code of codes) {
     const cat = input.catalog.get(code);
@@ -180,11 +170,6 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
       if (ch && ch.items > 0 && ch.revenueCents > 0) {
         const p = composePrice(store, code, Math.round(ch.revenueCents / ch.items), costCents);
         praticado = { preco: ch.revenueCents / ch.items / 100, itens: ch.items, lucro: p.lucro, margemPct: p.margemPct };
-      }
-      if (estoque > 0) {
-        pecas += estoque;
-        if (composicao.custo == null) valorEstoqueCompleto = false;
-        else valorEstoque += estoque * composicao.custo;
       }
       return { store, estoque, composicao, praticado };
     });
@@ -233,13 +218,6 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
   return {
     rows,
     categorias: [...new Set(rows.map((r) => r.categoria))].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    kpis: {
-      produtosComEstoque: rows.filter((r) => r.estoque > 0).length,
-      pecas,
-      valorEstoque,
-      valorEstoqueCompleto,
-      margemMediaPct: mean(rows.map((r) => r.margemPct)),
-    },
     negativos,
   };
 }

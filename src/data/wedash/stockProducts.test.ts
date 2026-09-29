@@ -89,8 +89,6 @@ describe("buildStockProductsView", () => {
     expect(p1.variaPorLoja).toBe(true);
     expect(p1.custo).toBeCloseTo(35);
     expect(p1.precoPraticado).toBeCloseTo(90);
-    expect(view.kpis.pecas).toBe(8);
-    expect(view.kpis.valorEstoque).toBeCloseTo(5 * 30 + 3 * 40);
     expect(view.negativos).toEqual([{ codigo: "P2", nome: "P2", quantidade: -2, lojas: ["B"] }]);
   });
 });
