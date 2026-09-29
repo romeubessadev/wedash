@@ -36,7 +36,7 @@ import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
-import { brlCent, deIso, tipDelta } from "@/lib/format";
+import { brlCent, deIso, labelUpper, tipDelta } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TINT } from "@/pages/dashboards/icons";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
@@ -537,7 +537,7 @@ export default function FinancePage() {
                   <div className="mx-auto my-2">
                     <DonutChart
                       segments={view.formasPagamento.map((f) => ({
-                        label: f.forma,
+                        label: labelUpper(f.forma),
                         value: f.valor,
                         color: f.cor,
                       }))}
@@ -551,7 +551,7 @@ export default function FinancePage() {
                       return (
                         <div key={f.forma} className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
-                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{labelUpper(f.forma)}</span>
                           <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(f.valor)}</span>
                           <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                         </div>

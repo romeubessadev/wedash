@@ -28,7 +28,7 @@ import type {
   SalesProductDayAgg,
   SellerShiftRef,
 } from "@/data/wedash/salesTypes";
-import { brlCent, deIso, num, tipDelta, titleName } from "@/lib/format";
+import { brlCent, deIso, labelUpper, num, tipDelta, titleName } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -737,7 +737,7 @@ export default function OverviewPage() {
                   <div className="mx-auto my-2">
                     <DonutChart
                       segments={view.formasPagamento.map((f) => ({
-                        label: f.forma,
+                        label: labelUpper(f.forma),
                         value: f.valor,
                         color: f.cor,
                       }))}
@@ -751,7 +751,7 @@ export default function OverviewPage() {
                       return (
                         <div key={f.forma} className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
-                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{labelUpper(f.forma)}</span>
                           <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(f.valor)}</span>
                           <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                         </div>
