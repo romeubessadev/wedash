@@ -38,17 +38,8 @@ const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant 
 /** O que fazer com o produto, uma linha por loja (vai abaixo do status, na própria linha da tabela). */
 function statusLines(r: StockProductRow, status: StockStatus, variasLojas: boolean): string[] {
   const loja = (nome: string) => (variasLojas ? `${nome}: ` : "");
-  if (status === "negativo")
-    return r.lojas
-      .filter((l) => l.estoque < 0)
-      .map((l) => `${loja(l.store.fantasia)}saldo ${qty(l.estoque)} no Millennium. Confira as entradas e saídas.`);
-  if (status === "transferir")
-    return r.lojas.flatMap((l) => l.transferencias.map((t) => `${loja(l.store.fantasia)}${transferText(t)}`));
-  if (status === "falta")
-    return r.lojas
-      .filter((l) => l.estoque <= 0 && l.vendidos30d > 0)
-      .map((l) => `${loja(l.store.fantasia)}sem saldo, mas vendeu nos últimos 30 dias.`);
-  return [];
+  if (status !== "transferir") return [];
+  return r.lojas.flatMap((l) => l.transferencias.map((t) => `${loja(l.store.fantasia)}${transferText(t)}`));
 }
 
 export function InventoryPage() {
