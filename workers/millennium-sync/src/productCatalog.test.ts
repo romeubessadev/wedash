@@ -90,6 +90,25 @@ describe("ensureProductCatalog", () => {
     expect(calls.release).toEqual([true]);
   });
 
+  it("com loja → 1 chamada a mais para o cadastro (data/múltipla/bloqueio); falha não derruba a recarga", async () => {
+    const { deps } = fakeDeps();
+    const saved: string[] = [];
+    deps.fetchRegistry = async (_s, storeId) => [{ code: `P${storeId}`, registeredAt: "2024-06-05", purchaseMultiple: 12, purchaseBlocked: false }];
+    deps.saveRegistry = async (items) => (saved.push(...items.map((i) => i.code)), items.length);
+    const ok = await ensureProductCatalog(deps, { session: "s", seen: [], guard: { attempted: false }, owner: "w", millenniumStoreId: 8 });
+    expect(ok).toMatchObject({ status: "refreshed", calls: 7, registry: 1 });
+    expect(saved).toEqual(["P8"]);
+
+    const { deps: d2, calls: c2 } = fakeDeps();
+    d2.fetchRegistry = async () => {
+      throw new Error("ESTOQUEEMCOMPRA → 500");
+    };
+    d2.saveRegistry = async () => 0;
+    const r = await ensureProductCatalog(d2, { session: "s", seen: [], guard: { attempted: false }, owner: "w", millenniumStoreId: 8 });
+    expect(r).toMatchObject({ status: "refreshed", registry: null, registryError: "ESTOQUEEMCOMPRA → 500" });
+    expect(c2.release).toEqual([true]);
+  });
+
   it("tabelas de custo vazias → recarrega mesmo com o catálogo completo", async () => {
     const { deps, calls } = fakeDeps({ catalog: [1, 2], tables: 0 });
     const r = await ensureProductCatalog(deps, { session: "s", seen: seen(1), guard: { attempted: false }, owner: "w" });

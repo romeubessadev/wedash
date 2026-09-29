@@ -1,6 +1,7 @@
 /**
  * Produtos compartilhados pela rede: catálogo (product_type + product_catalog) + tabelas de custo
- * (product_cost_table + product_cost_table_price). Uma recarga só traz tudo (~30 chamadas).
+ * (product_cost_table + product_cost_table_price) + cadastro do produto (data de cadastro, quantidade múltipla,
+ * bloqueado compra — relatório Saldo Atual e Futuro). Uma recarga só traz tudo (~30 chamadas).
  * Sem relógio — recarrega quando:
  * - catálogo ou tabelas de custo vazios;
  * - aparece produto desconhecido nas vendas;
@@ -8,7 +9,7 @@
  * No máx. 1× por job e 1× a cada 15 min na rede inteira (lease no banco — o 1º worker que precisar busca).
  * O que segue faltando depois da recarga não força outra por 24h.
  */
-import type { CatalogProduct, ProductType } from "./millenniumCatalog.ts";
+import type { CatalogProduct, ProductRegistry, ProductType } from "./millenniumCatalog.ts";
 import type { CostTable } from "./millenniumCostTable.ts";
 
 export const CATALOG_MIN_INTERVAL_SEC = 15 * 60;
@@ -38,6 +39,9 @@ export type CatalogDeps = {
   fetchCostTablePrices: (session: string, tableId: number) => Promise<Map<string, number>>;
   saveCostTables: (tables: CostTable[]) => Promise<void>;
   saveCostTablePrices: (tableId: number, prices: Map<string, number>) => Promise<void>;
+  /** Data de cadastro, quantidade múltipla e bloqueado compra (ESTOQUEEMCOMPRA; qualquer loja). */
+  fetchRegistry?: (session: string, millenniumStoreId: number) => Promise<ProductRegistry[]>;
+  saveRegistry?: (items: ProductRegistry[]) => Promise<number>;
 };
 
 /** Estado por job: no máx. 1 recarga. */
@@ -49,6 +53,9 @@ export type ProductsRefresh = {
   tables: number;
   prices: number;
   calls: number;
+  /** Produtos com cadastro (data/múltipla/bloqueio) gravado; null = não buscou ou falhou. */
+  registry: number | null;
+  registryError?: string;
 };
 
 export type EnsureCatalogResult =
@@ -69,10 +76,14 @@ export function dedupeCatalogProducts(products: CatalogProduct[]): CatalogProduc
   return [...byCode.values()];
 }
 
-/** Recarga completa: tipos, produtos de cada tipo, tabelas de custo e preços de todas as tabelas. */
+/**
+ * Recarga completa: tipos, produtos de cada tipo, cadastro (data/múltipla/bloqueio — soft-fail),
+ * tabelas de custo e preços de todas as tabelas.
+ */
 export async function refreshProducts(
   deps: CatalogDeps,
   session: string,
+  millenniumStoreId?: number,
 ): Promise<ProductsRefresh & { productIds: Set<number>; pricesByTable: Map<number, Map<string, number>> }> {
   const types = await deps.fetchTypes(session);
   if (types.length === 0) throw new Error("lookup de tipos voltou vazio");
@@ -81,6 +92,18 @@ export async function refreshProducts(
   for (const t of types) all.push(...(await deps.fetchProductsOfType(session, t.typeId)));
   const products = dedupeCatalogProducts(all);
   await deps.upsertProducts(products);
+
+  let registry: number | null = null;
+  let registryError: string | undefined;
+  let registryCalls = 0;
+  if (deps.fetchRegistry && deps.saveRegistry && millenniumStoreId != null) {
+    registryCalls = 1;
+    try {
+      registry = await deps.saveRegistry(await deps.fetchRegistry(session, millenniumStoreId));
+    } catch (e) {
+      registryError = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   const tables = await deps.fetchCostTables(session);
   if (tables.length === 0) throw new Error("lookup de tabelas de custo voltou vazio");
@@ -98,7 +121,9 @@ export async function refreshProducts(
     products: products.length,
     tables: tables.length,
     prices,
-    calls: 1 + types.length + 1 + tables.length,
+    calls: 1 + types.length + registryCalls + 1 + tables.length,
+    registry,
+    registryError,
     productIds: new Set(products.map((p) => p.erpProductId)),
     pricesByTable,
   };
@@ -113,6 +138,8 @@ export async function ensureProductCatalog(
     zeroCost?: { storeId: string; codes: string[] };
     guard: CatalogGuard;
     owner: string;
+    /** Loja usada para o cadastro (ESTOQUEEMCOMPRA é por filial, mas igual em todas). */
+    millenniumStoreId?: number;
   },
 ): Promise<EnsureCatalogResult> {
   const empty = (await deps.countCatalog()) === 0 || (await deps.countCostTables()) === 0;
@@ -148,7 +175,7 @@ export async function ensureProductCatalog(
   if (!claimed) return { status: "skipped", unknown: unknown.length, reason: "busy" };
 
   try {
-    const r = await refreshProducts(deps, args.session);
+    const r = await refreshProducts(deps, args.session, args.millenniumStoreId);
     const still = unknown.filter((u) => !r.productIds.has(u.erpProductId));
     if (still.length > 0) await deps.recordMisses(still);
     const tablePrices = costTable != null ? r.pricesByTable.get(costTable) : undefined;
@@ -166,6 +193,8 @@ export async function ensureProductCatalog(
       tables: r.tables,
       prices: r.prices,
       calls: r.calls,
+      registry: r.registry,
+      registryError: r.registryError,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

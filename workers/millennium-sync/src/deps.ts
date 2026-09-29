@@ -19,7 +19,7 @@ import { mergeNameKeys, type KnownSeller } from "./sellerLinker.ts";
 import { fetchRelatorioMargem } from "./millenniumMargem.ts";
 import { fetchCouponReport } from "./millenniumCouponReport.ts";
 import { fetchProductBrandMap } from "./millenniumProductDivision.ts";
-import { fetchProductTypes, fetchProductsOfType } from "./millenniumCatalog.ts";
+import { fetchProductRegistry, fetchProductTypes, fetchProductsOfType } from "./millenniumCatalog.ts";
 import { fetchCostTablePrices, fetchCostTables } from "./millenniumCostTable.ts";
 import type { CatalogDeps, CatalogEntry } from "./productCatalog.ts";
 import { buildCostTableDetectDeps } from "./costTableSync.ts";
@@ -200,6 +200,23 @@ export function buildCatalogDeps(sb: SupabaseClient): CatalogDeps {
     },
     fetchTypes: (session) => fetchProductTypes({ session, baseUrl: millenniumBaseUrl() }),
     fetchProductsOfType: (session, typeId) => fetchProductsOfType({ session, typeId, baseUrl: millenniumBaseUrl() }),
+    fetchRegistry: (session, millenniumStoreId) => fetchProductRegistry({ session, millenniumStoreId, baseUrl: millenniumBaseUrl() }),
+    async saveRegistry(items) {
+      let saved = 0;
+      for (const part of chunk(items, 500)) {
+        const { data, error } = await sb.rpc("set_product_catalog_registry", {
+          items: part.map((i) => ({
+            product_code: i.code,
+            registered_at: i.registeredAt,
+            purchase_multiple: i.purchaseMultiple,
+            purchase_blocked: i.purchaseBlocked,
+          })),
+        });
+        if (error) throw error;
+        saved += Number(data ?? 0);
+      }
+      return saved;
+    },
     async countCostTables() {
       const { count, error } = await sb.from("product_cost_table").select("table_id", { count: "exact", head: true });
       if (error) throw error;

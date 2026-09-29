@@ -678,9 +678,15 @@ async function ensureCatalogFor(
       zeroCost: args.zeroCost,
       guard: args.guard,
       owner: `worker-${process.pid}`,
+      millenniumStoreId: args.store.millenniumStoreId,
     });
     if (r.status === "refreshed") {
       args.timings?.add(STEP.catalogo, nowMs() - t, r.calls);
+      if (r.registryError) {
+        if (isSessionDeadError(r.registryError)) throw new Error(r.registryError);
+        console.warn(`  ⚠ [${args.store.code}] cadastro dos produtos (Saldo Atual e Futuro): ${r.registryError}`);
+        syncLog("WARN", "catalogo", `Cadastro dos produtos (Saldo Atual e Futuro) falhou: ${r.registryError}`, { store: args.store });
+      }
       console.log(
         `  [${args.store.code}] produtos recarregados | ${r.products} produtos | ${r.tables} tabelas de custo (${r.prices} precos) | ${r.calls} chamadas ao ERP | ${formatElapsed(t)}` +
           (r.unknown > 0 ? ` | ${r.unknown} novo(s), ${r.stillUnknown} sem cadastro` : "") +
