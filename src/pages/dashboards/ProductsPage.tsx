@@ -299,10 +299,13 @@ export default function ProductsPage() {
     const itens = linhasTabela.reduce((s, p) => s + p.itens, 0);
     const completo = linhasTabela.length > 0 && linhasTabela.every((p) => p.cmv != null);
     const lucro = completo ? linhasTabela.reduce((s, p) => s + (p.lucro ?? 0), 0) : null;
+    const fatCmp = linhasTabela.reduce((s, p) => s + p.faturamentoCmp, 0);
+    const fatAnt = linhasTabela.reduce((s, p) => s + p.faturamentoAnt, 0);
     return {
       faturamento,
       itens,
       lucro,
+      variacaoPct: fatCmp > 0 && fatAnt > 0 ? ((fatCmp - fatAnt) / fatAnt) * 100 : null,
       margemPct: lucro != null && faturamento > 0 ? (lucro / faturamento) * 100 : null,
     };
   }, [linhasTabela]);
@@ -342,6 +345,7 @@ export default function ProductsPage() {
 
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
+  const tipVariacaoTotal = `Faturamento somado dos produtos do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}. Cada produto pesa pelo quanto vende.`;
   const tipCmvProduto = view.temCustoProduto
     ? "Mostra o faturamento, CMV, lucro bruto e margem de cada produto no período.\n\nQuando aparecer “—”, não há custo suficiente para calcular o indicador corretamente."
     : "O CMV por produto não está disponível para este período.";
@@ -706,7 +710,13 @@ export default function ProductsPage() {
                   <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.margemPct == null ? "text-t2" : "text-ok")}>
                     {pctFmt(totalTabela.margemPct)}
                   </td>
-                  <td />
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold">
+                    <Tooltip label={tipVariacaoTotal}>
+                      <span>
+                        <Variacao v={totalTabela.variacaoPct} />
+                      </span>
+                    </Tooltip>
+                  </td>
                 </tr>
               </tbody>
             </table>

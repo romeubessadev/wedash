@@ -2516,6 +2516,9 @@ export interface ProductItemRow {
   margemPct: number | null;
   /** Faturamento vs período anterior (%); null sem base de comparação. */
   variacaoPct: number | null;
+  /** Faturamento nos dois lados do comparativo (mesmo recorte da Variação) — variação do total. */
+  faturamentoCmp: number;
+  faturamentoAnt: number;
 }
 
 export type AbcClass = "A" | "B" | "C";
@@ -2772,6 +2775,8 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
         lucro,
         margemPct: lucro == null ? null : divSeguro(lucro, p.fat) * 100,
         variacaoPct: p.fatAnt > 0 && p.fatCmp > 0 ? ((p.fatCmp - p.fatAnt) / p.fatAnt) * 100 : null,
+        faturamentoCmp: p.fatCmp,
+        faturamentoAnt: p.fatAnt,
       };
     })
     .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
