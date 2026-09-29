@@ -27,6 +27,7 @@ export * from "./Timeline";
 export * from "./Rating";
 export * from "./Skeleton";
 export * from "./Segmented";
+export * from "./TagSelect";
 export * from "./DateRangePicker";
 export * from "./CommissionLadder";
 export * from "./WizardSteps";
