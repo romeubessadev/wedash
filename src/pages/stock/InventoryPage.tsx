@@ -34,8 +34,8 @@ const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant 
   ok: { label: "Ok", variant: "success" },
 };
 
-const doLocal = (nome: string) => (nome === "Loja" ? `da ${nome}` : `do ${nome}`);
-const paraLocal = (nome: string) => (nome === "Loja" ? `para a ${nome}` : `para o ${nome}`);
+const doLocal = (nome: string) => (nome === "LOJA" ? `da ${nome}` : `do ${nome}`);
+const paraLocal = (nome: string) => (nome === "LOJA" ? `para a ${nome}` : `para o ${nome}`);
 
 /** "Transferir 71 do Estoque para a Loja", uma linha por transferência (com o nome da loja quando há várias). */
 function transferTip(r: StockProductRow, variasLojas: boolean): string {
@@ -119,7 +119,7 @@ export function InventoryPage() {
       ? [
           {
             key: "estoque",
-            header: locais.length > 0 ? "Total" : "Estoque",
+            header: "Total",
             align: "right",
             render: ({ r }: Linha) => <TotalQty v={r.estoque} />,
           } satisfies DataTableColumn<Linha>,
@@ -197,7 +197,7 @@ export function InventoryPage() {
               className="mb-3"
               options={[
                 { key: "nome" as SortKey, label: "Produto", text: true },
-                { key: "estoque" as SortKey, label: locais.length > 1 ? "Total" : "Estoque" },
+                { key: "estoque" as SortKey, label: locais.length === 1 ? locais[0] : "Total" },
                 { key: "status" as SortKey, label: "Status" },
               ]}
               sortKey={sortKey}

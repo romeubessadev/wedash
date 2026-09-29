@@ -2,7 +2,7 @@
  * Estoque e Tabelas de venda: leitura (estoque da loja, tabelas/preços de venda, tabela usada nas vendas, catálogo)
  * e busca no Millennium sob demanda (Edge `erp-stock-sync`).
  */
-import { labelCase, titleName } from "@/lib/format";
+import { labelCase } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllPages } from "./salesRepo";
 import type { StockCatalogItem, StockInput } from "./stockProducts";
@@ -77,17 +77,18 @@ export async function fetchStoreStock(
       storeId: r.store_id,
       code: String(r.product_code).trim(),
       qty: Number(r.quantity) || 0,
-      locations: locationsTitleCase(r.locations ?? {}),
+      locations: locationsUpper(r.locations ?? {}),
     })),
     syncedAt,
   };
 }
 
-/** Nome do local em Title Case ("SHOP010" → "Shop010"; o QUIOSQUE, de onde sai a venda, aparece como "Loja"); mesma grafia no ERP soma junto. */
-function locationsTitleCase(raw: Record<string, number | string>): Record<string, number> {
+/** Nome do local em caixa alta (o QUIOSQUE, de onde sai a venda, aparece como "LOJA"); mesma grafia no ERP soma junto. */
+function locationsUpper(raw: Record<string, number | string>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(raw)) {
-    const nome = k.trim().toUpperCase() === "QUIOSQUE" ? "Loja" : titleName(k.trim()) || "Estoque";
+    const upper = k.trim().toUpperCase();
+    const nome = upper === "QUIOSQUE" ? "LOJA" : upper || "ESTOQUE";
     out[nome] = (out[nome] ?? 0) + (Number(v) || 0);
   }
   return out;

@@ -26,7 +26,7 @@ export function localQty(r: StockProductRow, nome: string): number {
 export function stockLocations(rows: StockProductRow[]): string[] {
   const nomes = new Set<string>();
   for (const r of rows) for (const l of r.lojas) for (const x of l.locais) nomes.add(x.nome);
-  const ordem = (n: string) => (n === "Estoque" ? 0 : n === "Loja" ? 2 : 1);
+  const ordem = (n: string) => (n === "ESTOQUE" ? 0 : n === "LOJA" ? 2 : 1);
   return [...nomes].sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b, "pt-BR"));
 }
 
