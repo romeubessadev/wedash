@@ -20,6 +20,7 @@ import {
   SearchField,
   TableFooter,
   UpdatedLine,
+  HeaderFilters,
   localQty,
   qty,
   stockLocations,
@@ -168,7 +169,9 @@ export function InventoryPage() {
         title="Estoque"
         subtitle="Veja o saldo de cada produto por local, o que transferir e o que está em falta."
         actions={
-          <>
+          <HeaderFilters
+            updated={<UpdatedLine text={atualizadoTexto} tip="Estoque buscado no Millennium ao abrir a tela (a cada 30 minutos) e no botão Atualizar do topo." />}
+          >
             <SearchField value={busca} onChange={setBusca} />
             <FilterSelect label="Status" value={status} onChange={setStatus} options={statusOpcoes} />
             {categorias.length > 1 && (
@@ -180,10 +183,9 @@ export function InventoryPage() {
               />
             )}
             <ExportButton onClick={exportar} />
-          </>
+          </HeaderFilters>
         }
       />
-      <UpdatedLine text={atualizadoTexto} tip="Estoque buscado no Millennium ao abrir a tela (a cada 30 minutos) e no botão Atualizar do topo." />
 
       {showSkeleton || !view ? (
         <StockProductsSkeleton />

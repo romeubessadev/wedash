@@ -105,11 +105,20 @@ export function ProductCell({ r, extra }: { r: StockProductRow; extra?: ReactNod
 }
 
 export function UpdatedLine({ text, tip }: { text: string; tip: string }) {
+  if (!text) return null;
   return (
-    <div className="-mt-1 mb-3 print:hidden">
-      <Tooltip label={tip}>
-        <span className="cursor-help text-[11.5px] text-t2">{text}</span>
-      </Tooltip>
+    <Tooltip label={tip}>
+      <span className="cursor-help text-[11.5px] text-t2">{text}</span>
+    </Tooltip>
+  );
+}
+
+/** Filtros do cabeçalho no padrão da Visão geral: um abaixo do outro no celular, em linha no desktop, e o horário embaixo. */
+export function HeaderFilters({ children, updated }: { children: ReactNode; updated?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-start gap-2 sm:items-end">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">{children}</div>
+      {updated}
     </div>
   );
 }

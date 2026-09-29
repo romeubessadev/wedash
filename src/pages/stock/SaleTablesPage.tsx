@@ -13,7 +13,7 @@ import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { SectionHeader } from "@/pages/operation/shared";
-import { ExportButton, FilterSelect, ProductCell, SearchField, TableFooter, TipHelp, UpdatedLine, money, pct, pctRate } from "./shared";
+import { ExportButton, FilterSelect, HeaderFilters, ProductCell, SearchField, TableFooter, TipHelp, UpdatedLine, money, pct, pctRate } from "./shared";
 import { tableLabel, uniqueIds, useStockData } from "./useStockData";
 
 type SortKey = "nome" | "preco" | "lucro" | "margem";
@@ -109,7 +109,14 @@ export function SaleTablesPage() {
         title="Tabelas de venda"
         subtitle="Compare o preço e o lucro por peça de cada produto na tabela escolhida. O lucro já desconta impostos, royalties, marketing e aluguel."
         actions={
-          <>
+          <HeaderFilters
+            updated={
+              <UpdatedLine
+                text={atualizadoTexto}
+                tip="Preços buscados no Millennium uma vez por dia ao abrir a tela e no botão Atualizar do topo. A tabela sugerida é a mais usada nas vendas dos últimos 30 dias."
+              />
+            }
+          >
             <SearchField value={busca} onChange={setBusca} />
             {tabelaOpcoes.length > 0 && (
               <FilterSelect
@@ -128,12 +135,8 @@ export function SaleTablesPage() {
               />
             )}
             <ExportButton onClick={exportar} />
-          </>
+          </HeaderFilters>
         }
-      />
-      <UpdatedLine
-        text={atualizadoTexto}
-        tip="Preços buscados no Millennium uma vez por dia ao abrir a tela e no botão Atualizar do topo. A tabela sugerida é a mais usada nas vendas dos últimos 30 dias."
       />
 
       {showSkeleton || !view ? (
