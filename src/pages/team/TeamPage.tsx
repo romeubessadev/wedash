@@ -25,6 +25,7 @@ import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { TeamSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoRanking } from "@/pages/live/blocos";
@@ -538,15 +539,33 @@ export function TeamPage() {
       <div className="flex flex-col">
         <BlocoRanking ranking={podio} formatValor={brlCent} />
 
-        <div className="mt-6 flex flex-col gap-2 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-end print:hidden">
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-5 sm:justify-end print:hidden">
           <input
             type="search"
-            placeholder="Buscar por nome…"
+            placeholder="Buscar..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className={cn(filtroInputClass, "sm:w-56")}
           />
         </div>
+        {linhasTabela.length > 1 && (
+          <MobileSortBar
+            className="mt-3"
+            options={[
+              { key: "nome", label: "Nome", text: true },
+              { key: "faturamento", label: "Faturamento" },
+              { key: "vendas", label: "Vendas" },
+              { key: "ticketMedio", label: "Ticket" },
+              { key: "variacaoPct", label: "Variação" },
+            ]}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onChange={(k, d) => {
+              setSortKey(k);
+              setSortDir(d);
+            }}
+          />
+        )}
 
         {/* Desktop */}
         <div className="mt-3 hidden overflow-x-auto md:block">
