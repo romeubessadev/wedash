@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { Alert, Badge, Button, Card, CardTitle, Dropdown, Modal, Pagination, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
-import { MobileSortSelect } from "@/components/wedash/MobileSortSelect";
+import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { fetchSalesProductDayAggs } from "@/data/wedash/salesRepo";
 import {
@@ -482,23 +482,25 @@ export function StockProductsPage() {
                   placeholder="Buscar por produto ou código…"
                   className={cn(filtroInputClass, "w-full sm:w-56")}
                 />
-                <MobileSortSelect
-                  options={[
-                    { key: "nome", label: "Produto", text: true },
-                    { key: "estoque", label: "Estoque" },
-                    { key: "custo", label: "Preço de custo" },
-                    { key: "preco", label: "Preço de venda" },
-                    { key: "lucro", label: "Lucro por peça" },
-                  ]}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onChange={(k, d) => {
-                    setSortKey(k);
-                    setSortDir(d);
-                  }}
-                />
               </div>
             </div>
+            {linhas.length > 1 && (
+              <MobileSortBar
+                className="px-5 pb-1"
+                options={[
+                  { key: "nome", label: "Produto", text: true },
+                  { key: "estoque", label: "Estoque" },
+                  { key: "preco", label: "Preço" },
+                  { key: "lucro", label: "Lucro" },
+                ]}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onChange={(k, d) => {
+                  setSortKey(k);
+                  setSortDir(d);
+                }}
+              />
+            )}
 
             {linhas.length === 0 ? (
               <div className="flex p-4">
