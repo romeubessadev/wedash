@@ -83,7 +83,7 @@ export function SaleTablesPage() {
         />
       ),
     },
-    { key: "custo", header: "Preço de custo", align: "right", hideBelow: "md", render: (r) => <span className="tabular-nums text-t1">{money(r.custo)}</span> },
+    { key: "custo", header: "Preço de custo", align: "right", render: (r) => <span className="tabular-nums text-t1">{money(r.custo)}</span> },
     { key: "preco", header: "Preço de venda", align: "right", render: (r) => <span className="font-bold tabular-nums text-t0">{money(r.preco)}</span> },
     {
       key: "lucro",
@@ -91,8 +91,8 @@ export function SaleTablesPage() {
       align: "right",
       render: (r) => <span className={cn("font-extrabold tabular-nums", r.lucro == null ? "text-t2" : r.lucro < 0 ? "text-bad" : "text-ok")}>{money(r.lucro)}</span>,
     },
-    { key: "margem", header: "Margem", align: "right", hideBelow: "sm", render: (r) => <span className="tabular-nums text-t1">{pct(r.margemPct)}</span> },
-    { key: "minimo", header: "Preço mínimo", align: "right", hideBelow: "lg", render: (r) => <span className="tabular-nums text-t2">{money(r.precoMinimo)}</span> },
+    { key: "margem", header: "Margem", align: "right", render: (r) => <span className="tabular-nums text-t1">{pct(r.margemPct)}</span> },
+    { key: "minimo", header: "Preço mínimo", align: "right", render: (r) => <span className="tabular-nums text-t2">{money(r.precoMinimo)}</span> },
   ];
 
   const produtoDetalhe = detalhe ? (view?.rows.find((r) => r.codigo === detalhe) ?? null) : null;

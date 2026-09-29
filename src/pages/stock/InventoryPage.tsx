@@ -118,7 +118,6 @@ export function InventoryPage() {
       key: `local:${nome}`,
       header: nome,
       align: "right",
-      hideBelow: "md",
       render: ({ r }) => {
         const v = localQty(r, nome);
         return <span className={cn("tabular-nums", v < 0 ? "font-semibold text-bad" : v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
@@ -134,7 +133,6 @@ export function InventoryPage() {
       key: "vendidos",
       header: "Vendidos (30 dias)",
       align: "right",
-      hideBelow: "sm",
       render: ({ r }) => <span className={cn("tabular-nums", r.itensVendidos30d === 0 ? "text-t2" : "text-t1")}>{qty(r.itensVendidos30d)}</span>,
     },
     {
