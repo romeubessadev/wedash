@@ -471,46 +471,53 @@ export function StockProductsPage() {
           )}
 
           <Card className="mt-4" padding="none">
-            <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Custo e lucro por produto</CardTitle>
-                <TipHelp label={`Lucro por peça vendendo na tabela ${tabelaNome}, já descontando impostos, royalties, marketing e aluguel. Clique no produto para ver a conta.`} />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
-                <div className="flex h-8 w-full items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 transition-colors focus-within:border-acc hover:border-acc sm:w-60">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
-                  <input
-                    type="search"
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    placeholder="Buscar por produto ou código…"
-                    className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-t0 outline-none placeholder:font-normal placeholder:text-t2"
-                  />
-                </div>
-                <Dropdown
-                  align="right"
-                  trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Com estoque"} />}
-                  items={situacaoOpcoes.map((o) => ({ label: o.label, active: o.value === situacao, onClick: () => setSituacao(o.value) }))}
+            <div className="flex items-center gap-1.5 px-5 py-4">
+              <CardTitle>Custo e lucro por produto</CardTitle>
+              <TipHelp label={`Lucro por peça vendendo na tabela ${tabelaNome}, já descontando impostos, royalties, marketing e aluguel. Clique no produto para ver a conta.`} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 border-y border-line px-5 py-3 print:hidden">
+              <div className="flex h-8 w-full items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 transition-colors focus-within:border-acc hover:border-acc sm:w-60">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar…"
+                  className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-t0 outline-none placeholder:font-normal placeholder:text-t2"
                 />
-                {view.categorias.length > 1 && (
-                  <Dropdown
-                    align="right"
-                    menuClassName="max-h-72 overflow-y-auto"
-                    trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
-                    items={[
-                      { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
-                      ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
-                    ]}
-                  />
-                )}
               </div>
+              <Dropdown
+                align="left"
+                trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Com estoque"} />}
+                items={situacaoOpcoes.map((o) => ({ label: o.label, active: o.value === situacao, onClick: () => setSituacao(o.value) }))}
+              />
+              {view.categorias.length > 1 && (
+                <Dropdown
+                  align="left"
+                  menuClassName="max-h-72 overflow-y-auto"
+                  trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
+                  items={[
+                    { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
+                    ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
+                  ]}
+                />
+              )}
+              <div className="hidden flex-1 sm:block" />
+              {(situacao !== "com" || categoria != null) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {situacao !== "com" && (
+                    <FiltroChip label={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? ""} onClear={() => setSituacao("com")} />
+                  )}
+                  {categoria != null && <FiltroChip label={categoria} onClear={() => setCategoria(null)} />}
+                </div>
+              )}
             </div>
             {linhas.length > 1 && (
               <MobileSortBar
-                className="px-5 pb-1"
+                className="px-5 pt-3"
                 options={[
                   { key: "nome", label: "Produto", text: true },
                   { key: "estoque", label: "Estoque" },
@@ -748,6 +755,17 @@ function Metrica({ label, value }: { label: string; value: ReactNode }) {
       <span className="text-t2">{label}</span>
       <span className="font-semibold tabular-nums text-t0">{value}</span>
     </div>
+  );
+}
+
+function FiltroChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button type="button" onClick={onClear} className="flex items-center gap-1.5 rounded-full bg-acc-soft px-2.5 py-1 text-[11.5px] font-bold text-acc">
+      {label}
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </svg>
+    </button>
   );
 }
 
