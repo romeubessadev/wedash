@@ -82,12 +82,19 @@ describe("ensureProductCatalog", () => {
     expect(calls.claim).toBe(0);
   });
 
-  it("catálogo vazio → recarrega tudo (tipos, 1 por tipo, tabelas, 1 por tabela)", async () => {
+  it("catálogo e tabelas vazios → recarrega tudo (tipos, 1 por tipo, tabelas, 1 por tabela)", async () => {
+    const { deps, calls } = fakeDeps({ tables: 0 });
+    const r = await ensureProductCatalog(deps, { session: "s", seen: [], guard: { attempted: false }, owner: "w" });
+    expect(r).toMatchObject({ status: "refreshed", catalog: true, costTables: "all", types: 2, products: 2, tables: 2, prices: 1, calls: 6 });
+    expect(calls.prices.sort()).toEqual([1, 20104]);
+    expect(calls.release).toEqual([true]);
+  });
+
+  it("catálogo vazio com tabelas de custo gravadas → só tipos + produtos", async () => {
     const { deps, calls } = fakeDeps();
     const r = await ensureProductCatalog(deps, { session: "s", seen: [], guard: { attempted: false }, owner: "w" });
-    expect(r).toMatchObject({ status: "refreshed", types: 2, products: 2, tables: 2, prices: 1, calls: 6 });
-    expect(calls.prices).toEqual([1, 20104]);
-    expect(calls.release).toEqual([true]);
+    expect(r).toMatchObject({ status: "refreshed", catalog: true, costTables: null, types: 2, products: 2, calls: 3 });
+    expect(calls.prices).toEqual([]);
   });
 
   it("com loja → 1 chamada a mais para o cadastro (data/múltipla/bloqueio); falha não derruba a recarga", async () => {
@@ -96,7 +103,7 @@ describe("ensureProductCatalog", () => {
     deps.fetchRegistry = async (_s, storeId) => [{ code: `P${storeId}`, registeredAt: "2024-06-05", purchaseMultiple: 12, purchaseBlocked: false }];
     deps.saveRegistry = async (items) => (saved.push(...items.map((i) => i.code)), items.length);
     const ok = await ensureProductCatalog(deps, { session: "s", seen: [], guard: { attempted: false }, owner: "w", millenniumStoreId: 8 });
-    expect(ok).toMatchObject({ status: "refreshed", calls: 7, registry: 1 });
+    expect(ok).toMatchObject({ status: "refreshed", calls: 4, registry: 1 });
     expect(saved).toEqual(["P8"]);
 
     const { deps: d2, calls: c2 } = fakeDeps();
@@ -109,11 +116,12 @@ describe("ensureProductCatalog", () => {
     expect(c2.release).toEqual([true]);
   });
 
-  it("tabelas de custo vazias → recarrega mesmo com o catálogo completo", async () => {
+  it("tabelas de custo vazias com o catálogo completo → só as tabelas", async () => {
     const { deps, calls } = fakeDeps({ catalog: [1, 2], tables: 0 });
     const r = await ensureProductCatalog(deps, { session: "s", seen: seen(1), guard: { attempted: false }, owner: "w" });
-    expect(r.status).toBe("refreshed");
-    expect(calls.prices).toEqual([1, 20104]);
+    expect(r).toMatchObject({ status: "refreshed", catalog: false, costTables: "all", calls: 3 });
+    expect(calls.types).toBe(0);
+    expect(calls.prices.sort()).toEqual([1, 20104]);
   });
 
   it("custo 0 com preço na tabela da loja → não chama o ERP", async () => {
@@ -129,7 +137,7 @@ describe("ensureProductCatalog", () => {
     expect(calls.claim).toBe(0);
   });
 
-  it("custo 0 sem preço na tabela → recarrega; o que segue sem preço vira miss", async () => {
+  it("custo 0 sem preço na tabela → busca só a tabela da loja (1 chamada); o que segue sem preço vira miss", async () => {
     const { deps, calls } = fakeDeps({ catalog: [1] });
     const r = await ensureProductCatalog(deps, {
       session: "s",
@@ -138,8 +146,23 @@ describe("ensureProductCatalog", () => {
       guard: { attempted: false },
       owner: "w",
     });
-    expect(r).toMatchObject({ status: "refreshed", costMissing: 2, stillCostMissing: 1 });
+    expect(r).toMatchObject({ status: "refreshed", catalog: false, costTables: "one", calls: 1, costMissing: 2, stillCostMissing: 1 });
+    expect(calls.types).toBe(0);
+    expect(calls.prices).toEqual([20104]);
     expect(calls.costRecorded).toEqual(["504"]);
+  });
+
+  it("produto desconhecido e custo 0 no mesmo job → catálogo + tabela da loja", async () => {
+    const { deps, calls } = fakeDeps({ catalog: [1] });
+    const r = await ensureProductCatalog(deps, {
+      session: "s",
+      seen: seen(2),
+      zeroCost: { storeId: "s1", codes: ["420"] },
+      guard: { attempted: false },
+      owner: "w",
+    });
+    expect(r).toMatchObject({ status: "refreshed", catalog: true, costTables: "one", calls: 4, stillUnknown: 0, stillCostMissing: 0 });
+    expect(calls.prices).toEqual([20104]);
   });
 
   it("custo 0 com miss recente ou loja sem tabela → não recarrega", async () => {
@@ -158,10 +181,11 @@ describe("ensureProductCatalog", () => {
     }
   });
 
-  it("produto desconhecido que não veio na recarga vira miss (não recarrega de novo por 24h)", async () => {
+  it("produto desconhecido → só o catálogo (sem tabelas de custo); o que não veio vira miss por 24h", async () => {
     const { deps, calls } = fakeDeps({ catalog: [1] });
     const r = await ensureProductCatalog(deps, { session: "s", seen: seen(1, 99), guard: { attempted: false }, owner: "w" });
-    expect(r).toMatchObject({ status: "refreshed", unknown: 1, stillUnknown: 1 });
+    expect(r).toMatchObject({ status: "refreshed", catalog: true, costTables: null, calls: 3, unknown: 1, stillUnknown: 1 });
+    expect(calls.prices).toEqual([]);
     expect(calls.recorded).toEqual([99]);
   });
 

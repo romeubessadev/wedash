@@ -1,11 +1,10 @@
 /**
- * Produtos compartilhados pela rede: catálogo (product_type + product_catalog) + tabelas de custo
- * (product_cost_table + product_cost_table_price) + cadastro do produto (data de cadastro, quantidade múltipla,
- * bloqueado compra — relatório Saldo Atual e Futuro). Uma recarga só traz tudo (~30 chamadas).
- * Sem relógio — recarrega quando:
- * - catálogo ou tabelas de custo vazios;
- * - aparece produto desconhecido nas vendas;
- * - produto vendido com custo 0 na margem não tem preço na tabela da loja.
+ * Produtos compartilhados pela rede: catálogo (product_type + product_catalog) + cadastro do produto (data de
+ * cadastro, quantidade múltipla, bloqueado compra — relatório Saldo Atual e Futuro) + tabelas de custo
+ * (product_cost_table + product_cost_table_price). Sem relógio — cada gatilho busca só a sua parte:
+ * - catálogo vazio / produto desconhecido nas vendas → tipos + produtos de cada tipo + cadastro (~21 chamadas);
+ * - tabelas de custo vazias → lista de tabelas + preços de todas (~9 chamadas);
+ * - produto vendido com custo 0 sem preço na tabela da loja → preços só dessa tabela (1 chamada).
  * No máx. 1× por job e 1× a cada 15 min na rede inteira (lease no banco — o 1º worker que precisar busca).
  * O que segue faltando depois da recarga não força outra por 24h.
  */
@@ -14,6 +13,8 @@ import type { CostTable } from "./millenniumCostTable.ts";
 
 export const CATALOG_MIN_INTERVAL_SEC = 15 * 60;
 export const CATALOG_LEASE_SEC = 300;
+/** Chamadas simultâneas na recarga (o Atualizar pode estar com outra frente no ERP ao mesmo tempo). */
+export const CATALOG_CONCURRENCY = 2;
 
 export type SeenProduct = { erpProductId: number; code: string };
 export type CatalogEntry = { code: string; description: string; typeId: number | null };
@@ -48,6 +49,10 @@ export type CatalogDeps = {
 export type CatalogGuard = { attempted: boolean };
 
 export type ProductsRefresh = {
+  /** Recarregou tipos + produtos + cadastro. */
+  catalog: boolean;
+  /** "all" = lista + preços de todas as tabelas; "one" = preços só da tabela da loja; null = não mexeu. */
+  costTables: "all" | "one" | null;
   types: number;
   products: number;
   tables: number;
@@ -76,21 +81,30 @@ export function dedupeCatalogProducts(products: CatalogProduct[]): CatalogProduc
   return [...byCode.values()];
 }
 
-/**
- * Recarga completa: tipos, produtos de cada tipo, cadastro (data/múltipla/bloqueio — soft-fail),
- * tabelas de custo e preços de todas as tabelas.
- */
-export async function refreshProducts(
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/** Tipos, produtos de cada tipo e cadastro (data/múltipla/bloqueio — soft-fail). */
+export async function refreshCatalog(
   deps: CatalogDeps,
   session: string,
   millenniumStoreId?: number,
-): Promise<ProductsRefresh & { productIds: Set<number>; pricesByTable: Map<number, Map<string, number>> }> {
+): Promise<{ types: number; products: number; calls: number; registry: number | null; registryError?: string; productIds: Set<number> }> {
   const types = await deps.fetchTypes(session);
   if (types.length === 0) throw new Error("lookup de tipos voltou vazio");
   await deps.upsertTypes(types);
-  const all: CatalogProduct[] = [];
-  for (const t of types) all.push(...(await deps.fetchProductsOfType(session, t.typeId)));
-  const products = dedupeCatalogProducts(all);
+  const byType = await mapPool(types, CATALOG_CONCURRENCY, (t) => deps.fetchProductsOfType(session, t.typeId));
+  const products = dedupeCatalogProducts(byType.flat());
   await deps.upsertProducts(products);
 
   let registry: number | null = null;
@@ -104,29 +118,42 @@ export async function refreshProducts(
       registryError = e instanceof Error ? e.message : String(e);
     }
   }
-
-  const tables = await deps.fetchCostTables(session);
-  if (tables.length === 0) throw new Error("lookup de tabelas de custo voltou vazio");
-  await deps.saveCostTables(tables);
-  const pricesByTable = new Map<number, Map<string, number>>();
-  let prices = 0;
-  for (const t of tables) {
-    const p = await deps.fetchCostTablePrices(session, t.tableId);
-    await deps.saveCostTablePrices(t.tableId, p);
-    pricesByTable.set(t.tableId, p);
-    prices += p.size;
-  }
   return {
     types: types.length,
     products: products.length,
-    tables: tables.length,
-    prices,
-    calls: 1 + types.length + registryCalls + 1 + tables.length,
+    calls: 1 + types.length + registryCalls,
     registry,
     registryError,
     productIds: new Set(products.map((p) => p.erpProductId)),
-    pricesByTable,
   };
+}
+
+/** `onlyTableId` = preços só dessa tabela (1 chamada); sem ele = lista de tabelas + preços de todas. */
+export async function refreshCostTables(
+  deps: CatalogDeps,
+  session: string,
+  onlyTableId?: number,
+): Promise<{ tables: number; prices: number; calls: number; pricesByTable: Map<number, Map<string, number>> }> {
+  let tableIds: number[];
+  let listCalls = 0;
+  if (onlyTableId != null) {
+    tableIds = [onlyTableId];
+  } else {
+    const tables = await deps.fetchCostTables(session);
+    if (tables.length === 0) throw new Error("lookup de tabelas de custo voltou vazio");
+    await deps.saveCostTables(tables);
+    tableIds = tables.map((t) => t.tableId);
+    listCalls = 1;
+  }
+  const pricesByTable = new Map<number, Map<string, number>>();
+  let prices = 0;
+  await mapPool(tableIds, CATALOG_CONCURRENCY, async (tableId) => {
+    const p = await deps.fetchCostTablePrices(session, tableId);
+    await deps.saveCostTablePrices(tableId, p);
+    pricesByTable.set(tableId, p);
+    prices += p.size;
+  });
+  return { tables: tableIds.length, prices, calls: listCalls + tableIds.length, pricesByTable };
 }
 
 export async function ensureProductCatalog(
@@ -142,12 +169,13 @@ export async function ensureProductCatalog(
     millenniumStoreId?: number;
   },
 ): Promise<EnsureCatalogResult> {
-  const empty = (await deps.countCatalog()) === 0 || (await deps.countCostTables()) === 0;
+  const catalogEmpty = (await deps.countCatalog()) === 0;
+  const tablesEmpty = (await deps.countCostTables()) === 0;
 
   let unknown: SeenProduct[] = [];
   const ids = [...new Set(args.seen.map((s) => s.erpProductId))];
   if (ids.length > 0) {
-    const known = empty ? new Set<number>() : await deps.knownProductIds(ids);
+    const known = catalogEmpty ? new Set<number>() : await deps.knownProductIds(ids);
     const seenIds = new Set<number>();
     for (const s of args.seen) {
       if (known.has(s.erpProductId) || seenIds.has(s.erpProductId)) continue;
@@ -159,7 +187,7 @@ export async function ensureProductCatalog(
   let costTable: number | null = null;
   let costMissing: string[] = [];
   const zeroCodes = [...new Set(args.zeroCost?.codes ?? [])];
-  if (args.zeroCost && zeroCodes.length > 0 && !empty) {
+  if (args.zeroCost && zeroCodes.length > 0 && !tablesEmpty) {
     costTable = await deps.storeCostTable(args.zeroCost.storeId);
     if (costTable != null) {
       const covered = await deps.coveredCostCodes(costTable, zeroCodes);
@@ -167,18 +195,23 @@ export async function ensureProductCatalog(
     }
   }
 
-  if (!empty && unknown.length === 0 && costMissing.length === 0) return { status: "ok", unknown: 0 };
+  const needCatalog = catalogEmpty || unknown.length > 0;
+  const costTables: "all" | "one" | null = tablesEmpty ? "all" : costMissing.length > 0 ? "one" : null;
+  if (!needCatalog && costTables == null) return { status: "ok", unknown: 0 };
   if (args.guard.attempted) return { status: "skipped", unknown: unknown.length, reason: "job" };
   args.guard.attempted = true;
 
-  const claimed = await deps.claimRefresh(args.owner, CATALOG_LEASE_SEC, empty ? 0 : CATALOG_MIN_INTERVAL_SEC);
+  const firstLoad = catalogEmpty || tablesEmpty;
+  const claimed = await deps.claimRefresh(args.owner, CATALOG_LEASE_SEC, firstLoad ? 0 : CATALOG_MIN_INTERVAL_SEC);
   if (!claimed) return { status: "skipped", unknown: unknown.length, reason: "busy" };
 
   try {
-    const r = await refreshProducts(deps, args.session, args.millenniumStoreId);
-    const still = unknown.filter((u) => !r.productIds.has(u.erpProductId));
+    const cat = needCatalog ? await refreshCatalog(deps, args.session, args.millenniumStoreId) : null;
+    const cost =
+      costTables == null ? null : await refreshCostTables(deps, args.session, costTables === "one" ? (costTable ?? undefined) : undefined);
+    const still = cat ? unknown.filter((u) => !cat.productIds.has(u.erpProductId)) : [];
     if (still.length > 0) await deps.recordMisses(still);
-    const tablePrices = costTable != null ? r.pricesByTable.get(costTable) : undefined;
+    const tablePrices = costTable != null ? cost?.pricesByTable.get(costTable) : undefined;
     const stillCost = tablePrices ? costMissing.filter((c) => !tablePrices.has(c)) : costMissing;
     if (costTable != null && stillCost.length > 0) await deps.recordCostMisses(costTable, stillCost);
     await deps.releaseRefresh(args.owner, true);
@@ -188,13 +221,15 @@ export async function ensureProductCatalog(
       stillUnknown: still.length,
       costMissing: costMissing.length,
       stillCostMissing: stillCost.length,
-      types: r.types,
-      products: r.products,
-      tables: r.tables,
-      prices: r.prices,
-      calls: r.calls,
-      registry: r.registry,
-      registryError: r.registryError,
+      catalog: cat != null,
+      costTables,
+      types: cat?.types ?? 0,
+      products: cat?.products ?? 0,
+      tables: cost?.tables ?? 0,
+      prices: cost?.prices ?? 0,
+      calls: (cat?.calls ?? 0) + (cost?.calls ?? 0),
+      registry: cat?.registry ?? null,
+      registryError: cat?.registryError,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

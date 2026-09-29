@@ -657,7 +657,7 @@ async function fetchCouponLinesForWindows(
   return out.okWindows.length > 0 ? out : null;
 }
 
-/** Produtos (catálogo + tabelas de custo): recarrega se aparecer produto desconhecido ou sem custo (soft-fail; 401 derruba o job). */
+/** Produtos: produto desconhecido → catálogo; custo 0 sem preço → tabela de custo da loja (soft-fail; 401 derruba o job). */
 async function ensureCatalogFor(
   deps: SyncJobDeps,
   args: {
@@ -687,8 +687,13 @@ async function ensureCatalogFor(
         console.warn(`  ⚠ [${args.store.code}] cadastro dos produtos (Saldo Atual e Futuro): ${r.registryError}`);
         syncLog("WARN", "catalogo", `Cadastro dos produtos (Saldo Atual e Futuro) falhou: ${r.registryError}`, { store: args.store });
       }
+      const parts = [
+        r.catalog ? `${r.products} produtos` : null,
+        r.costTables === "all" ? `${r.tables} tabelas de custo (${r.prices} precos)` : null,
+        r.costTables === "one" ? `tabela de custo da loja (${r.prices} precos)` : null,
+      ].filter(Boolean);
       console.log(
-        `  [${args.store.code}] produtos recarregados | ${r.products} produtos | ${r.tables} tabelas de custo (${r.prices} precos) | ${r.calls} chamadas ao ERP | ${formatElapsed(t)}` +
+        `  [${args.store.code}] produtos recarregados | ${parts.join(" | ")} | ${r.calls} chamadas ao ERP | ${formatElapsed(t)}` +
           (r.unknown > 0 ? ` | ${r.unknown} novo(s), ${r.stillUnknown} sem cadastro` : "") +
           (r.costMissing > 0 ? ` | ${r.costMissing} sem custo, ${r.stillCostMissing} seguem sem preco na tabela` : ""),
       );

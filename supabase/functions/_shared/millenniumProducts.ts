@@ -1,6 +1,6 @@
 /**
  * Catálogo de produtos + tabelas de custo do Millennium (espelho de workers/millennium-sync/src/
- * millenniumCatalog.ts, millenniumCostTable.ts e refreshProducts em productCatalog.ts — manter iguais).
+ * millenniumCatalog.ts, millenniumCostTable.ts e dedupeCatalogProducts em productCatalog.ts — manter iguais).
  * - Tipos: `$lookup=PRODUTO.tipo.tipo`; produtos de um tipo: `$lookup=produto.produto.produto` com PARAM_9.
  * - Tabelas: `$lookup=tabela_custo.TABELA`; custos: wtsreports {9701602B} com TABELA_DE_CUSTO e filial vazia.
  *   `F_3814918930` = custo unitário; mesmo código em várias cores → fica o maior; só > 0.
