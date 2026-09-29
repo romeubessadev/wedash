@@ -77,9 +77,6 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-const filtroInputClass =
-  "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
-
 const money = (v: number | null) => (v == null ? "—" : brlCent(v));
 const pct = (v: number | null) => (v == null ? "—" : `${v.toFixed(1).replace(".", ",")}%`);
 const pctRate = (v: number) => `${num(v, v % 1 === 0 ? 0 : 2)}%`;
@@ -480,6 +477,19 @@ export function StockProductsPage() {
                 <TipHelp label={`Lucro por peça vendendo na tabela ${tabelaNome}, já descontando impostos, royalties, marketing e aluguel. Clique no produto para ver a conta.`} />
               </div>
               <div className="flex flex-wrap items-center gap-2 print:hidden">
+                <div className="flex h-8 w-full items-center gap-2 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 transition-colors focus-within:border-acc hover:border-acc sm:w-60">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Buscar por produto ou código…"
+                    className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-t0 outline-none placeholder:font-normal placeholder:text-t2"
+                  />
+                </div>
                 <Dropdown
                   align="right"
                   trigger={<FiltroTrigger rotulo={situacaoOpcoes.find((o) => o.value === situacao)?.label ?? "Com estoque"} />}
@@ -496,13 +506,6 @@ export function StockProductsPage() {
                     ]}
                   />
                 )}
-                <input
-                  type="search"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar por produto ou código…"
-                  className={cn(filtroInputClass, "w-full sm:w-56")}
-                />
               </div>
             </div>
             {linhas.length > 1 && (
