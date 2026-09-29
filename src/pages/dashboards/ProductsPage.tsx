@@ -87,7 +87,7 @@ const KPI_COLORS = [
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
 ];
 
-type SortKey = "nome" | "faturamento" | "itens" | "margemPct" | "variacaoPct";
+type SortKey = "nome" | "faturamento" | "itens" | "lucro" | "margemPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
 
 const TipHelp = ({ label }: { label: string }) => (
@@ -137,6 +137,7 @@ function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
 
 const pctFmt = (v: number | null, casas = 1) => (v == null ? "—" : `${v.toFixed(casas).replace(".", ",")}%`);
 const moneyOrDash = (v: number | null) => (v == null ? "—" : brlCent(v));
+const corLucro = (v: number | null) => (v == null ? "text-t2" : v < 0 ? "text-bad" : "text-ok");
 
 function Variacao({ v }: { v: number | null }) {
   if (v == null) return <span className="text-t2">—</span>;
@@ -301,6 +302,7 @@ export default function ProductsPage() {
     return {
       faturamento,
       itens,
+      lucro,
       margemPct: lucro != null && faturamento > 0 ? (lucro / faturamento) * 100 : null,
     };
   }, [linhasTabela]);
@@ -631,13 +633,14 @@ export default function ProductsPage() {
           )
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] border-collapse text-sm">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
                   <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} className="px-1 pb-3" />
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} className="px-1 pb-3" />
                   <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} className="px-1 pb-3" />
                   <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} className="px-1 pb-3" />
                 </tr>
@@ -670,6 +673,7 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                      <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", corLucro(p.lucro))}>{moneyOrDash(p.lucro)}</td>
                       <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
                         {pctFmt(p.margemPct, 0)}
                       </td>
@@ -696,6 +700,9 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{num(totalTabela.itens)}</td>
                   <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{brlCent(totalTabela.faturamento)}</td>
+                  <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", corLucro(totalTabela.lucro))}>
+                    {moneyOrDash(totalTabela.lucro)}
+                  </td>
                   <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.margemPct == null ? "text-t2" : "text-ok")}>
                     {pctFmt(totalTabela.margemPct, 0)}
                   </td>
