@@ -146,7 +146,13 @@ export function useStockData({ prices }: { prices: boolean }) {
           show(r.message, "danger");
           return;
         }
-        if (r.failed.length > 0) show("Não foi possível buscar parte dos dados no Millennium. Tente novamente mais tarde.", "warning");
+        if (r.failed.length > 0)
+          show(
+            prices
+              ? "Não foi possível atualizar todos os preços. Tente novamente mais tarde."
+              : "Não foi possível atualizar todos os dados do estoque. Tente novamente mais tarde.",
+            "warning",
+          );
         const next = await reload();
         syncRef.current = false;
         if (tablesStale && d.saleTables.length === 0 && opts.selected == null) await syncIfStale(next);
@@ -239,7 +245,7 @@ export function useStockData({ prices }: { prices: boolean }) {
         ? `Preços atualizados ${hora(newestPrices)}`
         : "Preços ainda não atualizados"
     : syncing
-      ? "Atualizando o estoque…"
+      ? "Atualizando estoque…"
       : oldestSync
         ? `Estoque atualizado ${hora(oldestSync)}`
         : "Estoque ainda não atualizado";

@@ -157,8 +157,8 @@ const STOCK_SYNC_ERRORS: Record<string, string> = {
   credential_invalid: "Não foi possível acessar o Millennium. Verifique os dados da integração.",
   integration_paused: "A conexão com o Millennium está desconectada. Verifique a integração para continuar.",
   erp_busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
-  no_cost_table: "Escolha a tabela de custo da loja em Configurações > Produtos e impostos.",
-  forbidden: "Você não tem permissão para buscar o estoque.",
+  no_cost_table: "Escolha a tabela de custo da loja em Configurações › Produtos e impostos.",
+  forbidden: "Você não tem permissão para atualizar o estoque.",
 };
 
 /** Busca no Millennium agora (tabelas de venda, preços de tabelas, estoque das lojas). */
@@ -168,7 +168,7 @@ export async function syncStockNow(req: {
   stockStoreIds?: string[];
 }): Promise<{ ok: true; failed: string[] } | { ok: false; message: string }> {
   const sb = getSupabase();
-  if (!sb) return { ok: false, message: "Sem conexão com o servidor." };
+  if (!sb) return { ok: false, message: "Não foi possível conectar à WeDash. Verifique sua conexão e tente novamente." };
   const { data, error } = await sb.functions.invoke("erp-stock-sync", { body: req });
   let body = data as { ok?: boolean; error?: string; failed?: string[] } | null;
   if ((!body || typeof body !== "object") && error && typeof error === "object") {

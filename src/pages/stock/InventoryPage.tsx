@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, DataTable, type DataTableColumn, type SortDir } from "@/components/ui";
+import { Alert, Badge, Button, DataTable, type DataTableColumn, type SortDir } from "@/components/ui";
 import type { StatusVariant } from "@/lib/status";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { MobileSortBar } from "@/components/wedash/MobileSortBar";
@@ -35,14 +35,14 @@ const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant 
   ok: { label: "Ok", variant: "success" },
 };
 
-const doLocal = (nome: string) => (nome === "LOJA" ? `da ${nome}` : `do ${nome}`);
-const paraLocal = (nome: string) => (nome === "LOJA" ? `para a ${nome}` : `para o ${nome}`);
-
-/** "Transferir 71 do Estoque para a Loja", uma linha por transferência (com o nome da loja quando há várias). */
+/** "Transferir 71 de ESTOQUE para LOJA.", uma linha por transferência ("LOJA X: transferir …" quando há várias lojas). */
 function transferTip(r: StockProductRow, variasLojas: boolean): string {
   return r.lojas
     .flatMap((l) =>
-      l.transferencias.map((t) => `${variasLojas ? `${l.store.fantasia}: ` : ""}Transferir ${qty(t.qtd)} ${doLocal(t.de)} ${paraLocal(t.para)}`),
+      l.transferencias.map((t) => {
+        const acao = `transferir ${qty(t.qtd)} de ${t.de} para ${t.para}.`;
+        return variasLojas ? `${l.store.fantasia}: ${acao}` : acao.charAt(0).toUpperCase() + acao.slice(1);
+      }),
     )
     .join("\n");
 }
@@ -163,12 +163,12 @@ export function InventoryPage() {
       <SectionHeader
         section="Estoque"
         title="Estoque"
-        subtitle="Veja o saldo de cada produto por local de estoque."
+        subtitle="Acompanhe o saldo de cada produto por local de estoque."
         actions={
           <HeaderFilters
-            updated={<UpdatedLine text={atualizadoTexto} tip="Estoque buscado no Millennium ao abrir a tela (a cada 30 minutos) e no botão Atualizar do topo." />}
+            updated={<UpdatedLine text={atualizadoTexto} tip="O estoque é atualizado pelo Millennium ao abrir a tela, a cada 30 minutos e quando você usa Atualizar." />}
           >
-            <HeaderSearch value={busca} onChange={setBusca} />
+            <HeaderSearch value={busca} onChange={setBusca} placeholder="Buscar por produto ou código…" width={240} />
             <HeaderFilter label="Status" value={status} onChange={setStatus} options={statusOpcoes} />
             {categorias.length > 1 && (
               <HeaderFilter
@@ -187,7 +187,7 @@ export function InventoryPage() {
               variant="warning"
               title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
             >
-              Confira as entradas e saídas desses produtos na loja.
+              Confira as entradas e saídas desses produtos.
             </Alert>
           ) : undefined
         }
@@ -218,9 +218,34 @@ export function InventoryPage() {
           {linhas.length === 0 ? (
             <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
               {view.rows.length === 0 ? (
-                <EmptyBlock icon="📦" title="Sem estoque" description={syncing ? "Buscando o estoque no Millennium…" : "Nenhum produto com saldo nas lojas selecionadas."} />
+                syncing ? (
+                  <EmptyBlock icon="📦" title="Buscando estoque" description="Buscando os dados de estoque no Millennium…" />
+                ) : (
+                  <EmptyBlock
+                    icon="📦"
+                    title="Sem estoque"
+                    description={variasLojas ? "Nenhum produto com saldo nas lojas selecionadas." : "Nenhum produto com saldo nesta loja."}
+                  />
+                )
               ) : (
-                <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+                <EmptyBlock
+                  icon="🔍"
+                  title="Nenhum produto encontrado"
+                  description="Tente buscar por outro nome ou código ou altere os filtros."
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBusca("");
+                        setStatus("todos");
+                        setCategoria("");
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  }
+                />
               )}
             </div>
           ) : (

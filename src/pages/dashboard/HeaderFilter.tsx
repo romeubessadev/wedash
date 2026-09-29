@@ -39,7 +39,17 @@ export function HeaderFilter<V extends string>({
 }
 
 /** Busca no cabeçalho, com a mesma altura e borda dos filtros. */
-export function HeaderSearch({ value, onChange, placeholder = "Buscar..." }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+export function HeaderSearch({
+  value,
+  onChange,
+  placeholder = "Buscar...",
+  width = 200,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  width?: number;
+}) {
   return (
     <input
       type="search"
@@ -47,7 +57,8 @@ export function HeaderSearch({ value, onChange, placeholder = "Buscar..." }: { v
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       aria-label="Buscar"
-      className="h-10 w-[200px] min-w-0 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13.5px] font-semibold text-t0 outline-none transition-colors placeholder:font-medium placeholder:text-t2 hover:border-acc focus:border-acc"
+      style={{ width }}
+      className="h-10 min-w-0 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13.5px] font-semibold text-t0 outline-none transition-colors placeholder:font-medium placeholder:text-t2 hover:border-acc focus:border-acc"
     />
   );
 }

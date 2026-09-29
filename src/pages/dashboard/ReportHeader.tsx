@@ -25,6 +25,7 @@ function useReportScope() {
   const preset = periodDisplayLabel(escopo.periodo);
   return {
     lojaNome: loja ? loja.fantasia : "Todas as lojas",
+    todas: !loja,
     lojaCnpj: loja?.cnpj?.trim() || null,
     periodoTexto: preset ? `${preset} · ${datas}` : datas,
     periodoArquivo: preset ?? datas,
@@ -52,15 +53,9 @@ export function ReportHeader({
   /** Substitui a linha "Vendas de hoje atualizadas…". */
   atualizado?: string;
 }) {
-  const { lojaNome, lojaCnpj, periodoTexto } = useReportScope();
-  const geradoEm = new Date().toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
+  const { lojaNome, lojaCnpj, todas, periodoTexto } = useReportScope();
+  const agora = new Date();
+  const geradoEm = `${agora.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })} às ${agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`;
   return (
     <div className="mb-5 hidden border-b border-line pb-4 print:block">
       <div className="flex items-start justify-between gap-6">
@@ -72,8 +67,8 @@ export function ReportHeader({
       </div>
       <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-[12.5px]">
         <p>
-          <span className="text-t2">Loja: </span>
-          <span className="font-bold uppercase text-t0">{lojaNome}</span>
+          <span className="text-t2">{todas ? "Lojas: " : "Loja: "}</span>
+          <span className={todas ? "font-bold text-t0" : "font-bold uppercase text-t0"}>{lojaNome}</span>
           {lojaCnpj && <span className="text-t2"> · {lojaCnpj}</span>}
         </p>
         {periodo && (
