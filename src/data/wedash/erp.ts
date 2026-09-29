@@ -6,7 +6,6 @@
 import { stores, type Store } from "./stores";
 import { getSupabase } from "@/lib/supabase";
 import { persistErpCredentialAndStores } from "@/session/authApi";
-import { parseStoreHours, type WeekHours } from "./autoRefresh";
 import { syncProductsNow } from "./productCatalog";
 
 function esperar(ms: number) {
@@ -227,32 +226,6 @@ export async function refreshErpRegistry(): Promise<{ ok: true } | { ok: false; 
   }
   const r = await syncProductsNow({ scope: "registry" });
   return r.ok ? { ok: true } : r;
-}
-
-export type StoreSyncState = {
-  id: string;
-  timezone: string;
-  hours: WeekHours;
-};
-
-/** Horário e fuso de cada loja (tooltip "Próxima atualização" do Atualizar). */
-export async function fetchStoresSyncState(tenantId: string): Promise<StoreSyncState[]> {
-  const sb = getSupabase();
-  if (!sb) return [];
-  const { data, error } = await sb
-    .from("store")
-    .select("id, timezone, hours")
-    .eq("tenant_id", tenantId)
-    .eq("active", true);
-  if (error) {
-    console.warn("fetchStoresSyncState:", error.message);
-    return [];
-  }
-  return ((data ?? []) as Array<{ id: string; timezone: string | null; hours: unknown }>).map((r) => ({
-    id: r.id,
-    timezone: r.timezone || "America/Campo_Grande",
-    hours: parseStoreHours(r.hours),
-  }));
 }
 
 /** Quando foi enfileirada a última rodada automática (base da próxima). */

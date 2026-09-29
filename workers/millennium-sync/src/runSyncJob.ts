@@ -77,7 +77,7 @@ import {
 import { listaFingerprint, type ListaMemo } from "./listaFingerprint.ts";
 import { createSellerLinker, type LinkerStore, type SellerLinkerDeps } from "./sellerLinker.ts";
 import type { ErpStore } from "./millenniumStores.ts";
-import { AUTO_SESSION_MARK, localClock, parseStoreHours, pendingDays, storePhase } from "./autoRefresh.ts";
+import { AUTO_SESSION_MARK, localClock, pendingDays } from "./autoRefresh.ts";
 import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
@@ -1236,8 +1236,6 @@ export type SyncStore = {
   name?: string | null;
   /** Gerador da filial salvo no banco (filtro dos relatórios); null = ainda não buscado. */
   geradorId?: number | null;
-  /** `store.hours` cru (Configurações > Lojas). */
-  hours?: unknown;
   /** Último dia fechado (`store.last_closed_day`); null = ainda sem base. */
   lastClosedDay?: string | null;
 };
@@ -2659,10 +2657,10 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
     }
   }
 
+  // Hoje só fecha com pedido explícito (job antigo na fila); o normal é a 1ª rodada depois da meia-noite
+  // fechar ontem como dia pendente, acima.
   const closeRequested = new Set(job.payload.closeStoreIds ?? []);
-  const closesDay = (s: SyncStore, at: Date) =>
-    closeRequested.has(s.id) || storePhase(parseStoreHours(s.hours), at, s.timezone) === "closeDue";
-  const fullStoreIds = stores.filter((s) => closesDay(s, deps.now())).map((s) => s.id);
+  const fullStoreIds = stores.filter((s) => closeRequested.has(s.id)).map((s) => s.id);
   const res = await runSyncJob(
     innerJob({
       ...(job.payload.from ? { from: job.payload.from } : {}),
@@ -2680,13 +2678,10 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
       console.warn(`  ⚠ horário da última atualização da loja não foi salvo: ${e instanceof Error ? e.message : String(e)}`);
     });
   }
-  // Fecha só quem rodou completo (virou "closeDue" durante a rodada → fecha na próxima).
   const full = new Set(fullStoreIds);
   await markStoresClosed(
     deps,
-    stores
-      .filter((s) => closesDay(s, at) && full.has(s.id))
-      .map((s) => ({ storeId: s.id, day: localClock(at, s.timezone).day })),
+    stores.filter((s) => full.has(s.id)).map((s) => ({ storeId: s.id, day: localClock(at, s.timezone).day })),
   );
   return finish(res, res.storesDone);
 }

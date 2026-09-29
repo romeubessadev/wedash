@@ -10,8 +10,6 @@ import {
   unionOpenWindow,
   weekHoursConfigured,
 } from "./storeHours";
-import { parseStoreHours, storePhase } from "./autoRefresh";
-
 describe("storeHours", () => {
   it("parses jsonb and defaults", () => {
     const h = parseWeekHours({
@@ -31,9 +29,6 @@ describe("storeHours", () => {
     const umDia = parseWeekHours({ 1: { open: "09:00", close: "18:00" } });
     expect(weekHoursConfigured(umDia)).toBe(true);
     expect(effectiveWeekHours(umDia)).toBe(umDia);
-    // Worker: sem horário = nunca aberta (só Atualizar manual; D-1 no job da madrugada).
-    expect(storePhase(parseStoreHours(vazio), new Date("2026-09-25T15:00:00Z"), "America/Campo_Grande")).toBe("closed");
-    expect(parseStoreHours(umDia)[0]).toBeNull();
   });
 
   it("hhmm / open-close floors", () => {

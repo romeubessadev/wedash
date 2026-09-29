@@ -4,13 +4,7 @@ import { cn } from "@/lib/cn";
 import { fetchSyncWatermark } from "@/data/wedash/salesRepo";
 import { formatForceCooldownLabel } from "@/data/wedash/syncUi";
 import { AUTO_REFRESH_MIN, nextAutoRefreshAt } from "@/data/wedash/autoRefresh";
-import {
-  fetchErpIntegrationStatus,
-  fetchLastAutoRefreshAt,
-  fetchStoresSyncState,
-  type ErpIntegrationStatus,
-  type StoreSyncState,
-} from "@/data/wedash/erp";
+import { fetchErpIntegrationStatus, fetchLastAutoRefreshAt, type ErpIntegrationStatus } from "@/data/wedash/erp";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT, useForceRefresh } from "@/pages/dashboard/useForceRefresh";
 const WATERMARK_POLL_MS = 60_000;
@@ -24,23 +18,20 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
   const session = useActiveSession();
   const { show } = useToast();
   const [erp, setErp] = useState<ErpIntegrationStatus | null>(null);
-  const [lojas, setLojas] = useState<StoreSyncState[]>([]);
   const [lastAutoAt, setLastAutoAt] = useState<Date | null>(null);
   const lastWatermark = useRef<number | null>(null);
 
   const loadWatermark = useCallback(
     async (notifyIfNewer: boolean) => {
       try {
-        const [wm, st, sync, lastAuto] = await Promise.all([
+        const [wm, st, lastAuto] = await Promise.all([
           fetchSyncWatermark(session.tenantId),
           fetchErpIntegrationStatus(session.tenantId),
-          fetchStoresSyncState(session.tenantId),
           fetchLastAutoRefreshAt(session.tenantId),
         ]);
         const prev = lastWatermark.current;
         lastWatermark.current = wm?.getTime() ?? null;
         setErp(st);
-        setLojas(sync);
         setLastAutoAt(lastAuto);
         if (notifyIfNewer && prev != null && wm && wm.getTime() > prev) {
           window.dispatchEvent(new Event(SALES_SYNCED_EVENT));
@@ -90,15 +81,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
   }, [forceDoneAt, show]);
 
   const autoOn = erp != null && !disconnected && erp.autoRefreshEnabled;
-  const escopo = storeIds.length > 0 ? lojas.filter((l) => storeIds.includes(l.id)) : lojas;
-  const proxima = autoOn
-    ? nextAutoRefreshAt({
-        stores: escopo,
-        now: new Date(),
-        intervalMin: AUTO_REFRESH_MIN,
-        lastAutoAt,
-      })
-    : null;
+  const proxima = autoOn ? nextAutoRefreshAt({ now: new Date(), intervalMin: AUTO_REFRESH_MIN, lastAutoAt }) : null;
   if (!canForce) return null;
 
   const proximaLabel = proxima

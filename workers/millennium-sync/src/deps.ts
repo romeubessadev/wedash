@@ -23,7 +23,7 @@ import { fetchProductRegistry, fetchProductTypes, fetchProductsOfType } from "./
 import { fetchCostTablePrices, fetchCostTables } from "./millenniumCostTable.ts";
 import type { CatalogDeps, CatalogEntry } from "./productCatalog.ts";
 import { buildCostTableDetectDeps } from "./costTableSync.ts";
-import { AUTO_REFRESH_MIN, AUTO_SESSION_MARK, parseStoreHours, planAutoRound, recoveryFloor } from "./autoRefresh.ts";
+import { AUTO_REFRESH_MIN, AUTO_SESSION_MARK, planAutoRound, recoveryFloor } from "./autoRefresh.ts";
 import {
   addMonths,
   DEEP_EMPTY_MONTHS,
@@ -355,7 +355,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       const { data, error } = await sb
         .from("store")
         .select(
-          "id, millennium_store_id, code, name, trade_name, timezone, opened_at, has_wpink, millennium_gerador_id, hours, last_closed_day",
+          "id, millennium_store_id, code, name, trade_name, timezone, opened_at, has_wpink, millennium_gerador_id, last_closed_day",
         )
         .eq("tenant_id", tenantId)
         .eq("active", true)
@@ -371,7 +371,6 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
         opened_at: string | null;
         has_wpink: boolean | null;
         millennium_gerador_id: number | null;
-        hours: unknown;
         last_closed_day: string | null;
       }>).map(
         (r): SyncStore => ({
@@ -383,7 +382,6 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
           openedAt: r.opened_at ? String(r.opened_at).slice(0, 10) : null,
           hasWpink: r.has_wpink,
           geradorId: r.millennium_gerador_id,
-          hours: r.hours,
           lastClosedDay: r.last_closed_day ? String(r.last_closed_day).slice(0, 10) : null,
         }),
       );
@@ -1317,8 +1315,7 @@ export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()):
 
 /**
  * Atualização automática: enfileira o Atualizar de hoje (FORCE com `auto: true`) de todas as lojas
- * abertas 30 min depois da última rodada automática (rodada perdida = roda assim que reconectar)
- * + a rodada de fechamento (fechamento + 30 min).
+ * 30 min depois da última rodada automática, o dia inteiro (rodada perdida = roda assim que reconectar).
  * Não enfileira com onboarding aberto, SEED pendente, integração pausada/senha inválida ou
  * outro Atualizar já na fila. Rodada anterior pulada por sessão caída → esta faz login 1×;
  * usuário exclusivo da WeDash (`dedicated`) faz login na hora.
@@ -1358,7 +1355,7 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
 
     const { data: storeRows, error: storeErr } = await sb
       .from("store")
-      .select("id, timezone, hours, last_closed_day")
+      .select("id")
       .eq("tenant_id", tenantId)
       .eq("active", true);
     if (storeErr) throw storeErr;
@@ -1375,12 +1372,7 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
       .maybeSingle();
 
     const plan = planAutoRound({
-      stores: storeRows.map((s) => ({
-        id: s.id as string,
-        timezone: (s.timezone as string) || "America/Campo_Grande",
-        hours: parseStoreHours(s.hours),
-        lastClosedDay: s.last_closed_day ? String(s.last_closed_day).slice(0, 10) : null,
-      })),
+      storeIds: storeRows.map((s) => s.id as string),
       now,
       intervalMin: AUTO_REFRESH_MIN,
       lastAutoAt: lastAuto?.created_at ? new Date(lastAuto.created_at as string) : null,
@@ -1399,7 +1391,6 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
       payload: {
         auto: true,
         storeIds: plan.storeIds,
-        ...(plan.closeStoreIds.length > 0 ? { closeStoreIds: plan.closeStoreIds } : {}),
         ...(relogin ? { relogin: true } : {}),
       },
     });
@@ -1410,7 +1401,7 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
 }
 
 /**
- * Carga funda do histórico na madrugada (todas as lojas fechadas): 1 mês por vez, a cada 15 min,
+ * Carga funda do histórico na madrugada (0h–6h no fuso de todas as lojas): 1 mês por vez, a cada 15 min,
  * do mais recente que falta até a inauguração da loja (teto = `.env DEEP_HISTORY`, ex.: 24m; off =
  * desligado). Não enfileira com outro job na fila da credencial, onboarding aberto ou integração
  * pausada. Mês que falhou só volta na próxima madrugada. Terminou → grava 1 aviso "histórico
@@ -1447,7 +1438,7 @@ export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Da
 
     const { data: storeRows, error: storeErr } = await sb
       .from("store")
-      .select("id, timezone, hours, opened_at")
+      .select("id, timezone, opened_at")
       .eq("tenant_id", tenantId)
       .eq("active", true);
     if (storeErr) throw storeErr;
@@ -1455,7 +1446,6 @@ export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Da
     const stores = storeRows.map((s) => ({
       id: s.id as string,
       timezone: (s.timezone as string) || "America/Campo_Grande",
-      hours: parseStoreHours(s.hours),
       openedAt: s.opened_at ? String(s.opened_at).slice(0, 10) : null,
     }));
     if (!isDeepHistoryWindow(stores, now)) continue;

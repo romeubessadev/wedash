@@ -72,8 +72,7 @@ export function weekHoursConfigured(h: StoreWeekHours): boolean {
 
 /**
  * Horário usado nos gráficos (eixo por hora, curva da meta): sem configuração = 10:00–22:00
- * todos os dias, só para o cálculo não zerar. Não vale para o sync: loja sem horário não tem
- * atualização automática (`autoRefresh.parseStoreHours`).
+ * todos os dias, só para o cálculo não zerar. O sync não usa horário (atualiza o dia inteiro).
  */
 export function effectiveWeekHours(h: StoreWeekHours): StoreWeekHours {
   if (weekHoursConfigured(h)) return h;

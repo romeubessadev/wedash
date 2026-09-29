@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { parseStoreHours } from "./autoRefresh";
 import { addMonths, deepHistoryFloor, isDeepHistoryWindow, planDeepHistory, type DeepStore } from "./deepHistory";
 
 const TZ = "America/Sao_Paulo";
 const at = (hhmm: string) => new Date(`2026-09-25T${hhmm}:00-03:00`);
-const store = { hours: parseStoreHours(null), timezone: TZ };
+const store = { timezone: TZ };
 
 describe("isDeepHistoryWindow", () => {
-  it("só com todas as lojas fechadas: 30 min após o fechamento até 30 min antes de abrir", () => {
-    expect(isDeepHistoryWindow([store], at("15:00"))).toBe(false);
-    expect(isDeepHistoryWindow([store], at("22:10"))).toBe(false);
-    expect(isDeepHistoryWindow([store], at("22:40"))).toBe(true);
+  it("madrugada = 0h–6h no fuso da loja", () => {
+    expect(isDeepHistoryWindow([store], at("23:59"))).toBe(false);
+    expect(isDeepHistoryWindow([store], at("00:00"))).toBe(true);
     expect(isDeepHistoryWindow([store], at("03:00"))).toBe(true);
-    expect(isDeepHistoryWindow([store], at("09:20"))).toBe(true);
-    expect(isDeepHistoryWindow([store], at("09:45"))).toBe(false);
+    expect(isDeepHistoryWindow([store], at("05:59"))).toBe(true);
+    expect(isDeepHistoryWindow([store], at("06:00"))).toBe(false);
+    expect(isDeepHistoryWindow([store], at("15:00"))).toBe(false);
   });
 
-  it("uma loja aberta segura a carga", () => {
-    const late = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [String(d), { open: "12:00", close: "23:30" }]));
-    const lateStore = { hours: parseStoreHours(late), timezone: TZ };
-    expect(isDeepHistoryWindow([store, lateStore], at("22:40"))).toBe(false);
+  it("todas as lojas precisam estar na madrugada", () => {
+    const cuiaba = { timezone: "America/Cuiaba" }; // 1h a menos que São Paulo
+    expect(isDeepHistoryWindow([store, cuiaba], at("00:30"))).toBe(false);
+    expect(isDeepHistoryWindow([store, cuiaba], at("01:30"))).toBe(true);
     expect(isDeepHistoryWindow([], at("03:00"))).toBe(false);
   });
 });

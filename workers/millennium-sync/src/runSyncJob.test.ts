@@ -1233,8 +1233,7 @@ describe("Atualizar (manual e automático)", () => {
     }
   });
 
-  it("rodada que fecha o dia é sempre completa, mesmo com a Lista igual", async () => {
-    // 22:40 em Campo Grande (sem horário salvo = 10h–22h) → fechamento + 30 min.
+  it("rodada que fecha o dia (pedido explícito) é sempre completa, mesmo com a Lista igual", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-20T02:40:00.000Z"), toFake: ["Date"] });
     try {
       const fetchCouponReport = vi.fn().mockResolvedValue([]);
@@ -1246,24 +1245,27 @@ describe("Atualizar (manual e automático)", () => {
         now: () => new Date(),
       });
       deps.listaMemo!.set("s1", "2026-09-19:0:x");
-      await runSyncJob(baseJob({ kind: "FORCE" }), deps);
-      await runSyncJob(baseJob({ kind: "FORCE" }), deps);
+      const job = baseJob({ kind: "FORCE", payload: { closeStoreIds: ["s1"] } });
+      await runSyncJob(job, deps);
+      await runSyncJob(job, deps);
       expect(fetchCouponReport).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("depois do fechamento + 30 min fecha o dia de hoje", async () => {
+  it("hoje não fecha pelo horário; só com pedido explícito", async () => {
     const markStoresClosed = vi.fn().mockResolvedValue(undefined);
     const deps = makeDeps({
       listStores: vi.fn().mockResolvedValue([stores[0]]),
       markStoresClosed,
-      // 22:40 em Campo Grande (sem horário salvo = 10h–22h).
+      // 22:40 em Campo Grande.
       now: () => new Date("2026-09-20T02:40:00.000Z"),
     });
-    const result = await runSyncJob(baseJob({ kind: "FORCE" }), deps);
-    expect(result.ok).toBe(true);
+    expect((await runSyncJob(baseJob({ kind: "FORCE" }), deps)).ok).toBe(true);
+    expect(markStoresClosed).not.toHaveBeenCalled();
+    const closeJob = baseJob({ kind: "FORCE", payload: { closeStoreIds: ["s1"] } });
+    expect((await runSyncJob(closeJob, deps)).ok).toBe(true);
     expect(markStoresClosed).toHaveBeenCalledWith([{ storeId: "s1", day: "2026-09-19" }]);
   });
 
