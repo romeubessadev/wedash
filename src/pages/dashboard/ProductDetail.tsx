@@ -556,7 +556,7 @@ function ProductDetailModal({
             </section>
           )}
 
-          {tipo !== "categoria" && detalhe.lojas.length > 0 && (
+          {detalhe.lojas.length > 0 && (
             <section>
               <h4 className="mb-3 text-[13px] font-bold text-t0">Vendas por loja</h4>
               <div className="flex flex-col gap-3">
