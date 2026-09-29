@@ -13,6 +13,7 @@ import {
   resolvePeriod,
   type AbcClass,
   type ProductDetail,
+  type ProductDetailItem,
   type ProductItemRow,
   type ProductLineRow,
   type ProductsAggInput,
@@ -799,6 +800,78 @@ function MetricaDetalhe({
   );
 }
 
+/** Mesmo padrão da tabela Top produtos (# · Produto · Itens · Faturamento · Margem); clique abre o produto. */
+function ProdutosDaLinha({ produtos, onProduto }: { produtos: ProductDetailItem[]; onProduto: (chave: string) => void }) {
+  const [sort, setSort] = useState<TopProdSort>("faturamento");
+  const [dir, setDir] = useState<SortDir>("desc");
+  const linhas = useMemo(() => {
+    const d = dir === "asc" ? 1 : -1;
+    return [...produtos].sort((a, b) => {
+      if (sort === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * d;
+      const va = sort === "itens" ? a.itens : sort === "margem" ? a.margemPct : a.faturamento;
+      const vb = sort === "itens" ? b.itens : sort === "margem" ? b.margemPct : b.faturamento;
+      if (va == null && vb == null) return b.faturamento - a.faturamento;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (va - vb) * d || b.faturamento - a.faturamento;
+    });
+  }, [produtos, sort, dir]);
+  const alternar = (k: TopProdSort) => {
+    if (sort === k) setDir((x) => (x === "asc" ? "desc" : "asc"));
+    else {
+      setSort(k);
+      setDir(k === "nome" ? "asc" : "desc");
+    }
+  };
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[520px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+            <th className="px-1 pb-3 text-left font-bold">#</th>
+            <ThSort label="Produto" active={sort === "nome"} dir={dir} onClick={() => alternar("nome")} align="left" className="px-1 pb-3" />
+            <ThSort label="Itens vendidos" active={sort === "itens"} dir={dir} onClick={() => alternar("itens")} className="px-1 pb-3" />
+            <ThSort label="Faturamento" active={sort === "faturamento"} dir={dir} onClick={() => alternar("faturamento")} className="px-1 pb-3" />
+            <ThSort label="Margem" active={sort === "margem"} dir={dir} onClick={() => alternar("margem")} className="px-1 pb-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((p, idx) => (
+            <tr
+              key={p.chave}
+              tabIndex={0}
+              onClick={() => onProduto(p.chave)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onProduto(p.chave);
+                }
+              }}
+              className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+            >
+              <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+              <td className="px-1 py-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <AvatarIniciais nome={p.nome} idx={idx} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                    {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
+                  </div>
+                </div>
+              </td>
+              <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
+              <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+              <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
+                {pctFmt(p.margemPct)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ProductDetailModal({
   detalhe,
   periodo,
@@ -883,27 +956,7 @@ function ProductDetailModal({
             <section>
               <h4 className="text-[13px] font-bold text-t0">Produtos da linha</h4>
               {detalhe.tipos.length > 0 && <p className="mt-0.5 text-[11.5px] text-t2">{detalhe.tipos.join(" · ")}</p>}
-              <div className="mt-2 flex flex-col">
-                {detalhe.produtos.map((p, idx) => (
-                  <button
-                    key={p.chave}
-                    type="button"
-                    onClick={() => onProduto(p.chave)}
-                    className="flex items-center gap-2.5 rounded-[var(--radius-vela-sm)] border-b border-line px-1 py-2.5 text-left transition-colors last:border-b-0 hover:bg-bg-3"
-                  >
-                    <AvatarIniciais nome={p.nome} idx={idx} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-bold text-t0">{p.nome}</span>
-                      {p.codigo && <span className="block text-[11px] text-t2">{p.codigo}</span>}
-                    </span>
-                    <span className="shrink-0 text-[11.5px] text-t2">
-                      {num(p.itens)} ite{p.itens === 1 ? "m" : "ns"}
-                    </span>
-                    <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(p.faturamento)}</span>
-                    <span className="min-w-[40px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pctFmt(p.pct, 0)}</span>
-                  </button>
-                ))}
-              </div>
+              <ProdutosDaLinha key={detalhe.chave} produtos={detalhe.produtos} onProduto={onProduto} />
             </section>
           )}
 

@@ -2882,6 +2882,8 @@ export interface ProductDetailItem {
   itens: number;
   /** Fatia do faturamento da linha (0–100). */
   pct: number;
+  /** null = algum dia com venda do produto sem custo (nada estimado). */
+  margemPct: number | null;
 }
 
 export interface ProductDetail {
@@ -2955,7 +2957,7 @@ function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<st
     return t;
   };
 
-  const acumular = (no: (d: string) => boolean) => {
+  const acumular = (no: (d: string) => boolean, chave?: string) => {
     let fat = 0;
     let itens = 0;
     let cmv = 0;
@@ -2963,7 +2965,7 @@ function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<st
     let semCusto = false;
     const usados = new Set<string>();
     for (const r of linhas) {
-      if (!no(r.day)) continue;
+      if (!no(r.day) || (chave != null && productRowKey(r) !== chave)) continue;
       const v = r.revenueCents / 100;
       fat += v;
       itens += r.itemCount;
@@ -3063,6 +3065,7 @@ function buildItemsDetail(escopo: Scope, input: ProductsAggInput, chaves: Set<st
       faturamento: p.faturamento,
       itens: p.itens,
       pct: divSeguro(p.faturamento, atual.fat) * 100,
+      margemPct: acumular(noAtual, key).margemPct,
     }))
     .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
 
