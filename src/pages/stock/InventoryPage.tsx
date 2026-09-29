@@ -185,35 +185,38 @@ export function InventoryPage() {
             <ExportButton onClick={exportar} />
           </HeaderFilters>
         }
+        notices={
+          !showSkeleton && view && (nTransferir > 0 || nNegativo > 0) ? (
+            <>
+              {nTransferir > 0 && (
+                <Alert
+                  variant="warning"
+                  title={
+                    nTransferir === 1
+                      ? "1 produto precisa de transferência entre locais de estoque."
+                      : `${nTransferir} produtos precisam de transferência entre locais de estoque.`
+                  }
+                >
+                  Um local está com saldo negativo e outro local da loja tem o produto.
+                </Alert>
+              )}
+              {nNegativo > 0 && (
+                <Alert
+                  variant="warning"
+                  title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
+                >
+                  Confira as entradas e saídas desses produtos na loja.
+                </Alert>
+              )}
+            </>
+          ) : undefined
+        }
       />
 
       {showSkeleton || !view ? (
         <StockProductsSkeleton />
       ) : (
         <>
-          {nTransferir > 0 && (
-            <Alert
-              variant="warning"
-              className="mb-3 print:hidden"
-              title={
-                nTransferir === 1
-                  ? "1 produto precisa de transferência entre locais de estoque."
-                  : `${nTransferir} produtos precisam de transferência entre locais de estoque.`
-              }
-            >
-              Um local está com saldo negativo e outro local da loja tem o produto.
-            </Alert>
-          )}
-          {nNegativo > 0 && (
-            <Alert
-              variant="warning"
-              className="mb-3 print:hidden"
-              title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
-            >
-              Confira as entradas e saídas desses produtos na loja.
-            </Alert>
-          )}
-
           {linhas.length > 1 && (
             <MobileSortBar
               always

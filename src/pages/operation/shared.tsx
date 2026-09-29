@@ -64,14 +64,26 @@ const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
 };
 
 /** Cabeçalho da seção (breadcrumb + abas do grupo do menu). */
-export function SectionHeader({ section, title, subtitle, actions }: { section: SectionName; title: string; subtitle: string; actions?: ReactNode }) {
+export function SectionHeader({
+  section,
+  title,
+  subtitle,
+  actions,
+  notices,
+}: {
+  section: SectionName;
+  title: string;
+  subtitle: string;
+  actions?: ReactNode;
+  notices?: ReactNode;
+}) {
   useEffect(() => {
     for (const load of SECTION_PAGES[section]) void load().catch(() => {});
   }, [section]);
   const tabs = SECTION_TABS[section];
   return (
     <>
-      <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} />
+      <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} notices={notices} />
       {tabs.length > 1 && <TabNav items={tabs} />}
     </>
   );

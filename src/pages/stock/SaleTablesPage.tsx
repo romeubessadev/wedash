@@ -137,16 +137,10 @@ export function SaleTablesPage() {
             <ExportButton onClick={exportar} />
           </HeaderFilters>
         }
-      />
-
-      {showSkeleton || !view ? (
-        <StockProductsSkeleton />
-      ) : (
-        <>
-          {lojasSemTabela.length > 0 && (
+        notices={
+          !showSkeleton && view && lojasSemTabela.length > 0 ? (
             <Alert
               variant="warning"
-              className="mb-3 print:hidden"
               title={
                 lojasSemTabela.length === 1
                   ? `A loja ${lojasSemTabela[0].fantasia} está sem tabela de custo.`
@@ -155,8 +149,14 @@ export function SaleTablesPage() {
             >
               Sem ela não dá para calcular o custo e o lucro dos produtos.
             </Alert>
-          )}
+          ) : undefined
+        }
+      />
 
+      {showSkeleton || !view ? (
+        <StockProductsSkeleton />
+      ) : (
+        <>
           {linhas.length > 1 && (
             <MobileSortBar
               always
