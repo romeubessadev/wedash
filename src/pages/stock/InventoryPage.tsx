@@ -110,16 +110,6 @@ export function InventoryPage() {
       header: "Produto",
       render: ({ r }) => <ProductCell r={r} />,
     },
-    {
-      key: "status",
-      header: "Status",
-      render: ({ r, status: s }) => (
-        <div className="min-w-[200px] max-w-[280px]">
-          <StatusBadge r={r} status={s} />
-          <StatusText lines={statusLines(r, s, variasLojas)} />
-        </div>
-      ),
-    },
     ...locais.map<DataTableColumn<Linha>>((nome) => ({
       key: `local:${nome}`,
       header: nome,
@@ -136,6 +126,16 @@ export function InventoryPage() {
           } satisfies DataTableColumn<Linha>,
         ]
       : []),
+    {
+      key: "status",
+      header: "Status",
+      render: ({ r, status: s }) => (
+        <div className="min-w-[200px] max-w-[280px]">
+          <StatusBadge r={r} status={s} />
+          <StatusText lines={statusLines(r, s, variasLojas)} />
+        </div>
+      ),
+    },
   ];
 
   const statusLabel = statusOpcoes.find((o) => o.value === status)?.label ?? "Todos os status";
