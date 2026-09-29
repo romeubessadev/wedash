@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { Button, Card, CardHeader, CardTitle, DateRangePicker, Dropdown, PageHeader, Pagination, StatCard, Tabs, ThSort, type SortDir } from "@/components/ui";
+import { FilterIcons, HeaderFilter } from "@/pages/dashboard/HeaderFilter";
+import { Button, Card, CardHeader, CardTitle, DateRangePicker, PageHeader, Pagination, StatCard, Tabs, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -291,17 +292,12 @@ export function TeamPage() {
                 minDate={pickerMinDate(coverageFrom, monthFill)}
               />
               {view.turnosDisponiveis.length > 0 && (
-                <Dropdown
-                  align="right"
-                  trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
-                  items={[
-                    { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
-                    ...view.turnosDisponiveis.map((t) => ({
-                      label: t,
-                      active: view.turnoFiltro === t,
-                      onClick: () => setTurnoSel(t),
-                    })),
-                  ]}
+                <HeaderFilter
+                  icon={FilterIcons.clock}
+                  label="Turno"
+                  value={view.turnoFiltro ?? ""}
+                  onChange={(v) => setTurnoSel(v || null)}
+                  options={[{ value: "", label: "Todos os turnos" }, ...view.turnosDisponiveis.map((t) => ({ value: t, label: t }))]}
                 />
               )}
               <Button variant="secondary" onClick={exportar}>
@@ -647,25 +643,6 @@ export function TeamPage() {
       </div>
     );
   }
-}
-
-/** Mesmo desenho do gatilho do DateRangePicker (md). */
-function FiltroTurnoTrigger({ rotulo }: { rotulo: string }) {
-  return (
-    <button
-      type="button"
-      className="flex h-10 min-w-0 items-center gap-2.5 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-left transition-colors hover:border-acc"
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t0">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-      <span className="min-w-0 truncate text-[13.5px] font-semibold text-t0">{rotulo}</span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </button>
-  );
 }
 
 function SemResultado({ temDados, onLimpar }: { temDados: boolean; onLimpar: () => void }) {

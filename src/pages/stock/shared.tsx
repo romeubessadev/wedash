@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Pagination, Select } from "@/components/ui";
+import { Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { StockProductRow, StockTransfer } from "@/data/wedash/stockProducts";
 import { brlCent, num } from "@/lib/format";
@@ -33,41 +33,6 @@ export function stockLocations(rows: StockProductRow[]): string[] {
   for (const r of rows) for (const l of r.lojas) for (const x of l.locais) nomes.add(x.nome);
   const ordem = (n: string) => (n === "Estoque" ? 0 : n === "Quiosque" ? 1 : 2);
   return [...nomes].sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b, "pt-BR"));
-}
-
-/** Busca do cabeçalho — mesmo campo do Data Tables do Vela. */
-export function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Buscar…"
-      className="h-[38px] w-[150px] rounded-[10px] border border-line bg-bg-2 px-3 text-[13px] text-t0 outline-none placeholder:text-t2"
-    />
-  );
-}
-
-export function FilterSelect<V extends string>({
-  value,
-  onChange,
-  options,
-  label,
-}: {
-  value: V;
-  onChange: (v: V) => void;
-  options: Array<{ value: V; label: string }>;
-  label: string;
-}) {
-  return (
-    <Select aria-label={label} title={label} value={value} onChange={(e) => onChange(e.target.value as V)} className="!h-[38px] w-auto max-w-[240px]">
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </Select>
-  );
 }
 
 export function ExportButton({ onClick }: { onClick: () => void }) {
