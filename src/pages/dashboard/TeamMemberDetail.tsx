@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Modal, ProgressBar } from "@/components/ui";
+import { Modal } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
 import {
   buildTeamMemberDetail,
@@ -195,27 +195,6 @@ function TeamMemberDetailModal({
                 height={200}
                 showAxisLabels
               />
-            </section>
-          )}
-
-          {detalhe.lojasDetalhe.length > 0 && (
-            <section>
-              <h4 className="mb-3 text-[13px] font-bold text-t0">Vendas por loja</h4>
-              <div className="flex flex-col gap-3">
-                {detalhe.lojasDetalhe.map((l) => (
-                  <div key={l.filialId}>
-                    <div className="mb-1.5 flex items-baseline gap-2">
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{l.nome}</span>
-                      <span className="shrink-0 text-[11.5px] text-t2">
-                        {num(l.vendas)} venda{l.vendas === 1 ? "" : "s"}
-                      </span>
-                      <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(l.faturamento)}</span>
-                      <span className="min-w-[40px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pctFmt(l.pct, 0)}</span>
-                    </div>
-                    <ProgressBar value={l.pct} color="var(--acc)" height={6} />
-                  </div>
-                ))}
-              </div>
             </section>
           )}
         </div>

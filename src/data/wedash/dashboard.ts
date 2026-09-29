@@ -3556,19 +3556,9 @@ export function buildTeamDashboardView(
   };
 }
 
-export interface TeamMemberDetailStore {
-  filialId: string;
-  nome: string;
-  faturamento: number;
-  vendas: number;
-  pct: number;
-}
-
 export interface TeamMemberDetail extends TeamMemberRow {
   serie: { label: string; faturamento: number; vendas: number }[] | null;
   serieGranularidade: "dia" | "mes";
-  /** Só com mais de 1 loja no escopo. */
-  lojasDetalhe: TeamMemberDetailStore[];
   comparativo: {
     vs: string;
     faturamento?: TeamKpi["delta"];
@@ -3580,7 +3570,7 @@ export interface TeamMemberDetail extends TeamMemberRow {
 
 /**
  * Detalhe de uma pessoa da equipe — mesma linha da tabela Desempenho da equipe (mesmo filtro de turno)
- * + faturamento dia a dia, vendas por loja e comparativo sem hora (terminando hoje, até ontem nos dois lados).
+ * + faturamento dia a dia e comparativo sem hora (terminando hoje, até ontem nos dois lados).
  */
 export function buildTeamMemberDetail(
   escopo: Scope,
@@ -3656,29 +3646,7 @@ export function buildTeamMemberDetail(
     }));
   }
 
-  let lojasDetalhe: TeamMemberDetailStore[] = [];
-  if (fs.length > 1) {
-    const porLoja = new Map<string, { faturamento: number; vendas: number }>();
-    for (const r of linhas) {
-      if (!noAtual(r.day)) continue;
-      const acc = porLoja.get(r.storeId) ?? { faturamento: 0, vendas: 0 };
-      acc.faturamento += r.revenueCents / 100;
-      acc.vendas += r.salesCount;
-      porLoja.set(r.storeId, acc);
-    }
-    lojasDetalhe = [...porLoja.entries()]
-      .filter(([, l]) => l.faturamento > 0)
-      .map(([id, l]) => ({
-        filialId: id,
-        nome: nomeLoja.get(id)!,
-        faturamento: l.faturamento,
-        vendas: l.vendas,
-        pct: divSeguro(l.faturamento, row.faturamento) * 100,
-      }))
-      .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
-  }
-
-  return { ...row, serie, serieGranularidade, lojasDetalhe, comparativo };
+  return { ...row, serie, serieGranularidade, comparativo };
 }
 
 /* ================================================================
