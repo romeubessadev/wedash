@@ -1,15 +1,17 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination, ThSort, type SortDir } from "@/components/ui";
+import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Modal, Pagination, ProgressBar, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
-import { BarChart, DonutChart } from "@/components/charts";
+import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
+  buildProductDetail,
   buildProductsView,
   financeFetchRange,
   productsFetchRange,
   resolvePeriod,
   type AbcClass,
+  type ProductDetail,
   type ProductItemRow,
   type ProductLineRow,
   type ProductsAggInput,
@@ -37,7 +39,6 @@ import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ProductsWithoutCostNotice } from "@/pages/dashboard/ProductsWithoutCostNotice";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
-import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -85,7 +86,7 @@ const KPI_COLORS = [
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
 ];
 
-type SortKey = "nome" | "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct" | "variacaoPct";
+type SortKey = "nome" | "faturamento" | "itens" | "margemPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
 
 const TipHelp = ({ label }: { label: string }) => (
@@ -162,6 +163,7 @@ export default function ProductsPage() {
   const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [detalhe, setDetalhe] = useState<ProductItemRow | null>(null);
   const printing = usePrintMode();
   const exportar = useExportPdf("Produtos");
   // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
@@ -292,16 +294,11 @@ export default function ProductsPage() {
     const faturamento = linhasTabela.reduce((s, p) => s + p.faturamento, 0);
     const itens = linhasTabela.reduce((s, p) => s + p.itens, 0);
     const completo = linhasTabela.length > 0 && linhasTabela.every((p) => p.cmv != null);
-    const cmv = completo ? linhasTabela.reduce((s, p) => s + (p.cmv ?? 0), 0) : null;
     const lucro = completo ? linhasTabela.reduce((s, p) => s + (p.lucro ?? 0), 0) : null;
     return {
       faturamento,
       itens,
-      precoMedio: itens > 0 ? faturamento / itens : 0,
-      cmv,
-      lucro,
       margemPct: lucro != null && faturamento > 0 ? (lucro / faturamento) * 100 : null,
-      participacaoPct: linhasTabela.reduce((s, p) => s + p.participacaoPct, 0),
     };
   }, [linhasTabela]);
 
@@ -313,6 +310,16 @@ export default function ProductsPage() {
   useEffect(() => {
     setPage(1);
   }, [busca, sortKey, sortDir, escopo]);
+
+  useEffect(() => {
+    setDetalhe(null);
+  }, [escopo]);
+
+  const detalheView = useMemo(
+    () => (detalhe ? buildProductDetail(escopo, aggs, detalhe) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [detalhe, escopo, aggs, storesTick],
+  );
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -532,7 +539,18 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {topProdutos.map((p, idx) => (
-                  <tr key={p.codigo || p.nome} className="border-b border-line last:border-b-0">
+                  <tr
+                    key={p.chave}
+                    tabIndex={0}
+                    onClick={() => setDetalhe(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDetalhe(p);
+                      }
+                    }}
+                    className="cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+                  >
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -557,9 +575,9 @@ export default function ProductsPage() {
         </Card>
       </div>
 
-      {/* Desempenho por produto — tabela flat + Total + cards mobile */}
-      <Card className="mt-4" padding="none">
-        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      {/* Desempenho por produto — mesma lista do Top produtos; clique abre o detalhe */}
+      <Card className="mt-4 flex flex-col">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             <CardTitle>Desempenho por produto</CardTitle>
             <TipHelp label={tipCmvProduto} />
@@ -576,82 +594,79 @@ export default function ProductsPage() {
           </div>
           )}
         </div>
-        {linhasTabela.length > 1 && (
-          <MobileSortBar
-            className="px-5 pb-1"
-            options={[
-              { key: "nome", label: "Produto", text: true },
-              { key: "faturamento", label: "Faturamento" },
-              { key: "itens", label: "Itens" },
-              { key: "lucro", label: "Lucro" },
-              { key: "variacaoPct", label: "Variação" },
-            ]}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onChange={(k, d) => {
-              setSortKey(k);
-              setSortDir(d);
-            }}
-          />
-        )}
 
-        {/* Desktop */}
-        <div className="hidden overflow-x-auto p-4 md:block">
-          {linhasTabela.length === 0 ? (
-            view.produtos.length === 0 ? (
-              <EmptyBlock />
-            ) : (
-              <EmptyBlock
-                icon="🔍"
-                title="Nenhum produto encontrado"
-                description="Tente buscar por outro nome ou código."
-                action={
-                  <Button variant="outline" size="sm" onClick={() => setBusca("")}>
-                    Limpar busca
-                  </Button>
-                }
-              />
-            )
+        {linhasTabela.length === 0 ? (
+          view.produtos.length === 0 ? (
+            <EmptyBlock />
           ) : (
-            <table className="w-full min-w-[1000px] border-collapse text-[13px]">
+            <EmptyBlock
+              icon="🔍"
+              title="Nenhum produto encontrado"
+              description="Tente buscar por outro nome ou código."
+              action={
+                <Button variant="outline" size="sm" onClick={() => setBusca("")}>
+                  Limpar busca
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[620px] border-collapse text-sm">
               <thead>
-                <tr className="border-b-2 border-line">
-                  <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
-                  <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
-                  <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
-                  <ThSort label="Preço médio" active={sortKey === "precoMedio"} dir={sortDir} onClick={() => toggleSort("precoMedio")} />
-                  <ThSort label="CMV" active={sortKey === "cmv"} dir={sortDir} onClick={() => toggleSort("cmv")} />
-                  <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
-                  <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} />
-                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
-                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
+                  <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} className="px-1 pb-3" />
+                  <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} className="px-1 pb-3" />
+                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} className="px-1 pb-3" />
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((p) => (
-                  <tr key={p.codigo || p.nome} className="border-b border-line hover:bg-bg-3">
-                    <td className="px-3 py-2.5">
-                      <p className="text-[13px] font-bold text-t0">{p.nome}</p>
-                      {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brlCent(p.faturamento)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.itens)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brlCent(p.precoMedio)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{moneyOrDash(p.cmv)}</td>
-                    <td className={cn("px-3 py-2.5 text-right font-extrabold tabular-nums", p.lucro == null ? "text-t2" : "text-ok")}>{moneyOrDash(p.lucro)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.margemPct)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.participacaoPct)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      <Tooltip label={tipVariacao}>
-                        <span>
-                          <Variacao v={p.variacaoPct} />
-                        </span>
-                      </Tooltip>
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-line bg-bg-inset">
-                  <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
+                {pageRows.map((p, i) => {
+                  const idx = printing ? i : (pageSafe - 1) * pageSize + i;
+                  return (
+                    <tr
+                      key={p.chave}
+                      tabIndex={0}
+                      onClick={() => setDetalhe(p)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDetalhe(p);
+                        }
+                      }}
+                      className="cursor-pointer border-b border-line transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+                    >
+                      <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                      <td className="px-1 py-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <AvatarIniciais nome={p.nome} idx={idx} />
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                            {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                      <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
+                        {pctFmt(p.margemPct, 0)}
+                      </td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px]">
+                        <Tooltip label={tipVariacao}>
+                          <span>
+                            <Variacao v={p.variacaoPct} />
+                          </span>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-bg-inset">
+                  <td />
+                  <td className="px-1 py-3 text-[13px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
                       <TipHelp label="Soma todos os produtos encontrados no filtro, inclusive os que não aparecem nesta página." />
@@ -660,77 +675,31 @@ export default function ProductsPage() {
                       {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brlCent(totalTabela.precoMedio)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{moneyOrDash(totalTabela.cmv)}</td>
-                  <td className={cn("px-3 py-3 text-right text-[14px] font-extrabold tabular-nums", totalTabela.lucro == null ? "text-t2" : "text-ok")}>
-                    {moneyOrDash(totalTabela.lucro)}
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{num(totalTabela.itens)}</td>
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{brlCent(totalTabela.faturamento)}</td>
+                  <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.margemPct == null ? "text-t2" : "text-ok")}>
+                    {pctFmt(totalTabela.margemPct, 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{pctFmt(totalTabela.margemPct)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{pctFmt(totalTabela.participacaoPct)}</td>
-                  <td className="px-3 py-3" />
+                  <td />
                 </tr>
               </tbody>
             </table>
-          )}
-        </div>
-
-        {/* Mobile — card por produto */}
-        <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
-          {pageRows.length === 0 ? (
-            view.produtos.length === 0 ? (
-              <EmptyBlock />
-            ) : (
-              <EmptyBlock
-                icon="🔍"
-                title="Nenhum produto encontrado"
-                description="Tente buscar por outro nome ou código."
-                action={
-                  <Button variant="outline" size="sm" onClick={() => setBusca("")}>
-                    Limpar busca
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            pageRows.map((p) => (
-              <div key={p.codigo || p.nome} className="rounded-xl border border-line bg-bg-inset p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[13.5px] font-bold text-t0">{p.nome}</p>
-                    {p.codigo && <p className="mt-0.5 text-[11px] font-semibold text-t2">{p.codigo}</p>}
-                  </div>
-                  <span className="shrink-0 text-xs">
-                    <Variacao v={p.variacaoPct} />
-                  </span>
-                </div>
-                <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
-              </div>
-            ))
-          )}
-          {linhasTabela.length > 0 && (
-            <div className="rounded-xl border border-line bg-bg-3 p-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total do filtro</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-t2">
-                {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
-              </p>
-              <GradeMetricas m={totalTabela} className="mt-2" destaque />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {linhasTabela.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 print:hidden">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
             <span className="text-[12.5px] text-t2">
               Mostrando {pageRows.length} de {num(linhasTabela.length)} produtos
             </span>
-            <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />
+            {totalPages > 1 && <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />}
           </div>
         )}
       </Card>
       </>
       )}
+
+      <ProductDetailModal detalhe={detalheView} periodo={periodoAtual.rotulo} onClose={() => setDetalhe(null)} />
     </div>
   );
 }
@@ -751,27 +720,102 @@ function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProductsKpi; Icon: () => Re
   );
 }
 
-type MetricasLinha = Pick<ProductItemRow, "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct">;
-
-function GradeMetricas({ m, className, destaque = false }: { m: MetricasLinha; className?: string; destaque?: boolean }) {
-  const val = destaque ? "font-extrabold tabular-nums text-t0" : "font-semibold tabular-nums text-t0";
-  const rows: { label: string; value: React.ReactNode }[] = [
-    { label: "Faturamento", value: <span className={val}>{brlCent(m.faturamento)}</span> },
-    { label: "Itens vendidos", value: <span className={val}>{num(m.itens)}</span> },
-    { label: "Preço médio", value: <span className={val}>{brlCent(m.precoMedio)}</span> },
-    { label: "CMV", value: <span className={val}>{moneyOrDash(m.cmv)}</span> },
-    { label: "Lucro bruto", value: <span className={cn(val, m.lucro != null && "text-ok")}>{moneyOrDash(m.lucro)}</span> },
-    { label: "Margem", value: <span className={val}>{pctFmt(m.margemPct)}</span> },
-    { label: "Participação", value: <span className={val}>{pctFmt(m.participacaoPct)}</span> },
-  ];
+function MetricaDetalhe({
+  label,
+  valor,
+  delta,
+  destaque,
+  tip,
+}: {
+  label: string;
+  valor: string;
+  delta?: { value: string; positive: boolean; vs?: string; anterior?: string };
+  destaque?: boolean;
+  tip?: string;
+}) {
   return (
-    <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>
-      {rows.map((r) => (
-        <div key={r.label} className="flex justify-between gap-2">
-          <span className="text-t2">{r.label}</span>
-          {r.value}
+    <div className="rounded-xl border border-line bg-bg-inset p-3">
+      <p className="flex items-center gap-1 text-[11.5px] font-semibold text-t2">
+        {label}
+        {tip && <TipHelp label={tip} />}
+      </p>
+      <p className={cn("mt-1 font-mono text-[15px] font-extrabold tabular-nums", valor === "—" ? "text-t2" : destaque ? "text-ok" : "text-t0")}>
+        {valor}
+      </p>
+      {delta && (
+        <div className="mt-1.5">
+          <BadgeVsAnterior delta={delta} />
         </div>
-      ))}
+      )}
     </div>
+  );
+}
+
+function ProductDetailModal({ detalhe, periodo, onClose }: { detalhe: ProductDetail | null; periodo: string; onClose: () => void }) {
+  const cmp = detalhe?.comparativo;
+  return (
+    <Modal open={detalhe != null} onClose={onClose} title={detalhe?.nome} size="lg">
+      {detalhe && (
+        <div className="flex flex-col gap-5">
+          <p className="-mt-1 text-[12px] font-semibold text-t2">{[detalhe.codigo, periodo].filter(Boolean).join(" · ")}</p>
+
+          <div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <MetricaDetalhe label="Faturamento" valor={brlCent(detalhe.faturamento)} delta={cmp?.faturamento} />
+              <MetricaDetalhe label="Itens vendidos" valor={num(detalhe.itens)} delta={cmp?.itens} />
+              <MetricaDetalhe label="Preço médio" valor={brlCent(detalhe.precoMedio)} />
+              <MetricaDetalhe
+                label="Participação"
+                valor={pctFmt(detalhe.participacaoPct)}
+                tip="Fatia do produto no faturamento de todos os produtos do período."
+              />
+              <MetricaDetalhe label="CMV" valor={moneyOrDash(detalhe.cmv)} />
+              <MetricaDetalhe label="Lucro bruto" valor={moneyOrDash(detalhe.lucro)} destaque />
+              <MetricaDetalhe label="Margem" valor={pctFmt(detalhe.margemPct)} delta={cmp?.margem} />
+            </div>
+            <p className="mt-2.5 text-[11.5px] text-t2">
+              {cmp ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}` : "Sem vendas do produto no período anterior para comparar."}
+              {detalhe.cmv == null && " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo."}
+            </p>
+          </div>
+
+          {detalhe.serie && (
+            <section>
+              <h4 className="mb-2 text-[13px] font-bold text-t0">
+                Faturamento {detalhe.serieGranularidade === "mes" ? "por mês" : "por dia"}
+              </h4>
+              <AreaLineChart
+                data={detalhe.serie.map((d) => d.faturamento)}
+                labels={detalhe.serie.map((d) => d.label)}
+                formatValue={brlCent}
+                height={200}
+                showAxisLabels
+              />
+            </section>
+          )}
+
+          {detalhe.lojas.length > 0 && (
+            <section>
+              <h4 className="mb-3 text-[13px] font-bold text-t0">Vendas por loja</h4>
+              <div className="flex flex-col gap-3">
+                {detalhe.lojas.map((l) => (
+                  <div key={l.filialId}>
+                    <div className="mb-1.5 flex items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{l.nome}</span>
+                      <span className="shrink-0 text-[11.5px] text-t2">
+                        {num(l.itens)} ite{l.itens === 1 ? "m" : "ns"}
+                      </span>
+                      <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(l.faturamento)}</span>
+                      <span className="min-w-[40px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pctFmt(l.pct, 0)}</span>
+                    </div>
+                    <ProgressBar value={l.pct} color="var(--acc)" height={6} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

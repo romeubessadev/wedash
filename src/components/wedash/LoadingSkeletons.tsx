@@ -218,15 +218,28 @@ function TeamHighlightsSkeleton() {
 }
 
 /** Top produtos / Top linhas: # + avatar de iniciais + nome/código + 3 colunas numéricas. */
-function TopTableSkeleton({ titleW = "w-32" }: { titleW?: string }) {
+function TopTableSkeleton({
+  titleW = "w-32",
+  rows = 5,
+  search = false,
+  variacao = false,
+  className,
+}: {
+  titleW?: string;
+  rows?: number;
+  /** Busca no lugar do badge "Top 5" (Desempenho por produto). */
+  search?: boolean;
+  variacao?: boolean;
+  className?: string;
+}) {
   return (
-    <Card className="flex flex-col">
+    <Card className={cn("flex flex-col", className)}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Title className={titleW} />
-        <Pill className="w-12" />
+        {search ? <Skeleton className="h-8 w-40 rounded-[var(--radius-vela-sm)] sm:w-56" /> : <Pill className="w-12" />}
       </div>
       <div className="overflow-x-auto">
-        <div className="min-w-[520px]">
+        <div className={variacao ? "min-w-[620px]" : "min-w-[520px]"}>
           <div className="flex items-center gap-3 border-b border-line px-1 pb-3">
             <Skeleton className="h-2.5 w-3" />
             <Skeleton className="h-2.5 w-16" />
@@ -234,8 +247,9 @@ function TopTableSkeleton({ titleW = "w-32" }: { titleW?: string }) {
             <Skeleton className="h-2.5 w-20" />
             <Skeleton className="h-2.5 w-20" />
             <Skeleton className="h-2.5 w-14" />
+            {variacao && <Skeleton className="h-2.5 w-14" />}
           </div>
-          {Array.from({ length: 5 }, (_, i) => (
+          {Array.from({ length: rows }, (_, i) => (
             <div key={i} className="flex items-center gap-3 border-b border-line px-1 py-3 last:border-b-0">
               <Skeleton className="h-3 w-3" />
               <Skeleton className="h-9 w-9 shrink-0 rounded-[11px]" />
@@ -246,6 +260,7 @@ function TopTableSkeleton({ titleW = "w-32" }: { titleW?: string }) {
               <Skeleton className="h-3.5 w-14" />
               <Skeleton className="h-3.5 w-20" />
               <Skeleton className="h-3.5 w-10" />
+              {variacao && <Skeleton className="h-3.5 w-10" />}
             </div>
           ))}
         </div>
@@ -367,7 +382,7 @@ export function ProductsSkeleton() {
         <TopTableSkeleton titleW="w-44" />
         <TopTableSkeleton />
       </div>
-      <WideTableSkeleton cols={9} rows={8} actions />
+      <TopTableSkeleton titleW="w-44" rows={8} search variacao className="mt-4" />
     </Busy>
   );
 }

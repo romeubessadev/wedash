@@ -16,7 +16,7 @@ import { NOW, UPDATED_AT, TODAY_ISO, CURRENT_HOUR, SYNC_INTERVAL_MIN, LAST_SYNC,
 import { effectiveWeekHours, unionConfiguredWindow, unionOpenWindow, type Dow } from "./storeHours";
 import { dailyGoal, hourShares, weekdayWeights } from "./goalCurve";
 import { dayAggregate, salesDay, salesDays, storeOpen, dayWeight, sumAggregates, type Aggregate } from "./sales";
-import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, labelUpper, mesAno, pct, somarDias } from "@/lib/format";
+import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, labelUpper, mesAno, mesCurto, pct, somarDias } from "@/lib/format";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { buildStoreInsight } from "./insight";
 
@@ -2501,6 +2501,8 @@ export interface CategoryRevenue {
 
 /** Linha da tabela de produtos (relatório {E7A5C5C7} + CMV do RELATORIOMARGEM por COD_PRODUTO). */
 export interface ProductItemRow {
+  /** `COD_PRODUTO` ou `#productId` (sem código) — abre o detalhe. */
+  chave: string;
   codigo: string;
   nome: string;
   faturamento: number;
@@ -2757,6 +2759,7 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
       const cmv = p.semCusto ? null : p.cmv;
       const lucro = cmv == null ? null : p.fat - cmv - p.impostos;
       return {
+        chave: key,
         codigo: key.startsWith("#") ? "" : key,
         nome: labelUpper(p.nome || key),
         faturamento: p.fat,
@@ -2848,6 +2851,206 @@ export function buildProductsView(escopo: Scope, input: ProductsAggInput = { day
       ...p,
       nome: p.nome || prodAcc.get(p.codigo)?.nome || "",
     })),
+  };
+}
+
+export interface ProductDetailStore {
+  filialId: string;
+  nome: string;
+  faturamento: number;
+  itens: number;
+  /** Fatia do faturamento do produto no escopo (0–100). */
+  pct: number;
+}
+
+export interface ProductDetail {
+  chave: string;
+  codigo: string;
+  nome: string;
+  faturamento: number;
+  itens: number;
+  precoMedio: number;
+  participacaoPct: number;
+  cmv: number | null;
+  lucro: number | null;
+  margemPct: number | null;
+  /** Faturamento/itens por dia (2–31 dias) ou por mês (> 31); null em 1 dia (sem dado por hora). */
+  serie: { label: string; faturamento: number; itens: number }[] | null;
+  serieGranularidade: "dia" | "mes";
+  /** Só com mais de 1 loja no escopo. */
+  lojas: ProductDetailStore[];
+  /** Mesmo recorte da coluna Variação (período terminando hoje = até ontem nos dois lados). */
+  comparativo: {
+    vs: string;
+    faturamento?: ReturnType<typeof kpiDelta>;
+    itens?: ReturnType<typeof kpiDelta>;
+    margem?: ReturnType<typeof kpiDeltaPp>;
+  } | null;
+}
+
+/** Detalhe de 1 produto (chave da `ProductItemRow`) — mesmas regras de custo/impostos do `buildProductsView`. */
+export function buildProductDetail(
+  escopo: Scope,
+  input: ProductsAggInput,
+  produto: Pick<ProductItemRow, "chave" | "codigo" | "nome" | "participacaoPct">,
+): ProductDetail {
+  const esc: Scope = { ...escopo, divisao: null };
+  const periodo = resolvePeriod(esc.periodo, calendarTodayIso());
+  const storeById = new Map(storesInScope(esc).map((f) => [f.id, f]));
+
+  const ant = previousPeriod(periodo, calendarCurrentHour());
+  const cortaHoje = ant.horaMax != null;
+  const fimCmp = cortaHoje ? somarDias(periodo.fim, -1) : periodo.fim;
+  const antFimCmp = cortaHoje ? somarDias(ant.fim, -1) : ant.fim;
+  const vsCmp = cortaHoje ? `${ant.rotulo}, até o mesmo dia` : ant.rotulo;
+  const noAtual = (d: string) => d >= periodo.inicio && d <= periodo.fim;
+  const noAtualCmp = (d: string) => d >= periodo.inicio && d <= fimCmp;
+  const noAntCmp = (d: string) => d >= ant.inicio && d <= antFimCmp;
+
+  const code = produto.codigo;
+  const linhas = (input.productDayAggs ?? []).filter(
+    (r) => storeById.has(r.storeId) && (code ? r.productCode.trim() === code : `#${r.productId}` === produto.chave),
+  );
+
+  const custoKey = (storeId: string, day: string) => `${storeId}|${day}`;
+  const custos = new Map<string, number>();
+  if (code) {
+    for (const r of input.productCostDayAggs ?? []) {
+      if (!storeById.has(r.storeId) || r.productCode.trim() !== code) continue;
+      const k = custoKey(r.storeId, r.day);
+      custos.set(k, (custos.get(k) ?? 0) + r.cmvCents / 100);
+    }
+  }
+  const taxas = new Map<string, ReturnType<typeof custosDaFilialReal>>();
+  const taxaDaLoja = (storeId: string) => {
+    let t = taxas.get(storeId);
+    if (!t) {
+      t = custosDaFilialReal(storeById.get(storeId)!);
+      taxas.set(storeId, t);
+    }
+    return t;
+  };
+
+  const acumular = (no: (d: string) => boolean) => {
+    let fat = 0;
+    let itens = 0;
+    let cmv = 0;
+    let impostos = 0;
+    let semCusto = false;
+    const usados = new Set<string>();
+    for (const r of linhas) {
+      if (!no(r.day)) continue;
+      const v = r.revenueCents / 100;
+      fat += v;
+      itens += r.itemCount;
+      const taxa = taxaDaLoja(r.storeId);
+      impostos += (v * taxa.icmsPct) / 100;
+      if (v > 0) {
+        const k = custoKey(r.storeId, r.day);
+        const c = code ? custos.get(k) : undefined;
+        if (c == null) semCusto = true;
+        else if (!usados.has(k)) {
+          usados.add(k);
+          cmv += c;
+          impostos += (c * taxa.icmsStPct) / 100;
+        }
+      }
+    }
+    const lucro = semCusto ? null : fat - cmv - impostos;
+    return {
+      fat,
+      itens,
+      cmv: semCusto ? null : cmv,
+      lucro,
+      margemPct: lucro == null || fat <= 0 ? null : divSeguro(lucro, fat) * 100,
+    };
+  };
+
+  const atual = acumular(noAtual);
+
+  let serie: ProductDetail["serie"] = null;
+  const dias = intervaloDias(periodo.inicio, periodo.fim);
+  const serieGranularidade: ProductDetail["serieGranularidade"] = dias.length > 31 ? "mes" : "dia";
+  if (dias.length > 1) {
+    const porDia = new Map<string, { faturamento: number; itens: number }>();
+    for (const r of linhas) {
+      if (!noAtual(r.day)) continue;
+      const k = serieGranularidade === "mes" ? r.day.slice(0, 7) : r.day;
+      const acc = porDia.get(k) ?? { faturamento: 0, itens: 0 };
+      acc.faturamento += r.revenueCents / 100;
+      acc.itens += r.itemCount;
+      porDia.set(k, acc);
+    }
+    const chaves =
+      serieGranularidade === "mes" ? [...new Set(dias.map((d) => d.slice(0, 7)))] : dias;
+    const variosAnos = periodo.inicio.slice(0, 4) !== periodo.fim.slice(0, 4);
+    serie = chaves.map((k) => ({
+      label:
+        serieGranularidade === "mes"
+          ? `${mesCurto(`${k}-01`)}${variosAnos ? `/${k.slice(2, 4)}` : ""}`
+          : dataCurta(k),
+      faturamento: porDia.get(k)?.faturamento ?? 0,
+      itens: porDia.get(k)?.itens ?? 0,
+    }));
+  }
+
+  let lojas: ProductDetailStore[] = [];
+  if (storeById.size > 1) {
+    const porLoja = new Map<string, { faturamento: number; itens: number }>();
+    for (const r of linhas) {
+      if (!noAtual(r.day)) continue;
+      const acc = porLoja.get(r.storeId) ?? { faturamento: 0, itens: 0 };
+      acc.faturamento += r.revenueCents / 100;
+      acc.itens += r.itemCount;
+      porLoja.set(r.storeId, acc);
+    }
+    lojas = [...porLoja.entries()]
+      .filter(([, l]) => l.faturamento > 0)
+      .map(([id, l]) => ({
+        filialId: id,
+        nome: storeById.get(id)!.fantasia,
+        faturamento: l.faturamento,
+        itens: l.itens,
+        pct: divSeguro(l.faturamento, atual.fat) * 100,
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
+  }
+
+  const cmpAtual = acumular(noAtualCmp);
+  const cmpAnt = acumular(noAntCmp);
+  const comparativo: ProductDetail["comparativo"] =
+    cmpAtual.fat > 0 && cmpAnt.fat > 0
+      ? {
+          vs: vsCmp,
+          faturamento: kpiDelta(cmpAtual.fat, cmpAnt.fat, vsCmp),
+          itens: kpiDelta(cmpAtual.itens, cmpAnt.itens, vsCmp, false),
+          margem:
+            cmpAtual.margemPct != null && cmpAnt.margemPct != null
+              ? kpiDeltaPp(cmpAtual.margemPct, cmpAnt.margemPct, vsCmp)
+              : undefined,
+        }
+      : null;
+
+  const nomeDia = linhas.reduce<{ nome: string; dia: string }>(
+    (m, r) => (r.productName && r.day >= m.dia ? { nome: r.productName, dia: r.day } : m),
+    { nome: "", dia: "" },
+  );
+
+  return {
+    chave: produto.chave,
+    codigo: code,
+    nome: nomeDia.nome ? labelUpper(nomeDia.nome) : produto.nome,
+    faturamento: atual.fat,
+    itens: atual.itens,
+    precoMedio: divSeguro(atual.fat, atual.itens),
+    participacaoPct: produto.participacaoPct,
+    cmv: atual.cmv,
+    lucro: atual.lucro,
+    margemPct: atual.margemPct,
+    serie,
+    serieGranularidade,
+    lojas,
+    comparativo,
   };
 }
 
