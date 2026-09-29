@@ -22,11 +22,11 @@ export function localQty(r: StockProductRow, nome: string): number {
   return r.lojas.reduce((s, l) => s + (l.locais.find((x) => x.nome === nome)?.qtd ?? 0), 0);
 }
 
-/** Locais de estoque com saldo em algum produto (Estoque, Loja, depois os demais em ordem alfabética). */
+/** Locais de estoque com saldo em algum produto, na ordem da hierarquia: Estoque, os demais em ordem alfabética, Loja. */
 export function stockLocations(rows: StockProductRow[]): string[] {
   const nomes = new Set<string>();
   for (const r of rows) for (const l of r.lojas) for (const x of l.locais) nomes.add(x.nome);
-  const ordem = (n: string) => (n === "Estoque" ? 0 : n === "Loja" ? 1 : 2);
+  const ordem = (n: string) => (n === "Estoque" ? 0 : n === "Loja" ? 2 : 1);
   return [...nomes].sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b, "pt-BR"));
 }
 

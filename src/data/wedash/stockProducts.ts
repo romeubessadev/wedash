@@ -167,17 +167,33 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
 
 /**
  * Situação do produto na aba Estoque, a mais grave primeiro (por loja do filtro):
- * negativo = total da loja abaixo de zero; aguardando = Loja (QUIOSQUE, de onde sai a venda) negativa e Estoque positivo.
+ * negativo = total da loja abaixo de zero; aguardando = algum local negativo com saldo positivo num local "pai".
+ * Hierarquia: Estoque é pai de todos; os demais (Shop010…) são filhos do Estoque; a Loja (QUIOSQUE, de onde sai
+ * a venda) é filha de todos.
  */
 export type StockStatus = "negativo" | "aguardando" | "ok";
 
-const localQtd = (locais: StockLocation[], nomes: string[]) =>
-  locais.filter((x) => nomes.includes(x.nome.trim().toUpperCase())).reduce((s, x) => s + x.qtd, 0);
+type LocalNivel = "estoque" | "intermediario" | "loja";
+
+function localNivel(nome: string): LocalNivel {
+  const n = nome.trim().toUpperCase();
+  if (n === "ESTOQUE") return "estoque";
+  if (n === "LOJA" || n === "QUIOSQUE") return "loja";
+  return "intermediario";
+}
+
+function aguardandoTransferencia(locais: StockLocation[]): boolean {
+  return locais.some((filho) => {
+    if (filho.qtd >= 0) return false;
+    const nivel = localNivel(filho.nome);
+    if (nivel === "estoque") return false;
+    return locais.some((pai) => pai !== filho && pai.qtd > 0 && (nivel === "loja" ? localNivel(pai.nome) !== "loja" : localNivel(pai.nome) === "estoque"));
+  });
+}
 
 export function stockStatus(r: StockProductRow): StockStatus {
   if (r.lojas.some((l) => l.estoque < 0)) return "negativo";
-  const aguardando = r.lojas.some((l) => localQtd(l.locais, ["LOJA", "QUIOSQUE"]) < 0 && localQtd(l.locais, ["ESTOQUE"]) > 0);
-  return aguardando ? "aguardando" : "ok";
+  return r.lojas.some((l) => aguardandoTransferencia(l.locais)) ? "aguardando" : "ok";
 }
 
 export function buildStockProductsView(input: StockInput): StockProductsView {
