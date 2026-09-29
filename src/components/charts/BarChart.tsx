@@ -34,6 +34,7 @@ export function BarChart({
   goalColor = "var(--warn)",
   formatValue = (v: number) => String(v),
   showValues = true,
+  onSelect,
 }: {
   data: BarDatum[];
   height?: number;
@@ -43,7 +44,10 @@ export function BarChart({
   formatValue?: (v: number) => string;
   /** Valores no topo das barras. Default true. */
   showValues?: boolean;
+  /** Torna cada coluna clicável. */
+  onSelect?: (datum: BarDatum, index: number) => void;
 }) {
+  const Col = onSelect ? "button" : "div";
   const hasGoals = data.some((d) => (d.goal ?? 0) > 0);
   const max = Math.max(...data.map((d) => Math.max(d.value, d.goal ?? 0)), 1);
   /** Área das barras (sem labels/valores) — mesma altura efetiva p/ a linha SVG. */
@@ -78,9 +82,14 @@ export function BarChart({
       >
         <div className="relative flex h-full w-full items-stretch" style={{ gap: gapPx }}>
           {data.map((d, i) => (
-            <div
+            <Col
               key={d.label}
-              className="relative z-[1] flex min-w-0 flex-col items-center gap-2"
+              type={onSelect ? "button" : undefined}
+              onClick={onSelect ? () => onSelect(d, i) : undefined}
+              className={
+                "relative z-[1] flex min-w-0 flex-col items-center gap-2" +
+                (onSelect ? " cursor-pointer rounded-[8px] transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-acc" : "")
+              }
               style={{ flex: `1 0 ${colW}px`, minWidth: colW }}
             >
               {showValues && (
@@ -103,7 +112,7 @@ export function BarChart({
               <span className="w-full truncate text-center text-[10.5px] font-semibold uppercase text-t2" title={d.label}>
                 {d.label}
               </span>
-            </div>
+            </Col>
           ))}
 
           {/* Linha de meta sobre as barras (mesmo eixo Y) */}

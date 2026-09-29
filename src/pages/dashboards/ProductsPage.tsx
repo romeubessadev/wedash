@@ -439,6 +439,10 @@ export default function ProductsPage() {
                   data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
                   height={220}
                   formatValue={brlCent}
+                  onSelect={(_, i) => {
+                    const row = view.curvaAbcCategorias.itens.find((c) => c.categoriaId === view.categorias[i]?.categoriaId);
+                    if (row) abrir({ tipo: "categoria", row });
+                  }}
                 />
               </div>
             </div>
