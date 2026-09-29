@@ -3556,6 +3556,131 @@ export function buildTeamDashboardView(
   };
 }
 
+export interface TeamMemberDetailStore {
+  filialId: string;
+  nome: string;
+  faturamento: number;
+  vendas: number;
+  pct: number;
+}
+
+export interface TeamMemberDetail extends TeamMemberRow {
+  serie: { label: string; faturamento: number; vendas: number }[] | null;
+  serieGranularidade: "dia" | "mes";
+  /** Só com mais de 1 loja no escopo. */
+  lojasDetalhe: TeamMemberDetailStore[];
+  comparativo: {
+    vs: string;
+    faturamento?: TeamKpi["delta"];
+    vendas?: TeamKpi["delta"];
+    ticket?: TeamKpi["delta"];
+    pa?: TeamKpi["delta"];
+  } | null;
+}
+
+/**
+ * Detalhe de uma pessoa da equipe — mesma linha da tabela Desempenho da equipe (mesmo filtro de turno)
+ * + faturamento dia a dia, vendas por loja e comparativo sem hora (terminando hoje, até ontem nos dois lados).
+ */
+export function buildTeamMemberDetail(
+  escopo: Scope,
+  input: TeamAggInput,
+  key: string,
+  opts: { turno?: string | null } = {},
+): TeamMemberDetail | null {
+  const view = buildTeamDashboardView(escopo, input, opts);
+  const row = view.pessoas.find((p) => p.key === key);
+  if (!row) return null;
+
+  const periodo = view.periodo;
+  const fs = storesInScope(view.escopo);
+  const nomeLoja = new Map(fs.map((f) => [f.id, f.fantasia]));
+  const ant = previousPeriod(periodo, calendarCurrentHour());
+  const cortaHoje = ant.horaMax != null;
+  const fimCmp = cortaHoje ? somarDias(periodo.fim, -1) : periodo.fim;
+  const antFimCmp = cortaHoje ? somarDias(ant.fim, -1) : ant.fim;
+  const vsCmp = cortaHoje ? `${ant.rotulo}, até o mesmo dia` : ant.rotulo;
+  const noAtual = (d: string) => d >= periodo.inicio && d <= periodo.fim;
+  const noAtualCmp = (d: string) => d >= periodo.inicio && d <= fimCmp;
+  const noAntCmp = (d: string) => d >= ant.inicio && d <= antFimCmp;
+
+  const linhas = (input.sellerDayAggs ?? []).filter(
+    (r) => nomeLoja.has(r.storeId) && (r.sellerEmployeeId != null ? `e:${r.sellerEmployeeId}` : `n:${r.sellerKey}`) === key,
+  );
+
+  type Tot = { fat: number; vendas: number; itens: number; semItens: boolean };
+  const somar = (no: (d: string) => boolean): Tot => {
+    const t: Tot = { fat: 0, vendas: 0, itens: 0, semItens: false };
+    for (const r of linhas) {
+      if (!no(r.day)) continue;
+      t.fat += r.revenueCents / 100;
+      t.vendas += r.salesCount;
+      t.itens += r.itemCount ?? 0;
+      if (r.salesCount > 0 && !(r.itemCount && r.itemCount > 0)) t.semItens = true;
+    }
+    return t;
+  };
+  const cmp = somar(noAtualCmp);
+  const antT = somar(noAntCmp);
+  const comparavel = row.faturamento > 0 && cmp.vendas > 0 && antT.vendas > 0;
+  const paComparavel = comparavel && !cmp.semItens && !antT.semItens;
+  const comparativo: TeamMemberDetail["comparativo"] = comparavel
+    ? {
+        vs: vsCmp,
+        faturamento: kpiDelta(cmp.fat, antT.fat, vsCmp),
+        vendas: kpiDelta(cmp.vendas, antT.vendas, vsCmp, false),
+        ticket: kpiDelta(divSeguro(cmp.fat, cmp.vendas), divSeguro(antT.fat, antT.vendas), vsCmp),
+        pa: paComparavel ? kpiDelta(cmp.itens / cmp.vendas, antT.itens / antT.vendas, vsCmp, false) : undefined,
+      }
+    : null;
+
+  let serie: TeamMemberDetail["serie"] = null;
+  const dias = intervaloDias(periodo.inicio, periodo.fim);
+  const serieGranularidade: TeamMemberDetail["serieGranularidade"] = dias.length > 31 ? "mes" : "dia";
+  if (dias.length > 1) {
+    const porDia = new Map<string, { faturamento: number; vendas: number }>();
+    for (const r of linhas) {
+      if (!noAtual(r.day)) continue;
+      const k = serieGranularidade === "mes" ? r.day.slice(0, 7) : r.day;
+      const acc = porDia.get(k) ?? { faturamento: 0, vendas: 0 };
+      acc.faturamento += r.revenueCents / 100;
+      acc.vendas += r.salesCount;
+      porDia.set(k, acc);
+    }
+    const eixo = serieGranularidade === "mes" ? [...new Set(dias.map((d) => d.slice(0, 7)))] : dias;
+    const variosAnos = periodo.inicio.slice(0, 4) !== periodo.fim.slice(0, 4);
+    serie = eixo.map((k) => ({
+      label: serieGranularidade === "mes" ? `${mesCurto(`${k}-01`)}${variosAnos ? `/${k.slice(2, 4)}` : ""}` : dataCurta(k),
+      faturamento: porDia.get(k)?.faturamento ?? 0,
+      vendas: porDia.get(k)?.vendas ?? 0,
+    }));
+  }
+
+  let lojasDetalhe: TeamMemberDetailStore[] = [];
+  if (fs.length > 1) {
+    const porLoja = new Map<string, { faturamento: number; vendas: number }>();
+    for (const r of linhas) {
+      if (!noAtual(r.day)) continue;
+      const acc = porLoja.get(r.storeId) ?? { faturamento: 0, vendas: 0 };
+      acc.faturamento += r.revenueCents / 100;
+      acc.vendas += r.salesCount;
+      porLoja.set(r.storeId, acc);
+    }
+    lojasDetalhe = [...porLoja.entries()]
+      .filter(([, l]) => l.faturamento > 0)
+      .map(([id, l]) => ({
+        filialId: id,
+        nome: nomeLoja.get(id)!,
+        faturamento: l.faturamento,
+        vendas: l.vendas,
+        pct: divSeguro(l.faturamento, row.faturamento) * 100,
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
+  }
+
+  return { ...row, serie, serieGranularidade, lojasDetalhe, comparativo };
+}
+
 /* ================================================================
  * TELA GRUPOS — camada de dados (montarGruposView)
  * ================================================================ */
@@ -3901,6 +4026,8 @@ export interface TopItem {
 }
 
 export interface TopSeller extends TopItem {
+  /** Mesma chave do `TeamMemberRow.key` — abre o detalhe da pessoa. */
+  key?: string;
   sub?: string;
   ticketMedio?: number;
   pctMeta?: number;
@@ -4701,10 +4828,11 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
       lojas: [...v.fatPorLoja.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id),
     });
 
-  const topVendedoras: TopSeller[] = [...vendMap.values()]
-    .sort((a, b) => b.fat - a.fat)
+  const topVendedoras: TopSeller[] = [...vendMap.entries()]
+    .sort((a, b) => b[1].fat - a[1].fat)
     .slice(0, 5)
-    .map((v) => ({
+    .map(([key, v]) => ({
+      key,
       nome: v.nome,
       valor: v.fat,
       sub: `${v.vendas} venda${v.vendas === 1 ? "" : "s"}`,

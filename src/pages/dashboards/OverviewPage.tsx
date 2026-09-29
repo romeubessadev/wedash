@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { Avatar, Badge, Card, CardHeader, CardTitle, Popover, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -40,6 +40,7 @@ import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { cn } from "@/lib/cn";
 import { useProductDetail } from "@/pages/dashboard/ProductDetail";
+import { useTeamMemberDetail } from "@/pages/dashboard/TeamMemberDetail";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -353,6 +354,7 @@ export default function OverviewPage() {
   const printing = usePrintMode();
   const exportar = useExportPdf("Visão geral");
   const { abrir: abrirDetalhe, modal: detalheModal } = useProductDetail({ escopo, tenantId: session.tenantId });
+  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, tenantId: session.tenantId });
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
@@ -775,12 +777,29 @@ export default function OverviewPage() {
           {view.topVendedoras.length === 0 ? (
             <EmptyBlock />
           ) : (
-          <div className="flex flex-col gap-4 px-4 pb-4">
+          <div className="flex flex-col gap-1 px-2 pb-3">
             {view.topVendedoras.map((v, idx) => {
               const hasMeta = v.pctMeta != null;
               const pct = v.pctMeta ?? 0;
+              const key = v.key;
+              const abrir = key ? () => abrirPessoa(key, v.nome) : undefined;
               return (
-                <div key={v.nome} className="flex items-center gap-3">
+                <div
+                  key={v.nome}
+                  role={abrir ? "button" : undefined}
+                  tabIndex={abrir ? 0 : undefined}
+                  onClick={abrir}
+                  onKeyDown={(e) => {
+                    if (abrir && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      abrir();
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-2 py-1.5",
+                    abrir && "cursor-pointer transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none",
+                  )}
+                >
                   <span
                     className="w-5 shrink-0 text-center text-[13px] font-extrabold"
                     style={{ color: RANK_MEDAL[idx] ?? "var(--t2)" }}
@@ -790,34 +809,7 @@ export default function OverviewPage() {
                   <Avatar name={v.nome} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-baseline justify-between gap-2">
-                      <Popover
-                        className="min-w-0"
-                        trigger={
-                          <button
-                            type="button"
-                            className="block max-w-full cursor-pointer truncate text-left text-[13px] font-bold text-t0 decoration-dotted underline-offset-2 hover:underline"
-                          >
-                            {v.nome}
-                          </button>
-                        }
-                      >
-                        <div className="flex flex-col gap-2.5 text-[12px]">
-                          <div>
-                            <p className="text-[11px] font-semibold text-t2">{v.lojas.length > 1 ? "Principal loja" : "Loja"}</p>
-                            <p className="font-bold text-t0">{v.lojas[0] ?? "—"}</p>
-                          </div>
-                          {v.lojas.length > 1 && (
-                            <div>
-                              <p className="text-[11px] font-semibold text-t2">Também vendeu em</p>
-                              <p className="text-t1">{v.lojas.slice(1).join(", ")}</p>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-[11px] font-semibold text-t2">Turno</p>
-                            <p className={v.turno ? "font-bold text-t0" : "text-t2"}>{v.turno ?? "Sem turno definido"}</p>
-                          </div>
-                        </div>
-                      </Popover>
+                      <span className="min-w-0 truncate text-[13px] font-bold text-t0">{v.nome}</span>
                       <span className="shrink-0 font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
                     </div>
                     {hasMeta && <ProgressBar value={pct} height={5} />}
@@ -946,6 +938,7 @@ export default function OverviewPage() {
       )}
 
       {detalheModal}
+      {pessoaModal}
     </div>
   );
 }

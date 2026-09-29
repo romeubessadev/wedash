@@ -241,7 +241,7 @@ function useLazyProductsData(escopo: Scope, tenantId: string | undefined, enable
 
 type TopSort = "nome" | "itens" | "faturamento" | "margem";
 
-function MetricaDetalhe({
+export function MetricaDetalhe({
   label,
   valor,
   delta,
@@ -429,7 +429,7 @@ function CategoriasDaClasse({
   );
 }
 
-function DetalheSkeleton() {
+export function DetalheSkeleton() {
   return (
     <div className="flex flex-col gap-5">
       <Skeleton className="h-3.5 w-48" />

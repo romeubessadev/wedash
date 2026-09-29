@@ -7,13 +7,13 @@ import { DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
   buildTeamDashboardView,
-  productsFetchRange,
   resolvePeriod,
   TEAM_SEM_TURNO,
   type TeamAggInput,
   type TeamMemberRow,
 } from "@/data/wedash/dashboard";
-import { fetchSalesCoverage, fetchSalesDayAggs, fetchSalesSellerDayAggs, fetchSellerShifts } from "@/data/wedash/salesRepo";
+import { fetchSalesCoverage } from "@/data/wedash/salesRepo";
+import { fetchTeamAggInput, useTeamMemberDetail } from "@/pages/dashboard/TeamMemberDetail";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -169,19 +169,13 @@ export function TeamPage() {
   const reloadGen = useRef(0);
   const reload = useCallback(async () => {
     const gen = ++reloadGen.current;
-    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
-    const range = productsFetchRange(escopo);
-    const storeIds = escopo.filialIds;
-    const tenantId = session.tenantId;
     try {
-      const [dayAggs, sellerDayAggs, sellerShifts, cov] = await Promise.all([
-        fetchSalesDayAggs({ tenantId, storeIds, from: periodo.inicio, to: periodo.fim, brand: null }),
-        fetchSalesSellerDayAggs({ tenantId, storeIds, from: range.from, to: range.to }),
-        fetchSellerShifts(tenantId),
-        fetchSalesCoverage(tenantId, storeIds),
+      const [next, cov] = await Promise.all([
+        fetchTeamAggInput(session.tenantId, escopo),
+        fetchSalesCoverage(session.tenantId, escopo.filialIds),
       ]);
       if (gen !== reloadGen.current) return;
-      setAggs({ dayAggs, sellerDayAggs, sellerShifts });
+      setAggs(next);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
       if (gen !== reloadGen.current) return;
@@ -262,6 +256,13 @@ export function TeamPage() {
   }
 
   const exportar = useExportPdf("Equipe", view.turnoFiltro);
+  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, data: aggs, turno: view.turnoFiltro });
+  const teclaAbre = (p: TeamMemberRow) => (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      abrirPessoa(p.key, p.nome);
+    }
+  };
   const tipVariacao = `Faturamento ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
@@ -519,6 +520,8 @@ export function TeamPage() {
           </Card>
         </>
       )}
+
+      {pessoaModal}
     </div>
   );
 
@@ -580,7 +583,13 @@ export function TeamPage() {
                   const turno = partesTurno(p.turno);
                   const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
                   return (
-                    <tr key={p.key} className="border-b border-line hover:bg-bg-3">
+                    <tr
+                      key={p.key}
+                      tabIndex={0}
+                      onClick={() => abrirPessoa(p.key, p.nome)}
+                      onKeyDown={teclaAbre(p)}
+                      className="cursor-pointer border-b border-line transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+                    >
                       <td className="px-3 py-2.5 text-center text-[13px] font-extrabold text-t2">{rank + 1}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -650,7 +659,14 @@ export function TeamPage() {
               const turno = partesTurno(p.turno);
               const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
               return (
-                <div key={p.key} className="rounded-xl border border-line bg-bg-inset p-3.5">
+                <div
+                  key={p.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => abrirPessoa(p.key, p.nome)}
+                  onKeyDown={teclaAbre(p)}
+                  className="cursor-pointer rounded-xl border border-line bg-bg-inset p-3.5 transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <AvatarIniciais nome={p.nome} idx={rank} />
