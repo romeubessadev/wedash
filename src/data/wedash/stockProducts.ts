@@ -165,11 +165,22 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
   return costPrices.get(store.costTableId)?.get(code) ?? null;
 }
 
-/** Situação do produto na aba Estoque: negativo = total de alguma loja do filtro abaixo de zero. */
-export type StockStatus = "negativo" | "ok";
+/**
+ * Situação do produto na aba Estoque, a mais grave primeiro (por loja do filtro):
+ * negativo = total da loja abaixo de zero; aguardando = o local Estoque tem mais que a Loja (QUIOSQUE, de onde sai a venda).
+ */
+export type StockStatus = "negativo" | "aguardando" | "ok";
+
+const localQtd = (locais: StockLocation[], nomes: string[]) =>
+  locais.filter((x) => nomes.includes(x.nome.trim().toUpperCase())).reduce((s, x) => s + x.qtd, 0);
 
 export function stockStatus(r: StockProductRow): StockStatus {
-  return r.lojas.some((l) => l.estoque < 0) ? "negativo" : "ok";
+  if (r.lojas.some((l) => l.estoque < 0)) return "negativo";
+  const aguardando = r.lojas.some((l) => {
+    const estoque = localQtd(l.locais, ["ESTOQUE"]);
+    return estoque > 0 && estoque > localQtd(l.locais, ["LOJA", "QUIOSQUE"]);
+  });
+  return aguardando ? "aguardando" : "ok";
 }
 
 export function buildStockProductsView(input: StockInput): StockProductsView {

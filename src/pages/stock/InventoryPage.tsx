@@ -29,6 +29,7 @@ type SortKey = "nome" | "estoque";
 
 const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant }> = {
   negativo: { label: "Negativo", variant: "danger" },
+  aguardando: { label: "Aguardando transferência", variant: "warning" },
   ok: { label: "Ok", variant: "success" },
 };
 
@@ -45,12 +46,14 @@ export function InventoryPage() {
   const exportar = useExportPdf("Estoque", null, { periodo: false });
 
   const comStatus = useMemo(() => (view?.rows ?? []).map((r) => ({ r, status: stockStatus(r) })), [view]);
-  const nNegativo = comStatus.filter((x) => x.status === "negativo").length;
-  const nOk = comStatus.length - nNegativo;
+  const contagem = (s: StockStatus) => comStatus.filter((x) => x.status === s).length;
+  const nNegativo = contagem("negativo");
   const statusOpcoes: Array<{ value: StatusFiltro; label: string }> = [
     { value: "todos", label: "Todos os status" },
-    ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Negativo (${nNegativo})` }] : []),
-    ...(nOk > 0 ? [{ value: "ok" as const, label: `Ok (${nOk})` }] : []),
+    ...(Object.keys(STATUS_BADGE) as StockStatus[])
+      .map((s) => ({ value: s, label: `${STATUS_BADGE[s].label} (${contagem(s)})`, n: contagem(s) }))
+      .filter((o) => o.n > 0)
+      .map(({ value, label }) => ({ value, label })),
   ];
   const status = statusOpcoes.some((o) => o.value === statusSel) ? statusSel : "todos";
   const categorias = view?.categorias ?? [];

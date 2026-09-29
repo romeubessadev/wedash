@@ -83,11 +83,11 @@ export async function fetchStoreStock(
   };
 }
 
-/** Nome do local em Title Case ("QUIOSQUE" → "Quiosque", "SHOP010" → "Shop010"); mesma grafia no ERP soma junto. */
+/** Nome do local em Title Case ("SHOP010" → "Shop010"; o QUIOSQUE, de onde sai a venda, aparece como "Loja"); mesma grafia no ERP soma junto. */
 function locationsTitleCase(raw: Record<string, number | string>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(raw)) {
-    const nome = titleName(k.trim()) || "Estoque";
+    const nome = k.trim().toUpperCase() === "QUIOSQUE" ? "Loja" : titleName(k.trim()) || "Estoque";
     out[nome] = (out[nome] ?? 0) + (Number(v) || 0);
   }
   return out;
