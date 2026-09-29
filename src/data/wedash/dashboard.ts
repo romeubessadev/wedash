@@ -3295,6 +3295,9 @@ export interface TeamMemberRow {
   participacaoPct: number;
   /** Faturamento vs período anterior (sem hora: terminando hoje, até ontem nos dois lados). */
   variacaoPct: number | null;
+  /** Lados da variação — o Total da tabela soma e compara ponderado. */
+  faturamentoCmp: number;
+  faturamentoAnt: number;
 }
 
 export interface TeamShiftSlice {
@@ -3471,6 +3474,8 @@ export function buildTeamDashboardView(
       pa: a.atual.semItens || a.atual.vendas === 0 ? null : a.atual.itens / a.atual.vendas,
       participacaoPct: divSeguro(a.atual.fat, totAtual.fat) * 100,
       variacaoPct: a.ant.fat > 0 && a.cmp.fat > 0 ? ((a.cmp.fat - a.ant.fat) / a.ant.fat) * 100 : null,
+      faturamentoCmp: a.cmp.fat,
+      faturamentoAnt: a.ant.fat,
     }))
     .sort((x, y) => y.faturamento - x.faturamento || x.nome.localeCompare(y.nome, "pt-BR"));
 

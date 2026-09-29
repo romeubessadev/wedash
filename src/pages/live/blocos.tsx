@@ -25,9 +25,11 @@ const PODIO_ORDEM = [1, 0, 2] as const;
 export function BlocoRanking({
   ranking,
   formatValor = brlK,
+  onSelect,
 }: {
   ranking: RankingRow[];
   formatValor?: (v: number) => string;
+  onSelect?: (row: RankingRow) => void;
 }) {
   if (ranking.length === 0) {
     return (
@@ -50,9 +52,23 @@ export function BlocoRanking({
         return (
           <div
             key={l.colaboradorId}
+            {...(onSelect
+              ? {
+                  role: "button",
+                  tabIndex: 0,
+                  onClick: () => onSelect(l),
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelect(l);
+                    }
+                  },
+                }
+              : {})}
             className={cn(
               "flex flex-col items-center text-center",
               isOuro ? "w-[34%] max-w-[168px]" : "w-[30%] max-w-[148px]",
+              onSelect && "cursor-pointer rounded-2xl transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-acc",
             )}
           >
             <div className="relative mb-2.5">

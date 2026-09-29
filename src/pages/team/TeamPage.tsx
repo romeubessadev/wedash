@@ -25,7 +25,6 @@ import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { TeamSkeleton } from "@/components/wedash/LoadingSkeletons";
-import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoRanking } from "@/pages/live/blocos";
@@ -120,11 +119,6 @@ function Variacao({ v }: { v: number | null }) {
       {r}%
     </span>
   );
-}
-
-/** "a semana passada, até o mesmo dia" → "semana passada" (rótulo curto do card do celular). */
-function vsCurto(vs: string): string {
-  return vs.split(",")[0]!.replace(/^(os|o|as|a) /, "");
 }
 
 /** "Manhã · 09:00–15:00" → nome + horário. */
@@ -228,12 +222,15 @@ export function TeamPage() {
     const vendas = linhasTabela.reduce((s, p) => s + p.vendas, 0);
     const itens = linhasTabela.reduce((s, p) => s + p.itens, 0);
     const completo = linhasTabela.every((p) => p.pa != null || p.vendas === 0);
+    const fatCmp = linhasTabela.reduce((s, p) => s + p.faturamentoCmp, 0);
+    const fatAnt = linhasTabela.reduce((s, p) => s + p.faturamentoAnt, 0);
     return {
       faturamento,
       vendas,
       ticketMedio: vendas > 0 ? faturamento / vendas : 0,
       pa: completo && vendas > 0 ? itens / vendas : null,
       participacaoPct: linhasTabela.reduce((s, p) => s + p.participacaoPct, 0),
+      variacaoPct: fatCmp > 0 && fatAnt > 0 ? ((fatCmp - fatAnt) / fatAnt) * 100 : null,
     };
   }, [linhasTabela]);
 
@@ -264,6 +261,7 @@ export function TeamPage() {
     }
   };
   const tipVariacao = `Faturamento ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
+  const tipVariacaoTotal = `Faturamento somado das pessoas do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}. Cada pessoa pesa pelo quanto vende.`;
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
   const rankPorKey = new Map(view.pessoas.map((p, i) => [p.key, i]));
@@ -528,9 +526,9 @@ export function TeamPage() {
   function abaRanking() {
     return (
       <div className="flex flex-col">
-        <BlocoRanking ranking={podio} formatValor={brlCent} />
+        <BlocoRanking ranking={podio} formatValor={brlCent} onSelect={(r) => abrirPessoa(r.colaboradorId, r.nome)} />
 
-        <div className="mt-6 flex flex-wrap items-center gap-2 sm:justify-end print:hidden">
+        <div className="mt-6 mb-4 flex flex-wrap items-center gap-2 sm:justify-end print:hidden">
           <input
             type="search"
             placeholder="Buscar..."
@@ -539,42 +537,23 @@ export function TeamPage() {
             className={cn(filtroInputClass, "sm:w-56")}
           />
         </div>
-        {linhasTabela.length > 1 && (
-          <MobileSortBar
-            className="mt-3"
-            options={[
-              { key: "nome", label: "Nome", text: true },
-              { key: "faturamento", label: "Faturamento" },
-              { key: "vendas", label: "Vendas" },
-              { key: "ticketMedio", label: "Ticket" },
-              { key: "variacaoPct", label: "Variação" },
-            ]}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onChange={(k, d) => {
-              setSortKey(k);
-              setSortDir(d);
-            }}
-          />
-        )}
 
-        {/* Desktop */}
-        <div className="mt-3 hidden overflow-x-auto md:block">
-          {linhasTabela.length === 0 ? (
-            <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
-          ) : (
-            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+        {linhasTabela.length === 0 ? (
+          <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
-                <tr className="border-b-2 border-line">
-                  <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">#</th>
-                  <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
-                  <th className="px-3 pb-3 text-left text-[11px] font-bold uppercase tracking-wide text-t2">Turno</th>
-                  <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
-                  <ThSort label="Nº de vendas" active={sortKey === "vendas"} dir={sortDir} onClick={() => toggleSort("vendas")} />
-                  <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} />
-                  <ThSort label="P.A." active={sortKey === "pa"} dir={sortDir} onClick={() => toggleSort("pa")} />
-                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
-                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
+                  <th className="px-1 pb-3 text-left font-bold">Turno</th>
+                  <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Nº de vendas" active={sortKey === "vendas"} dir={sortDir} onClick={() => toggleSort("vendas")} className="px-1 pb-3" />
+                  <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} className="px-1 pb-3" />
+                  <ThSort label="P.A." active={sortKey === "pa"} dir={sortDir} onClick={() => toggleSort("pa")} className="px-1 pb-3" />
+                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} className="px-1 pb-3" />
+                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} className="px-1 pb-3" />
                 </tr>
               </thead>
               <tbody>
@@ -590,8 +569,8 @@ export function TeamPage() {
                       onKeyDown={teclaAbre(p)}
                       className="cursor-pointer border-b border-line transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
                     >
-                      <td className="px-3 py-2.5 text-center text-[13px] font-extrabold text-t2">{rank + 1}</td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{rank + 1}</td>
+                      <td className="px-1 py-3">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <AvatarIniciais nome={p.nome} idx={rank} />
                           <div className="min-w-0">
@@ -607,16 +586,16 @@ export function TeamPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-1 py-3">
                         <p className={cn("text-[12.5px] font-semibold", p.turno ? "text-t1" : "text-t2")}>{turno.nome}</p>
                         {turno.horario && <p className="text-[11px] text-t2">{turno.horario}</p>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brlCent(p.faturamento)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.vendas)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brlCent(p.ticketMedio)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{paFmt(p.pa)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.participacaoPct)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.vendas)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.ticketMedio)}</td>
+                      <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.pa == null ? "text-t2" : "text-t0")}>{paFmt(p.pa)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{pctFmt(p.participacaoPct)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px]">
                         <Tooltip label={tipVariacao}>
                           <span>
                             <Variacao v={p.variacaoPct} />
@@ -626,9 +605,9 @@ export function TeamPage() {
                     </tr>
                   );
                 })}
-                <tr className="border-t-2 border-line bg-bg-inset">
-                  <td className="px-3 py-3" />
-                  <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0" colSpan={2}>
+                <tr className="bg-bg-inset">
+                  <td />
+                  <td className="px-1 py-3 text-[13px] font-extrabold text-t0" colSpan={2}>
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
                       <TipHelp label="Soma todas as pessoas encontradas no filtro, inclusive as que não aparecem nesta página." />
@@ -637,81 +616,32 @@ export function TeamPage() {
                       {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.vendas)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brlCent(totalTabela.ticketMedio)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{paFmt(totalTabela.pa)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{pctFmt(totalTabela.participacaoPct)}</td>
-                  <td className="px-3 py-3" />
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{brlCent(totalTabela.faturamento)}</td>
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{num(totalTabela.vendas)}</td>
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{brlCent(totalTabela.ticketMedio)}</td>
+                  <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.pa == null ? "text-t2" : "text-t0")}>
+                    {paFmt(totalTabela.pa)}
+                  </td>
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{pctFmt(totalTabela.participacaoPct)}</td>
+                  <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold">
+                    <Tooltip label={tipVariacaoTotal}>
+                      <span>
+                        <Variacao v={totalTabela.variacaoPct} />
+                      </span>
+                    </Tooltip>
+                  </td>
                 </tr>
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Mobile — card por pessoa */}
-        <div className="mt-3 flex flex-col gap-2.5 md:hidden">
-          {pageRows.length === 0 ? (
-            <SemResultado temDados={temVendasEquipe} onLimpar={() => setBusca("")} />
-          ) : (
-            pageRows.map((p) => {
-              const rank = rankPorKey.get(p.key) ?? 0;
-              const turno = partesTurno(p.turno);
-              const loja = view.multiLoja ? rotuloLojas(p.lojas) : null;
-              return (
-                <div
-                  key={p.key}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => abrirPessoa(p.key, p.nome)}
-                  onKeyDown={teclaAbre(p)}
-                  className="cursor-pointer rounded-xl border border-line bg-bg-inset p-3.5 transition-colors hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:outline-none"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <AvatarIniciais nome={p.nome} idx={rank} />
-                      <div className="min-w-0">
-                        <p className="truncate text-[13.5px] font-bold text-t0">
-                          {rank + 1}. {p.nome}
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] font-semibold text-t2">
-                          {[loja, turno.horario ? `${turno.nome} · ${turno.horario}` : turno.nome].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                    </div>
-                    {p.variacaoPct != null && (
-                      <Tooltip label={tipVariacao}>
-                        <div className="shrink-0 text-right">
-                          <span className="text-xs">
-                            <Variacao v={p.variacaoPct} />
-                          </span>
-                          <p className="text-[10.5px] text-t2">vs {vsCurto(view.vsVariacao)}</p>
-                        </div>
-                      </Tooltip>
-                    )}
-                  </div>
-                  <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
-                </div>
-              );
-            })
-          )}
-          {linhasTabela.length > 0 && (
-            <div className="rounded-xl border border-line bg-bg-3 p-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total do filtro</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-t2">
-                {num(linhasTabela.length)} {linhasTabela.length === 1 ? "pessoa" : "pessoas"}
-              </p>
-              <GradeMetricas m={totalTabela} className="mt-2" destaque />
-            </div>
-          )}
-        </div>
-
-        {linhasTabela.length > 0 && totalPages > 1 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5 print:hidden">
+        {linhasTabela.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
             <span className="text-[12.5px] text-t2">
               Mostrando {pageRows.length} de {num(linhasTabela.length)} pessoas
             </span>
-            <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />
+            {totalPages > 1 && <Pagination page={pageSafe} totalPages={totalPages} onChange={setPage} />}
           </div>
         )}
       </div>
@@ -754,25 +684,3 @@ function SemResultado({ temDados, onLimpar }: { temDados: boolean; onLimpar: () 
   );
 }
 
-type MetricasLinha = Pick<TeamMemberRow, "faturamento" | "vendas" | "ticketMedio" | "pa" | "participacaoPct">;
-
-function GradeMetricas({ m, className, destaque = false }: { m: MetricasLinha; className?: string; destaque?: boolean }) {
-  const val = destaque ? "font-extrabold tabular-nums text-t0" : "font-semibold tabular-nums text-t0";
-  const rows: { label: string; value: string }[] = [
-    { label: "Faturamento", value: brlCent(m.faturamento) },
-    { label: "Nº de vendas", value: num(m.vendas) },
-    { label: "Ticket médio", value: brlCent(m.ticketMedio) },
-    { label: "P.A.", value: paFmt(m.pa) },
-    { label: "Participação", value: pctFmt(m.participacaoPct) },
-  ];
-  return (
-    <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>
-      {rows.map((r) => (
-        <div key={r.label} className="flex justify-between gap-2">
-          <span className="text-t2">{r.label}</span>
-          <span className={val}>{r.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
