@@ -7,6 +7,7 @@ import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { PageLoader } from "./PageLoader";
 import { touchLastSeen } from "@/session/authApi";
+import { installPrintMode } from "@/lib/printMode";
 
 /** O banco só grava 1x a cada 5 min; aqui só evita chamadas à toa. */
 const LAST_SEEN_INTERVAL_MS = 5 * 60_000;
@@ -39,6 +40,8 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => installPrintMode(), []);
+
   useEffect(() => {
     const touch = () => {
       if (document.visibilityState === "visible") void touchLastSeen();
@@ -53,13 +56,17 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0">
-      <Sidebar collapsed={collapsed} />
-      <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+    <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0 print:block print:bg-white">
+      <div className="contents print:hidden">
+        <Sidebar collapsed={collapsed} />
+        <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} onOpenPalette={() => setPaletteOpen(true)} />
-        <main ref={mainRef} className="pad-base flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-5 sm:px-6 sm:pt-6" style={padBase("6rem")}>
+      <div className="flex min-w-0 flex-1 flex-col print:block">
+        <div className="contents print:hidden">
+          <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} onOpenPalette={() => setPaletteOpen(true)} />
+        </div>
+        <main ref={mainRef} className="pad-base flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-5 sm:px-6 sm:pt-6 print:overflow-visible print:p-0" style={padBase("6rem")}>
           <Suspense fallback={<PageLoader />}>
             <div key={location.pathname} className="vela-page-enter">
               <Outlet />

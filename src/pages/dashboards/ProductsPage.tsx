@@ -32,6 +32,8 @@ import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
+import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ProductsWithoutCostNotice } from "@/pages/dashboard/ProductsWithoutCostNotice";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
@@ -159,6 +161,8 @@ export default function ProductsPage() {
   const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const printing = usePrintMode();
+  const exportar = useExportPdf("Produtos");
   // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -303,7 +307,7 @@ export default function ProductsPage() {
   const pageSize = TABLE_PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(linhasTabela.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
-  const pageRows = linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+  const pageRows = printing ? linhasTabela : linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
   useEffect(() => {
     setPage(1);
@@ -350,7 +354,8 @@ export default function ProductsPage() {
     : "O CMV por produto não está disponível para este período.";
 
   return (
-    <div className="flex flex-col p-4 sm:p-6">
+    <div className="flex flex-col p-4 sm:p-6 print:p-0">
+      <ReportHeader />
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
@@ -369,7 +374,7 @@ export default function ProductsPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={exportar}
                 icon={
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -596,7 +601,7 @@ export default function ProductsPage() {
             <TipHelp label={tipCmvProduto} />
           </div>
           {view.produtos.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
             <input
               type="search"
               placeholder="Buscar por produto ou código…"
@@ -737,7 +742,7 @@ export default function ProductsPage() {
         </div>
 
         {linhasTabela.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 print:hidden">
             <span className="text-[12.5px] text-t2">
               Mostrando {pageRows.length} de {num(linhasTabela.length)} produtos
             </span>

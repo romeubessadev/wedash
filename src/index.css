@@ -460,3 +460,48 @@ input[type="range"]::-moz-range-thumb {
     clip-path: none !important;
   }
 }
+
+/* Exportar PDF (layout de impressão): A4 deitado tem ~1047px úteis, então as
+   grades de desktop (lg) valem no papel. Tema claro vem de printMode.ts. */
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .tela-cheia {
+    min-height: 0 !important;
+  }
+  .vela-page-enter,
+  .vela-page-enter > *,
+  .vela-reveal {
+    animation: none !important;
+    clip-path: none !important;
+  }
+  * {
+    box-shadow: none !important;
+  }
+  /* Ícone "?" das dicas: não tem hover no papel. */
+  .cursor-help.rounded-full {
+    display: none !important;
+  }
+  input[type="search"] {
+    display: none !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}

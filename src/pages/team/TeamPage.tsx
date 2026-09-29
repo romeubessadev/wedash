@@ -21,6 +21,8 @@ import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
+import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { TeamSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -154,6 +156,7 @@ export function TeamPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [turnoSel, setTurnoSel] = useState<string | null>(null);
+  const printing = usePrintMode();
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
     const onStores = () => setStoresTick((n) => n + 1);
@@ -242,7 +245,7 @@ export function TeamPage() {
   const pageSize = TABLE_PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(linhasTabela.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
-  const pageRows = linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+  const pageRows = printing ? linhasTabela : linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
   useEffect(() => {
     setPage(1);
@@ -257,6 +260,7 @@ export function TeamPage() {
     }
   }
 
+  const exportar = useExportPdf("Equipe", view.turnoFiltro);
   const tipVariacao = `Faturamento ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
@@ -270,7 +274,8 @@ export function TeamPage() {
   }));
 
   return (
-    <div className="flex flex-col p-4 sm:p-6">
+    <div className="flex flex-col p-4 sm:p-6 print:p-0">
+      <ReportHeader filtros={view.turnosDisponiveis.length > 0 ? [{ label: "Turno", valor: view.turnoFiltro ?? "Todos os turnos" }] : []} />
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Equipe" }]}
         title="Equipe"
@@ -303,7 +308,7 @@ export function TeamPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={exportar}
                 icon={
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -472,6 +477,9 @@ export function TeamPage() {
               <CardTitle>Desempenho da equipe</CardTitle>
               <TipHelp label={"Acompanhe ranking, desafios e metas individuais no período.\n\nVendas sem vendedor identificado ou realizadas pela gerência não entram no ranking."} />
             </div>
+            {printing ? (
+              !temVendasEquipe ? <EmptyBlock /> : abaRanking()
+            ) : (
             <Tabs
               variant="accent"
               defaultKey="ranking"
@@ -518,6 +526,7 @@ export function TeamPage() {
                 },
               ]}
             />
+            )}
           </Card>
         </>
       )}
@@ -529,7 +538,7 @@ export function TeamPage() {
       <div className="flex flex-col">
         <BlocoRanking ranking={podio} formatValor={brlCent} />
 
-        <div className="mt-6 flex flex-col gap-2 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-end">
+        <div className="mt-6 flex flex-col gap-2 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-end print:hidden">
           <input
             type="search"
             placeholder="Buscar por nome…"
@@ -675,7 +684,7 @@ export function TeamPage() {
         </div>
 
         {linhasTabela.length > 0 && totalPages > 1 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5 print:hidden">
             <span className="text-[12.5px] text-t2">
               Mostrando {pageRows.length} de {num(linhasTabela.length)} pessoas
             </span>

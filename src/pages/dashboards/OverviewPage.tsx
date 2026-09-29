@@ -36,6 +36,8 @@ import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
+import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -346,15 +348,18 @@ export default function OverviewPage() {
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
   const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
   const monthFill = useMonthFill();
+  const printing = usePrintMode();
+  const exportar = useExportPdf("Visão geral");
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
 
   return (
-    <div className="flex flex-col p-4 sm:p-6">
+    <div className="flex flex-col p-4 sm:p-6 print:p-0">
+      <ReportHeader />
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
-        title={welcomeTitle(session.name)}
+        title={printing ? "Visão geral" : welcomeTitle(session.name)}
         subtitle="Acompanhe os principais indicadores, metas e resultados da operação."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
@@ -370,7 +375,7 @@ export default function OverviewPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={exportar}
                 icon={
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePrintMode } from "@/lib/printMode";
 
 /** Padrão das tabelas da WeDash: 10 linhas por página (desktop e celular). */
 export const TABLE_PAGE_SIZE = 10;
@@ -8,7 +9,8 @@ export const TABLE_PAGE_SIZE = 10;
  * (filtro, busca, ordenação).
  */
 export function usePagedRows<T>(rows: T[], resetKey?: string | number) {
-  const pageSize = TABLE_PAGE_SIZE;
+  const printing = usePrintMode();
+  const pageSize = printing ? Math.max(1, rows.length) : TABLE_PAGE_SIZE;
   const [page, setPage] = useState(1);
 
   useEffect(() => {

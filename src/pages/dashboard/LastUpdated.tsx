@@ -16,7 +16,7 @@ const TIP_LAST_UPDATED =
   "Horário da última busca das vendas de hoje no Millennium. O fechamento de dias anteriores, feito de madrugada, não altera este horário.";
 
 /** Linha abaixo dos filtros das telas: quando os dados do ERP foram atualizados pela última vez (sem sync ainda = nada). */
-export function LastUpdated() {
+export function LastUpdated({ plain = false }: { plain?: boolean }) {
   const session = useActiveSession();
   const [at, setAt] = useState<Date | null>(null);
 
@@ -36,6 +36,7 @@ export function LastUpdated() {
   }, [load]);
 
   if (!at) return null;
+  if (plain) return <span>{lastUpdatedLabel(at)}</span>;
   return (
     <Tooltip label={TIP_LAST_UPDATED}>
       <span className="cursor-help text-[11.5px] text-t2">{lastUpdatedLabel(at)}</span>
