@@ -2,7 +2,7 @@
  * Sincronização no `.env` — cada chave cuida de uma coisa só:
  * - SYNC_ONBOARDING (padrão 1m): só a carga do onboarding. off = sem vendas — ao conectar traz só o
  *   cadastro (gerador, equipe e produtos) · Nd = N dias contando hoje · Nm = N meses contando o atual.
- * - AUTO_REFRESH (padrão on): Atualizar automático a cada 30 min com a loja aberta. off = só o manual.
+ * - AUTO_REFRESH (padrão on): Atualizar automático a cada 30 min, o dia todo. off = só o manual.
  * - CLOSE_HOUR (padrão 3): hora local do fechamento da madrugada (0–23). off = desligado.
  * - DEEP_HISTORY (padrão off, só Nm): histórico antigo na madrugada, até a inauguração da loja.
  *

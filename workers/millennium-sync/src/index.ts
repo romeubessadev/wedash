@@ -82,7 +82,7 @@ async function main() {
     `  Carga do onboarding      : ${onboarding === "off" ? "sem vendas — só o cadastro (equipe e produtos)" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
   );
   console.log(
-    `  Atualização automática   : ${autoRefreshEnabled() ? "a cada 30 min com a loja aberta" : "desligada — só o Atualizar manual"} (AUTO_REFRESH)`,
+    `  Atualização automática   : ${autoRefreshEnabled() ? "a cada 30 min, o dia todo" : "desligada — só o Atualizar manual"} (AUTO_REFRESH)`,
   );
   console.log(
     `  Fechamento da madrugada  : ${dailyCloseEnabled() ? `a partir das ${closeHour()}h` : "desligado"} (CLOSE_HOUR)`,
