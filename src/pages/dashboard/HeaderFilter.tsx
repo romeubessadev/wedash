@@ -1,4 +1,5 @@
 import { Dropdown } from "@/components/ui";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
 /** Mesmo desenho do gatilho do DateRangePicker (md) — filtros do cabeçalho das telas. */
 const TRIGGER_CLASS =
@@ -18,10 +19,12 @@ export function HeaderFilter<V extends string>({
   label: string;
 }) {
   const atual = options.find((o) => o.value === value)?.label ?? options[0]?.label ?? "";
+  // Abaixo do `sm` os filtros ficam alinhados à esquerda (um abaixo do outro): o menu abre para a direita.
+  const empilhado = useMediaQuery("(max-width: 639px)");
   return (
     <Dropdown
-      align="right"
-      menuClassName="max-h-[320px] overflow-y-auto"
+      align={empilhado ? "left" : "right"}
+      menuClassName="max-h-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto"
       trigger={
         <button type="button" aria-label={`${label}: ${atual}`} className={TRIGGER_CLASS}>
           <span className="min-w-0 max-w-[220px] truncate text-[13.5px] font-semibold text-t0">{atual}</span>
