@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { Alert, Badge, Button, Card, CardTitle, Dropdown, Modal, Pagination, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { MobileSortSelect } from "@/components/wedash/MobileSortSelect";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { fetchSalesProductDayAggs } from "@/data/wedash/salesRepo";
 import {
@@ -354,6 +355,7 @@ export function StockProductsPage() {
     setSituacao("todos");
   };
   const umaLoja = lojas.length === 1;
+  const pendCtx: PendCtx = { umaLoja, tabelaNome, semTabelaDeCusto: lojas.length > 0 && lojasSemTabela.length === lojas.length };
 
   return (
     <div className="flex flex-col p-4 sm:p-6 print:p-0">
@@ -480,6 +482,21 @@ export function StockProductsPage() {
                   placeholder="Buscar por produto ou código…"
                   className={cn(filtroInputClass, "w-full sm:w-56")}
                 />
+                <MobileSortSelect
+                  options={[
+                    { key: "nome", label: "Produto", text: true },
+                    { key: "estoque", label: "Estoque" },
+                    { key: "custo", label: "Preço de custo" },
+                    { key: "preco", label: "Preço de venda" },
+                    { key: "lucro", label: "Lucro por peça" },
+                  ]}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onChange={(k, d) => {
+                    setSortKey(k);
+                    setSortDir(d);
+                  }}
+                />
               </div>
             </div>
 
@@ -514,19 +531,18 @@ export function StockProductsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pageRows.map((r) => (
-                        <tr
-                          key={r.codigo}
-                          className={cn("cursor-pointer border-b border-line", r.transferir > 0 ? "bg-warn-soft hover:bg-warn/20" : "hover:bg-bg-3")}
-                          onClick={() => setDetalhe(r.codigo)}
-                        >
-                          <td className="px-3 py-2.5">
+                      {pageRows.map((r) => {
+                        const pend = pendencias(r, pendCtx);
+                        return (
+                        <tr key={r.codigo} className="cursor-pointer border-b border-line hover:bg-bg-3" onClick={() => setDetalhe(r.codigo)}>
+                          <td className={cn("px-3 py-2.5", marcaClass(pend))}>
                             <p className="text-[13px] font-bold text-t0">{r.nome}</p>
                             <p className="text-[11px] text-t2">
                               {r.codigo}
                               {r.categoria && ` · ${r.categoria}`}
                               {r.variaPorLoja && " · média das lojas"}
                             </p>
+                            <Pendencias itens={pend} />
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             <EstoqueCell row={r} umaLoja={umaLoja} />
@@ -537,30 +553,35 @@ export function StockProductsPage() {
                             <Lucro valor={r.lucro} margem={r.margemPct} />
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
-                  {pageRows.map((r) => (
+                  {pageRows.map((r) => {
+                    const pend = pendencias(r, pendCtx);
+                    return (
                     <button
                       key={r.codigo}
                       type="button"
                       onClick={() => setDetalhe(r.codigo)}
-                      className={cn("rounded-xl border p-3.5 text-left", r.transferir > 0 ? "border-warn/40 bg-warn-soft" : "border-line bg-bg-inset")}
+                      className={cn("rounded-xl border border-line bg-bg-inset p-3.5 text-left", marcaClass(pend))}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[13.5px] font-bold text-t0">{r.nome}</p>
-                          <p className="mt-0.5 text-[11px] font-semibold text-t2">
-                            {r.codigo}
-                            {r.variaPorLoja && " · média das lojas"}
-                          </p>
-                        </div>
-                        {r.transferir > 0 && <Badge variant="warning">Transferir {qty(r.transferir)}</Badge>}
-                      </div>
-                      {r.transferir > 0 && <p className="mt-1.5 text-[11.5px] font-semibold text-warn">{transferTip(r.lojas, !umaLoja)}</p>}
+                      <p className="text-[13.5px] font-bold text-t0">{r.nome}</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-t2">
+                        {r.codigo}
+                        {r.variaPorLoja && " · média das lojas"}
+                      </p>
+                      <Pendencias itens={pend} />
+                      {pend.length > 0 && (
+                        <ul className="mt-1.5 space-y-0.5 text-[11.5px] text-t1">
+                          {pend.map((p) => (
+                            <li key={p.key}>{p.tip}</li>
+                          ))}
+                        </ul>
+                      )}
                       <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
                         <Metrica label="Estoque" value={<span className={r.estoque < 0 ? "text-bad" : undefined}>{qty(r.estoque)}</span>} />
                         <Metrica label="Preço de custo" value={money(r.custo)} />
@@ -577,7 +598,8 @@ export function StockProductsPage() {
                         </p>
                       )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 print:hidden">
@@ -649,13 +671,52 @@ function EstoqueCell({ row, umaLoja }: { row: StockProductRow; umaLoja: boolean 
           <Locais locais={locais} />
         </span>
       )}
-      {row.transferir > 0 && (
-        <Tooltip label={transferTip(row.lojas, !umaLoja)}>
+    </span>
+  );
+}
+
+type Pendencia = { key: string; label: string; variant: "danger" | "warning" | "neutral"; tip: string };
+type PendCtx = { umaLoja: boolean; tabelaNome: string; semTabelaDeCusto: boolean };
+
+/** O que falta resolver no produto: estoque negativo, transferência entre locais, custo ou preço faltando. */
+function pendencias(r: StockProductRow, ctx: PendCtx): Pendencia[] {
+  const out: Pendencia[] = [];
+  const negativas = r.lojas.filter((l) => l.estoque < 0);
+  if (negativas.length > 0)
+    out.push({
+      key: "negativo",
+      label: "Estoque negativo",
+      variant: "danger",
+      tip: ctx.umaLoja
+        ? "Saldo negativo no Millennium. Confira as entradas e saídas do produto."
+        : `Saldo negativo no Millennium em ${negativas.map((l) => l.store.fantasia).join(", ")}.`,
+    });
+  if (r.transferir > 0)
+    out.push({ key: "transferir", label: `Transferir ${qty(r.transferir)}`, variant: "warning", tip: transferTip(r.lojas, !ctx.umaLoja) });
+  if (r.custo == null && !ctx.semTabelaDeCusto)
+    out.push({ key: "custo", label: "Sem custo", variant: "neutral", tip: "A tabela de custo da loja não tem o custo deste produto." });
+  if (r.preco == null)
+    out.push({ key: "preco", label: "Sem preço", variant: "neutral", tip: `Este produto não tem preço na tabela ${ctx.tabelaNome}.` });
+  return out;
+}
+
+function marcaClass(pend: Pendencia[]): string | undefined {
+  if (pend.some((p) => p.variant === "danger")) return "shadow-[inset_3px_0_0_var(--bad)]";
+  if (pend.some((p) => p.variant === "warning")) return "shadow-[inset_3px_0_0_var(--warn)]";
+  return undefined;
+}
+
+function Pendencias({ itens }: { itens: Pendencia[] }) {
+  if (itens.length === 0) return null;
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-1">
+      {itens.map((p) => (
+        <Tooltip key={p.key} label={p.tip}>
           <span>
-            <Badge variant="warning">Transferir {qty(row.transferir)}</Badge>
+            <Badge variant={p.variant}>{p.label}</Badge>
           </span>
         </Tooltip>
-      )}
+      ))}
     </span>
   );
 }

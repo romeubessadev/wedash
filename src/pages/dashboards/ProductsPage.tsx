@@ -37,6 +37,7 @@ import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ProductsWithoutCostNotice } from "@/pages/dashboard/ProductsWithoutCostNotice";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { MobileSortSelect } from "@/components/wedash/MobileSortSelect";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -608,6 +609,25 @@ export default function ProductsPage() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className={cn(filtroInputClass, "sm:w-56")}
+            />
+            <MobileSortSelect
+              options={[
+                { key: "nome", label: "Produto", text: true },
+                { key: "faturamento", label: "Faturamento" },
+                { key: "itens", label: "Itens vendidos" },
+                { key: "precoMedio", label: "Preço médio" },
+                { key: "cmv", label: "CMV" },
+                { key: "lucro", label: "Lucro bruto" },
+                { key: "margemPct", label: "Margem" },
+                { key: "participacaoPct", label: "Participação" },
+                { key: "variacaoPct", label: "Variação" },
+              ]}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onChange={(k, d) => {
+                setSortKey(k);
+                setSortDir(d);
+              }}
             />
             <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
               Exportar CSV
