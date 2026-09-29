@@ -6,6 +6,7 @@ import { MobileSortBar } from "@/components/wedash/MobileSortBar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { stockStatus, type StockProductRow, type StockStatus } from "@/data/wedash/stockProducts";
 import { cn } from "@/lib/cn";
+import { titleName } from "@/lib/format";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
@@ -197,7 +198,7 @@ export function InventoryPage() {
               className="mb-3"
               options={[
                 { key: "nome" as SortKey, label: "Produto", text: true },
-                { key: "estoque" as SortKey, label: locais.length === 1 ? locais[0] : "Total" },
+                { key: "estoque" as SortKey, label: locais.length === 1 ? titleName(locais[0]) : "Total" },
                 { key: "status" as SortKey, label: "Status" },
               ]}
               sortKey={sortKey}
