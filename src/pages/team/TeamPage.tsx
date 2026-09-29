@@ -30,7 +30,7 @@ import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoRanking } from "@/pages/live/blocos";
 import type { RankingRow } from "@/data/wedash/live";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
-import { brlCent, deIso, num, tipRelacao } from "@/lib/format";
+import { brlCent, deIso, labelUpper, num, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import {
@@ -435,7 +435,7 @@ export function TeamPage() {
                     <div className="flex flex-1 flex-col justify-center px-4 pb-4">
                       <div className="mx-auto my-2">
                         <DonutChart
-                          segments={fatias.map((f) => ({ label: f.nome, value: f.valor, color: f.cor }))}
+                          segments={fatias.map((f) => ({ label: labelUpper(f.nome), value: f.valor, color: f.cor }))}
                           centerLabel="Total"
                           centerValue={brlCent(total)}
                         />
@@ -444,7 +444,7 @@ export function TeamPage() {
                         {fatias.map((f) => (
                           <div key={f.nome} className="flex items-center gap-2.5">
                             <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
-                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.nome}</span>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{labelUpper(f.nome)}</span>
                             <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(f.valor)}</span>
                             <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">
                               {Math.round((f.valor / total) * 100)}%
