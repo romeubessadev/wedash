@@ -10,7 +10,6 @@ import {
   composePrice,
   costCentsFor,
   suggestSaleTable,
-  type NegativeStock,
   type PriceComposition,
   type StockCatalogItem,
   type StockInput,
@@ -86,7 +85,9 @@ function transferTip(lojas: StockStoreDetail[], variasLojas: boolean): string {
     .join(" · ");
 }
 
-type EstoqueFiltro = "com" | "todos" | "transferir";
+type EstoqueFiltro = "com" | "todos" | "transferir" | "negativo";
+
+const temNegativo = (r: StockProductRow) => r.lojas.some((l) => l.estoque < 0);
 
 function hora(iso: string): string {
   const d = new Date(iso);
@@ -288,14 +289,19 @@ export function StockProductsPage() {
   );
 
   const nTransferir = useMemo(() => view?.rows.filter((r) => r.transferir > 0).length ?? 0, [view]);
-  const soComEstoque: EstoqueFiltro = filtroEstoque === "transferir" && nTransferir === 0 ? "com" : filtroEstoque;
+  const nNegativo = useMemo(() => view?.rows.filter(temNegativo).length ?? 0, [view]);
+  const soComEstoque: EstoqueFiltro =
+    (filtroEstoque === "transferir" && nTransferir === 0) || (filtroEstoque === "negativo" && nNegativo === 0) ? "com" : filtroEstoque;
 
   const linhas = useMemo(() => {
     if (!view) return [];
     const q = busca.trim().toLowerCase();
+    const passaFiltro = (r: StockProductRow) =>
+      soComEstoque === "todos" ||
+      (soComEstoque === "transferir" ? r.transferir > 0 : soComEstoque === "negativo" ? temNegativo(r) : r.estoque > 0);
     const out = view.rows.filter(
       (r) =>
-        (soComEstoque === "todos" || (soComEstoque === "transferir" ? r.transferir > 0 : r.estoque > 0)) &&
+        passaFiltro(r) &&
         (categoria == null || r.categoria === categoria) &&
         (!q || r.nome.toLowerCase().includes(q) || r.codigo.toLowerCase().includes(q)),
     );
@@ -443,42 +449,64 @@ export function StockProductsPage() {
               <span className="text-t1"> Um local está com saldo negativo e outro local da loja tem o produto.</span>
             </Notice>
           )}
-          <NegativeStockNotice negativos={view.negativos} variasLojas={lojas.length > 1} />
+          {nNegativo > 0 && (
+            <Notice
+              action={
+                soComEstoque !== "negativo" && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstoque("negativo")}
+                    className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline"
+                  >
+                    Ver produtos
+                  </button>
+                )
+              }
+            >
+              <span className="font-semibold">
+                {nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
+              </span>
+              <span className="text-t1"> Confira as entradas e saídas desses produtos na loja.</span>
+            </Notice>
+          )}
 
           <Card className="mt-4" padding="none">
-            <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 px-5 py-4">
               <p className="text-[12px] text-t2">
                 Lucro por peça vendendo na tabela <span className="font-semibold text-t0">{tabelaNome}</span>, já descontando impostos, royalties,
                 marketing e aluguel. Clique no produto para ver a conta.
               </p>
-              <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
                 <Segmented
                   options={[
                     { value: "com", label: "Com estoque" },
                     { value: "todos", label: "Todos" },
                     ...(nTransferir > 0 ? [{ value: "transferir" as const, label: `Transferir (${nTransferir})` }] : []),
+                    ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Estoque negativo (${nNegativo})` }] : []),
                   ]}
                   value={soComEstoque}
                   onChange={(v) => v && setFiltroEstoque(v)}
                 />
-                {view.categorias.length > 1 && (
-                  <Dropdown
-                    align="right"
-                    menuClassName="max-h-72 overflow-y-auto"
-                    trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
-                    items={[
-                      { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
-                      ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
-                    ]}
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  {view.categorias.length > 1 && (
+                    <Dropdown
+                      align="right"
+                      menuClassName="max-h-72 overflow-y-auto"
+                      trigger={<FiltroTrigger rotulo={categoria ?? "Todas as categorias"} />}
+                      items={[
+                        { label: "Todas as categorias", active: categoria == null, onClick: () => setCategoria(null) },
+                        ...view.categorias.map((c) => ({ label: c, active: categoria === c, onClick: () => setCategoria(c) })),
+                      ]}
+                    />
+                  )}
+                  <input
+                    type="search"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Buscar produto ou código"
+                    className={cn(filtroInputClass, "w-full sm:w-56")}
                   />
-                )}
-                <input
-                  type="search"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar produto ou código"
-                  className={cn(filtroInputClass, "w-full sm:w-56")}
-                />
+                </div>
               </div>
             </div>
 
@@ -692,42 +720,6 @@ function Notice({ children, action }: { children: ReactNode; action?: ReactNode 
         </p>
         {action}
       </div>
-    </div>
-  );
-}
-
-function NegativeStockNotice({ negativos, variasLojas }: { negativos: NegativeStock[]; variasLojas: boolean }) {
-  const [aberto, setAberto] = useState(false);
-  if (negativos.length === 0) return null;
-  const n = negativos.length;
-  return (
-    <div className="mt-4 rounded-[var(--radius-vela-md)] border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-t0 print:hidden">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <p className="flex min-w-0 items-center gap-2">
-          <AlertTriangleIcon size={16} className="shrink-0 text-warn" />
-          <span>
-            <span className="font-semibold">{n === 1 ? "1 produto está com estoque negativo no Millennium." : `${n} produtos estão com estoque negativo no Millennium.`}</span>
-            <span className="text-t1"> Confira as entradas e saídas desses produtos na loja.</span>
-          </span>
-        </p>
-        <button type="button" onClick={() => setAberto((v) => !v)} className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline">
-          {aberto ? "Ocultar" : "Ver produtos"}
-        </button>
-      </div>
-      {aberto && (
-        <ul className="mt-2 max-h-64 divide-y divide-warn/20 overflow-y-auto border-t border-warn/20">
-          {negativos.map((p) => (
-            <li key={p.codigo} className="flex items-center justify-between gap-3 py-1.5">
-              <span className="min-w-0 truncate">
-                <span className="font-mono text-t2">{p.codigo}</span>
-                {p.nome && p.nome !== p.codigo ? <span> · {p.nome}</span> : null}
-                {variasLojas && <span className="text-t2"> · {p.lojas.join(", ")}</span>}
-              </span>
-              <span className="shrink-0 font-semibold tabular-nums text-bad">{qty(p.quantidade)} un.</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
