@@ -2234,6 +2234,7 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
   const isSeed = job.kind === "SEED";
   if (isSeed && syncOnboardingOff()) {
     const teams = await syncOnboardingRegistry(job, deps);
+    await setRecoveryBase(job, deps);
     await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED", error: SYNC_OFF_NOTE });
     console.log(`Carga inicial sem vendas (SYNC_ONBOARDING=off) · equipe de ${teams} loja(s) · job ${job.id.slice(0, 8)}`);
     return { ok: true, storesDone: teams };
@@ -2460,6 +2461,7 @@ async function runDailyForceJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyn
   if (isSeed) {
     const until = onboardingHistoryUntil(seedToday);
     if (until) await chainMonthFill(seedToday, until);
+    else await setRecoveryBase(job, deps);
   } else if (fillUntil) {
     await chainMonthFill(yieldedAt ?? minIso(from, to), fillUntil);
   }
@@ -2472,6 +2474,25 @@ async function priorityJobQueued(deps: SyncJobDeps, credentialId: string): Promi
     return await deps.hasPriorityJobQueued(credentialId);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Onboarding sem carga do histórico (SYNC_ONBOARDING=off / 1d): ontem vira o último dia fechado das
+ * lojas sem base — nada antes do onboarding é buscado, mas dia perdido depois disso é recuperado.
+ */
+async function setRecoveryBase(job: SyncJob, deps: SyncJobDeps): Promise<void> {
+  try {
+    const now = deps.now();
+    const stores = await deps.listStores(job.tenantId);
+    await markStoresClosed(
+      deps,
+      stores
+        .filter((s) => !s.lastClosedDay)
+        .map((s) => ({ storeId: s.id, day: addDaysIso(ymdInTz(now, s.timezone), -1) })),
+    );
+  } catch (e) {
+    console.warn(`  ⚠ base da recuperação de dias não foi salva: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

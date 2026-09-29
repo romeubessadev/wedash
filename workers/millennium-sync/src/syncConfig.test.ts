@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertSyncConfig,
+  autoRefreshEnabled,
   deepHistorySpan,
   describeSpan,
   onboardingHistoryUntil,
@@ -42,6 +43,17 @@ describe("syncConfig", () => {
     expect(span !== "off" && spanStart(span, "2026-09-25")).toBe("2024-10-01");
     expect(() => deepHistorySpan({ DEEP_HISTORY: "30d" })).toThrow(/DEEP_HISTORY/);
     expect(() => assertSyncConfig({ SYNC_ONBOARDING: "2x" })).toThrow(/SYNC_ONBOARDING/);
+  });
+
+  it("AUTO_REFRESH: on (padrão) ou off; CLOSE_HOUR: off ou 0–23", () => {
+    expect(autoRefreshEnabled({})).toBe(true);
+    expect(autoRefreshEnabled({ AUTO_REFRESH: "ON" })).toBe(true);
+    expect(autoRefreshEnabled({ AUTO_REFRESH: "off" })).toBe(false);
+    expect(() => autoRefreshEnabled({ AUTO_REFRESH: "1" })).toThrow(/AUTO_REFRESH/);
+    expect(() => assertSyncConfig({ CLOSE_HOUR: "3" })).not.toThrow();
+    expect(() => assertSyncConfig({ CLOSE_HOUR: "off" })).not.toThrow();
+    expect(() => assertSyncConfig({ CLOSE_HOUR: "24" })).toThrow(/CLOSE_HOUR/);
+    expect(() => assertSyncConfig({ CLOSE_HOUR: "3h" })).toThrow(/CLOSE_HOUR/);
   });
 
   it("describeSpan", () => {

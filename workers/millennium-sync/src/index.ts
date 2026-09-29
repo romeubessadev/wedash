@@ -16,7 +16,7 @@ import { installAsciiConsole } from "./consoleAscii.ts";
 import { createAdminClient, disconnectTenantSessions, enqueueDueAutoRefreshJobs, enqueueDueCloseJobs, enqueueDueDeepHistoryJobs, enqueueDueLightJobs, processOneJob, purgeOldSyncLogs, recoverOnStartup, SYNC_LOG_RETENTION_DAYS, recoverStaleRunningJobs } from "./deps.ts";
 import { logoutMillennium } from "./millenniumAuth.ts";
 import { closeHour, dailyCloseEnabled, releaseActiveMillenniumSession } from "./runSyncJob.ts";
-import { assertSyncConfig, deepHistorySpan, describeSpan, onboardingSpan } from "./syncConfig.ts";
+import { assertSyncConfig, autoRefreshEnabled, deepHistorySpan, describeSpan, onboardingSpan } from "./syncConfig.ts";
 import { isWorkerPaused } from "./workerPause.ts";
 import { acquireWorkerLock, releaseWorkerLock } from "./workerLock.ts";
 
@@ -78,18 +78,19 @@ async function main() {
   console.log("Worker Millennium");
   const onboarding = onboardingSpan();
   const deep = deepHistorySpan();
-  const syncOff = onboarding === "off";
-  const offByOnboarding = "desligado (SYNC_ONBOARDING=off)";
   console.log(
-    `  Pós-onboarding           : ${syncOff ? "sem vendas — só o cadastro (equipe e produtos); vendas pelo Atualizar manual" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
+    `  Carga do onboarding      : ${onboarding === "off" ? "sem vendas — só o cadastro (equipe e produtos)" : describeSpan(onboarding)} (SYNC_ONBOARDING)`,
   );
   console.log(
-    `  Fechamento de ontem      : ${syncOff ? offByOnboarding : dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
+    `  Atualização automática   : ${autoRefreshEnabled() ? "a cada 30 min com a loja aberta" : "desligada — só o Atualizar manual"} (AUTO_REFRESH)`,
   );
-  console.log(`  Atualização automática   : ${syncOff ? offByOnboarding : "a cada 30 min com a loja aberta"}`);
   console.log(
-    `  Histórico antigo         : ${deep === "off" ? "desligado (DEEP_HISTORY=off)" : syncOff ? offByOnboarding : `${describeSpan(deep)}, até a inauguração, na madrugada (DEEP_HISTORY)`}`,
+    `  Fechamento da madrugada  : ${dailyCloseEnabled() ? `a partir das ${closeHour()}h` : "desligado"} (CLOSE_HOUR)`,
   );
+  console.log(
+    `  Histórico antigo         : ${deep === "off" ? "desligado" : `${describeSpan(deep)}, até a inauguração, na madrugada`} (DEEP_HISTORY)`,
+  );
+  console.log("  Dias perdidos            : recuperados no próximo Atualizar ou fechamento da madrugada");
   if (process.env.LIGHT_AUTO === "1") console.log("  Sync automático (LIGHT)  : ligado (LIGHT_AUTO=1)");
   if (isWorkerPaused()) {
     console.log("⚠ Pausado local (.millennium-pause) — npm run erp -- resume");

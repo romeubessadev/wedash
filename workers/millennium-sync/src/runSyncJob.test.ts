@@ -400,7 +400,9 @@ describe("runSyncJob", () => {
       const syncStoreSellers = vi.fn().mockResolvedValue([]);
       const setStoresGerador = vi.fn().mockResolvedValue(undefined);
       const fetchTypes = vi.fn().mockResolvedValue([{ typeId: 14, description: "BODY SPLASH" }]);
+      const markStoresClosed = vi.fn().mockResolvedValue(undefined);
       const deps = makeDeps({
+        markStoresClosed,
         loadSellerDirectory: vi.fn().mockResolvedValue({ sellers: [] }),
         fetchStoreSellers,
         syncStoreSellers,
@@ -438,6 +440,10 @@ describe("runSyncJob", () => {
       expect(deps.catalog!.saveCostTablePrices).toHaveBeenCalledWith(104, expect.any(Map));
       expect(deps.fetchSalesLista).not.toHaveBeenCalled();
       expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
+      expect(markStoresClosed).toHaveBeenCalledWith([
+        { storeId: "s1", day: "2026-09-18" },
+        { storeId: "s2", day: "2026-09-18" },
+      ]);
       expect(deps.markJobFinished).toHaveBeenCalledWith(expect.objectContaining({ status: "SUCCEEDED" }));
     } finally {
       vi.unstubAllEnvs();

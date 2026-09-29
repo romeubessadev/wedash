@@ -1,12 +1,13 @@
 /**
- * Períodos de sincronização do `.env`, mesma escrita nas duas chaves:
- *   off = desligado · Nd = N dias contando hoje (1d = só hoje) · Nm = N meses contando o atual (1m = mês atual)
- *
- * - SYNC_ONBOARDING (padrão 1m): o que entra depois do onboarding. off = sem vendas — ao conectar só
- *   traz o cadastro (gerador, equipe e produtos); sem carga do histórico, sem atualização automática e sem
- *   fechamento da madrugada; o Atualizar manual continua.
+ * Sincronização no `.env` — cada chave cuida de uma coisa só:
+ * - SYNC_ONBOARDING (padrão 1m): só a carga do onboarding. off = sem vendas — ao conectar traz só o
+ *   cadastro (gerador, equipe e produtos) · Nd = N dias contando hoje · Nm = N meses contando o atual.
+ * - AUTO_REFRESH (padrão on): Atualizar automático a cada 30 min com a loja aberta. off = só o manual.
+ * - CLOSE_HOUR (padrão 3): hora local do fechamento da madrugada (0–23). off = desligado.
  * - DEEP_HISTORY (padrão off, só Nm): histórico antigo na madrugada, até a inauguração da loja.
  *
+ * Dias perdidos (integração desconectada, worker parado) são recuperados por qualquer Atualizar ou
+ * fechamento da madrugada a partir do último dia fechado da loja — não depende de nenhuma chave.
  * Valor inválido derruba o worker na partida (`assertSyncConfig`).
  */
 import { addDays } from "./autoRefresh.ts";
@@ -62,7 +63,23 @@ export function deepHistorySpan(env: Env = process.env): SyncSpan {
   return span;
 }
 
+export function autoRefreshEnabled(env: Env = process.env): boolean {
+  const value = (env.AUTO_REFRESH ?? "").trim().toLowerCase();
+  if (!value || value === "on") return true;
+  if (value === "off") return false;
+  throw new Error(`AUTO_REFRESH=${env.AUTO_REFRESH} inválido — use on ou off`);
+}
+
+function assertCloseHour(env: Env): void {
+  const value = (env.CLOSE_HOUR ?? "").trim().toLowerCase();
+  if (!value || value === "off") return;
+  const n = Number(value);
+  if (!/^\d{1,2}$/.test(value) || n > 23) throw new Error(`CLOSE_HOUR=${env.CLOSE_HOUR} inválido — use off ou uma hora de 0 a 23`);
+}
+
 export function assertSyncConfig(env: Env = process.env): void {
   onboardingSpan(env);
+  autoRefreshEnabled(env);
+  assertCloseHour(env);
   deepHistorySpan(env);
 }

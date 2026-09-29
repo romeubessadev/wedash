@@ -50,7 +50,7 @@ import {
   type SyncJobKind,
   type SyncStore,
 } from "./runSyncJob.ts";
-import { deepHistorySpan, spanStart, syncOnboardingOff } from "./syncConfig.ts";
+import { autoRefreshEnabled, deepHistorySpan, spanStart } from "./syncConfig.ts";
 import type {
   SalesDayAgg,
   SalesHourAgg,
@@ -1165,7 +1165,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
  * não fechou. Não enfileira com onboarding aberto nem com SEED pendente (a carga já cobre ontem).
  */
 export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
-  if (!dailyCloseEnabled() || syncOnboardingOff()) return 0;
+  if (!dailyCloseEnabled()) return 0;
   const { data: creds, error } = await sb
     .from("erp_credential")
     .select("id, tenant_id, sync_paused")
@@ -1282,7 +1282,7 @@ export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()):
  * usuário exclusivo da WeDash (`dedicated`) faz login na hora.
  */
 export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
-  if (syncOnboardingOff()) return 0;
+  if (!autoRefreshEnabled()) return 0;
   const { data: creds, error } = await sb
     .from("erp_credential")
     .select("id, tenant_id, sync_paused, dedicated")
@@ -1376,7 +1376,7 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
  */
 export async function enqueueDueDeepHistoryJobs(sb: SupabaseClient, now = new Date()): Promise<number> {
   const span = deepHistorySpan();
-  if (span === "off" || syncOnboardingOff()) return 0;
+  if (span === "off") return 0;
   const { data: creds, error } = await sb.from("erp_credential").select("id, tenant_id, sync_paused").eq("status", "VALID");
   if (error) throw error;
   let n = 0;
