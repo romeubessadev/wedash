@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -396,48 +397,40 @@ function MillenniumModal({
           disabled={travado}
         />
         {pendente && (pendente.plan.kind === "partial" || pendente.plan.kind === "full") && (
-          <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--bad-soft)" }}>
-            {pendente.plan.kind === "partial" ? (
+          <Alert
+            variant="danger"
+            title={
+              pendente.plan.kind === "partial"
+                ? `${pendente.username} não tem acesso a ${pendente.plan.removed.length === 1 ? "1 loja" : `${pendente.plan.removed.length} lojas`}`
+                : `${pendente.username} não tem acesso a nenhuma das lojas atuais`
+            }
+            footer={
               <>
-                <p className="text-[13px] font-bold text-bad">
-                  {pendente.username} não tem acesso a{" "}
-                  {pendente.plan.removed.length === 1 ? "1 loja" : `${pendente.plan.removed.length} lojas`}
-                </p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
-                  Essas lojas deixarão de ser sincronizadas e serão removidas da WeDash. As demais continuam normalmente.
-                </p>
-                <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[12.5px] font-semibold text-t0">
-                  {pendente.plan.removed.map((s) => (
-                    <li key={s.storeId}>{s.name}</li>
-                  ))}
-                </ul>
+                {pendente.plan.kind === "partial" && (
+                  <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[12.5px] font-semibold text-t0">
+                    {pendente.plan.removed.map((s) => (
+                      <li key={s.storeId}>{s.name}</li>
+                    ))}
+                  </ul>
+                )}
+                <Checkbox
+                  className="mt-3 items-start text-bad"
+                  label={
+                    pendente.plan.kind === "partial"
+                      ? `Entendo que essas lojas serão removidas e quero trocar para ${pendente.username}.`
+                      : `Entendo que os dados atuais serão removidos e quero trocar para ${pendente.username}.`
+                  }
+                  checked={aceiteTroca}
+                  onChange={(e) => setAceiteTroca(e.target.checked)}
+                  disabled={busy}
+                />
               </>
-            ) : (
-              <>
-                <p className="text-[13px] font-bold text-bad">
-                  {pendente.username} não tem acesso a nenhuma das lojas atuais
-                </p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
-                  Os dados sincronizados atuais serão removidos. As lojas serão cadastradas novamente e a carga inicial
-                  será refeita.
-                </p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
-                  Configurações como fuso e horário das lojas voltarão ao padrão.
-                </p>
-              </>
-            )}
-            <Checkbox
-              className="mt-3 items-start text-bad"
-              label={
-                pendente.plan.kind === "partial"
-                  ? `Entendo que essas lojas serão removidas e quero trocar para ${pendente.username}.`
-                  : `Entendo que os dados atuais serão removidos e quero trocar para ${pendente.username}.`
-              }
-              checked={aceiteTroca}
-              onChange={(e) => setAceiteTroca(e.target.checked)}
-              disabled={busy}
-            />
-          </div>
+            }
+          >
+            {pendente.plan.kind === "partial"
+              ? "Essas lojas deixarão de ser sincronizadas e serão removidas da WeDash. As demais continuam normalmente."
+              : "Os dados sincronizados atuais serão removidos. As lojas serão cadastradas novamente e a carga inicial será refeita. Configurações como fuso e horário das lojas voltarão ao padrão."}
+          </Alert>
         )}
         {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}
         {!canEdit && <p className="text-xs text-t2">Somente Gestores podem alterar a integração.</p>}

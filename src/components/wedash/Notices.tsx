@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui";
+import { Alert, Card } from "@/components/ui";
 
 /** Avisos explicando blocos ocultos. Nunca silencioso: quem tira print entende o que falta. */
 export function Avisos({ itens }: { itens: string[] }) {
@@ -6,13 +6,9 @@ export function Avisos({ itens }: { itens: string[] }) {
   return (
     <div className="flex flex-col gap-2">
       {itens.map((a) => (
-        <div key={a} className="flex items-start gap-2.5 rounded-[var(--radius-vela-md)] border border-info/30 bg-info-soft px-3.5 py-2.5 text-[12.5px] leading-relaxed text-t0">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4M12 8h.01" />
-          </svg>
-          <span>{a}</span>
-        </div>
+        <Alert key={a} variant="info">
+          {a}
+        </Alert>
       ))}
     </div>
   );

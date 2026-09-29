@@ -137,6 +137,10 @@ Sem esses 4 elementos, o número é "dado jogado na tela" — não serve para de
 - `WedashBrand` — marca WeDash (símbolo + nome); sem marca por empresa
 - `AiChat` — chat com IA (**fora do app desde 2026-09-28**: balão flutuante removido do `AppShell` até a implementação real; componente preservado)
 
+### Alertas (DECIDIDO — 2026-09-29)
+- **Todo alerta do app usa `Alert`** (`src/components/ui/Alert.tsx`, padrão Components > Alerts do Vela — "Storage almost full" etc.): fundo suave da cor, sem borda, ícone 18px e título em negrito na cor, texto em `text-t1`. Variantes `success · warning · danger · info · accent`; `icon` troca o ícone (Spinner, RadialProgress), `action` = links/botões à direita (`AlertLink` para link de texto), `footer` = conteúdo extra (lista expandida, checkbox).
+- Convertidos: produtos sem custo, carga do histórico, busca das vendas de hoje, avisos do Estoque > Produtos (tabela de custo, transferência, estoque negativo, transferência no detalhe), troca de usuário ERP e acessos faltando no Millennium, `AvisoCard` (Instalar o app) e `Avisos`. Alerta novo → `Alert`, nunca caixa com borda própria.
+
 ### Stack
 - React 19 + Vite 8 + Tailwind 4 + react-router-dom 7
 - **Sem biblioteca de charts externa** (tudo SVG próprio) — decisão consciente: manter assim, não adicionar recharts/apexcharts.

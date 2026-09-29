@@ -56,7 +56,9 @@ export function Install() {
 
       {plataforma === "desktop" ? (
         <div className="flex flex-col gap-3">
-          <AvisoCard tom="info">O app funciona melhor no celular. Mande o link para você mesma e instale por lá.</AvisoCard>
+          <AvisoCard tom="info" titulo="Melhor no celular">
+            O app funciona melhor no celular. Mande o link para o seu e-mail e instale por lá.
+          </AvisoCard>
           <Button size="lg" fullWidth className="!h-[46px] font-bold" onClick={() => show("Link enviado para o seu e-mail.", "success")}>Enviar link pro meu e-mail</Button>
           <Button size="lg" fullWidth variant="outline" className="!h-[46px] font-bold" onClick={() => concluir(false)}>Continuar no computador</Button>
         </div>
@@ -70,7 +72,11 @@ export function Install() {
               </li>
             ))}
           </ol>
-          {plataforma === "ios" && <AvisoCard tom="warn">No iPhone, as notificações só funcionam com o app instalado pela tela de início.</AvisoCard>}
+          {plataforma === "ios" && (
+            <AvisoCard tom="warn" titulo="Notificações no iPhone">
+              No iPhone, as notificações só funcionam com o app instalado pela tela de início.
+            </AvisoCard>
+          )}
           <Button size="lg" fullWidth className="!h-[46px] font-bold" onClick={() => concluir(true)}>Já instalei</Button>
           <Button size="lg" fullWidth variant="outline" className="!h-[46px] font-bold" onClick={() => concluir(false)}>Pular por agora</Button>
           <p className="text-center text-xs text-t2">Este guia fica sempre disponível no seu perfil.</p>

@@ -19,6 +19,7 @@ export * from "./ProgressBar";
 export * from "./Tooltip";
 export * from "./Popover";
 export * from "./Toast";
+export * from "./Alert";
 export * from "./EmptyState";
 export * from "./form";
 export * from "./Kanban";

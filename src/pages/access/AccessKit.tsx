@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode }
 import { padTopoEBase } from "@/lib/safeArea";
 import { cn } from "@/lib/cn";
 import { SENHA_MIN, dicaForcaSenha, senhaTemEspecial } from "@/lib/password";
-import { Checkbox, FormField, Input } from "@/components/ui";
+import { Alert, Checkbox, FormField, Input } from "@/components/ui";
 import { AuthGlow, BrandMark } from "@/pages/auth/authKit";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
@@ -405,15 +405,14 @@ export function CampoFoto({
   );
 }
 
-/** Aviso neutro dentro do card. */
-export function AvisoCard({ tom = "info", children }: { tom?: "info" | "ok" | "bad" | "warn"; children: ReactNode }) {
-  const cores = {
-    info: "border-info/30 bg-info-soft",
-    ok: "border-ok/30 bg-ok-soft",
-    bad: "border-bad/30 bg-bad-soft",
-    warn: "border-warn/30 bg-warn-soft",
-  };
-  return <div className={cn("rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-t0", cores[tom])}>{children}</div>;
+/** Aviso dentro do card (Alert do Vela). */
+export function AvisoCard({ tom = "info", titulo, children }: { tom?: "info" | "ok" | "bad" | "warn"; titulo?: ReactNode; children: ReactNode }) {
+  const variant = { info: "info", ok: "success", bad: "danger", warn: "warning" } as const;
+  return (
+    <Alert variant={variant[tom]} title={titulo}>
+      {children}
+    </Alert>
+  );
 }
 
 /** Ícone redondo no topo do card, como em ForgotPassword/ResetPassword do template. */

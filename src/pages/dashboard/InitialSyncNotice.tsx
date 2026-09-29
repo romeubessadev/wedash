@@ -1,5 +1,4 @@
-import { Button, Spinner } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { Alert, Button, Spinner } from "@/components/ui";
 import { useInitialSync } from "@/pages/dashboard/useInitialSync";
 
 /**
@@ -27,28 +26,26 @@ export function InitialSyncNotice() {
           : "Não foi possível obter os dados do Millennium. Tente novamente em instantes.";
 
   return (
-    <div
-      className={cn(
-        "mt-4 flex items-center gap-3.5 rounded-[var(--radius-vela-md)] border px-3.5 py-3 text-[12.5px] leading-relaxed text-t0",
-        sync.phase === "running" && "border-acc/30 bg-acc-soft",
-        sync.phase === "stuck" && "border-warn/30 bg-warn-soft",
-        falhou && "border-bad/30 bg-bad-soft",
-      )}
+    <Alert
+      variant={sync.phase === "running" ? "accent" : sync.phase === "stuck" ? "warning" : "danger"}
+      className="mt-4"
+      title={titulo}
+      icon={
+        sync.phase === "running" ? (
+          <span className="mt-0.5 shrink-0">
+            <Spinner size={18} />
+          </span>
+        ) : undefined
+      }
+      action={
+        falhou && (
+          <Button size="sm" variant="outline" disabled={retrying} onClick={() => void retry()}>
+            {retrying ? "Aguarde…" : "Tentar novamente"}
+          </Button>
+        )
+      }
     >
-      {sync.phase === "running" && (
-        <span className="shrink-0">
-          <Spinner size={20} />
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold">{titulo}</p>
-        <p className="text-t1">{texto}</p>
-      </div>
-      {falhou && (
-        <Button size="sm" variant="outline" className="shrink-0" disabled={retrying} onClick={() => void retry()}>
-          {retrying ? "Aguarde…" : "Tentar novamente"}
-        </Button>
-      )}
-    </div>
+      {texto}
+    </Alert>
   );
 }

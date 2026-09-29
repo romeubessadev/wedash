@@ -1,4 +1,4 @@
-import { RadialProgress } from "@/components/ui";
+import { Alert, RadialProgress } from "@/components/ui";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { monthFillProgress, type MonthFill } from "@/data/wedash/salesRepo";
 
@@ -25,20 +25,23 @@ export function MonthFillNotice({ fill, inicio, fim }: { fill: MonthFill | null;
   const pct = Math.round((done / total) * 100);
   const parcial = monthFillTouches(fill, inicio, fim);
   return (
-    <div className="mt-4 flex items-center gap-3.5 rounded-[var(--radius-vela-md)] border border-acc/30 bg-acc-soft px-3.5 py-3 text-[12.5px] leading-relaxed text-t0">
-      <span className="shrink-0">
-        <RadialProgress value={pct} size={44} stroke={4} color="var(--acc)" />
-      </span>
-      <div className="min-w-0">
-        <p className="font-semibold">
+    <Alert
+      variant="accent"
+      className="mt-4 items-center"
+      icon={
+        <span className="shrink-0">
+          <RadialProgress value={pct} size={44} stroke={4} color="var(--acc)" />
+        </span>
+      }
+      title={
+        <>
           Carregando histórico de vendas · <span className="tabular-nums">{pct}%</span>
-        </p>
-        <p className="text-t1">
-          {parcial
-            ? "Os dados deste período ainda são parciais e serão atualizados automaticamente conforme o histórico for carregado."
-            : "Os dados anteriores serão adicionados automaticamente. Você pode continuar usando o painel normalmente."}
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {parcial
+        ? "Os dados deste período ainda são parciais e serão atualizados automaticamente conforme o histórico for carregado."
+        : "Os dados anteriores serão adicionados automaticamente. Você pode continuar usando o painel normalmente."}
+    </Alert>
   );
 }

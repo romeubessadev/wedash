@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Badge, Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
+import { Alert, AlertLink, Badge, Button, Card, Dropdown, Modal, Pagination, Segmented, ThSort, useToast, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -39,7 +39,6 @@ import { paths } from "@/router/paths";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { FORCE_REFRESH_CLICK_EVENT } from "@/pages/dashboard/useForceRefresh";
-import { AlertTriangleIcon } from "@/pages/dashboards/icons";
 import { SectionHeader, useScopedStores } from "@/pages/operation/shared";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -413,61 +412,48 @@ export function StockProductsPage() {
       ) : (
         <>
           {lojasSemTabela.length > 0 && (
-            <Notice>
-              <span className="font-semibold">
-                {lojasSemTabela.length === 1
+            <Alert
+              variant="warning"
+              className="mt-4 print:hidden"
+              title={
+                lojasSemTabela.length === 1
                   ? `A loja ${lojasSemTabela[0].fantasia} está sem tabela de custo.`
-                  : `${lojasSemTabela.length} lojas estão sem tabela de custo.`}
-              </span>
-              <span className="text-t1"> Sem ela não dá para calcular o custo e o lucro dos produtos.</span>
-              {isGestor(session.role) && (
-                <Link to={paths.operation.productsTaxes} className="ml-2 font-semibold text-t0 underline-offset-2 hover:underline">
-                  Escolher tabela
-                </Link>
-              )}
-            </Notice>
+                  : `${lojasSemTabela.length} lojas estão sem tabela de custo.`
+              }
+              action={
+                isGestor(session.role) && (
+                  <Link to={paths.operation.productsTaxes} className="text-[12.5px] font-bold text-t0 underline-offset-2 hover:underline">
+                    Escolher tabela
+                  </Link>
+                )
+              }
+            >
+              Sem ela não dá para calcular o custo e o lucro dos produtos.
+            </Alert>
           )}
           {nTransferir > 0 && (
-            <Notice
-              action={
-                soComEstoque !== "transferir" && (
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEstoque("transferir")}
-                    className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline"
-                  >
-                    Ver produtos
-                  </button>
-                )
-              }
-            >
-              <span className="font-semibold">
-                {nTransferir === 1
+            <Alert
+              variant="warning"
+              className="mt-4 print:hidden"
+              title={
+                nTransferir === 1
                   ? "1 produto precisa de transferência entre locais de estoque."
-                  : `${nTransferir} produtos precisam de transferência entre locais de estoque.`}
-              </span>
-              <span className="text-t1"> Um local está com saldo negativo e outro local da loja tem o produto.</span>
-            </Notice>
+                  : `${nTransferir} produtos precisam de transferência entre locais de estoque.`
+              }
+              action={soComEstoque !== "transferir" && <AlertLink onClick={() => setFiltroEstoque("transferir")}>Ver produtos</AlertLink>}
+            >
+              Um local está com saldo negativo e outro local da loja tem o produto.
+            </Alert>
           )}
           {nNegativo > 0 && (
-            <Notice
-              action={
-                soComEstoque !== "negativo" && (
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEstoque("negativo")}
-                    className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline"
-                  >
-                    Ver produtos
-                  </button>
-                )
-              }
+            <Alert
+              variant="warning"
+              className="mt-4 print:hidden"
+              title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
+              action={soComEstoque !== "negativo" && <AlertLink onClick={() => setFiltroEstoque("negativo")}>Ver produtos</AlertLink>}
             >
-              <span className="font-semibold">
-                {nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
-              </span>
-              <span className="text-t1"> Confira as entradas e saídas desses produtos na loja.</span>
-            </Notice>
+              Confira as entradas e saídas desses produtos na loja.
+            </Alert>
           )}
 
           <Card className="mt-4" padding="none">
@@ -710,20 +696,6 @@ function FiltroTrigger({ rotulo, prefixo }: { rotulo: string; prefixo?: string }
   );
 }
 
-function Notice({ children, action }: { children: ReactNode; action?: ReactNode }) {
-  return (
-    <div className="mt-4 rounded-[var(--radius-vela-md)] border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-t0 print:hidden">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <p className="flex min-w-0 items-center gap-2">
-          <AlertTriangleIcon size={16} className="shrink-0 text-warn" />
-          <span>{children}</span>
-        </p>
-        {action}
-      </div>
-    </div>
-  );
-}
-
 function ProductDetailModal({
   row,
   tabelaAtiva,
@@ -765,30 +737,25 @@ function ProductDetailModal({
             {row.lojas
               .filter((l) => l.locais.length > 0)
               .map((l) => (
-                <div
-                  key={l.store.id}
-                  className={cn(
-                    "rounded-[var(--radius-vela-sm)] px-3 py-2.5 text-[12.5px]",
-                    l.transferencias.length > 0 ? "border border-warn/30 bg-warn-soft" : "bg-bg-inset",
-                  )}
-                >
-                  {row.lojas.length > 1 && <p className="mb-1 font-semibold uppercase text-t0">{l.store.fantasia}</p>}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {l.locais.map((x) => (
-                      <span key={x.nome} className="text-t1">
-                        {x.nome}{" "}
-                        <span className={cn("font-bold tabular-nums", x.qtd < 0 ? "text-bad" : "text-t0")}>{qty(x.qtd)}</span>
+                <div key={l.store.id} className="flex flex-col gap-2">
+                  <div className="rounded-[var(--radius-vela-sm)] bg-bg-inset px-3 py-2.5 text-[12.5px]">
+                    {row.lojas.length > 1 && <p className="mb-1 font-semibold uppercase text-t0">{l.store.fantasia}</p>}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {l.locais.map((x) => (
+                        <span key={x.nome} className="text-t1">
+                          {x.nome}{" "}
+                          <span className={cn("font-bold tabular-nums", x.qtd < 0 ? "text-bad" : "text-t0")}>{qty(x.qtd)}</span>
+                        </span>
+                      ))}
+                      <span className="text-t2">
+                        Total <span className="font-bold tabular-nums text-t0">{qty(l.estoque)}</span>
                       </span>
-                    ))}
-                    <span className="text-t2">
-                      Total <span className="font-bold tabular-nums text-t0">{qty(l.estoque)}</span>
-                    </span>
+                    </div>
                   </div>
                   {l.transferencias.map((t) => (
-                    <p key={t.para} className="mt-1.5 flex items-center gap-1.5 font-semibold text-warn">
-                      <AlertTriangleIcon size={14} className="shrink-0" />
-                      {transferText(t)}
-                    </p>
+                    <Alert key={t.para} variant="warning" title={transferText(t)}>
+                      O {t.para} está com saldo negativo e o produto está no {t.de.join(" / ")}.
+                    </Alert>
                   ))}
                 </div>
               ))}
