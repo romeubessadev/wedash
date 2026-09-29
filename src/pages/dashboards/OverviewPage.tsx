@@ -360,24 +360,22 @@ export default function OverviewPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
         title={printing ? "Visão geral" : welcomeTitle(session.name)}
-        subtitle={
-          <>
-            Acompanhe os principais indicadores, metas e resultados da operação.
-            <LastUpdated inline />
-          </>
-        }
+        subtitle="Acompanhe os principais indicadores, metas e resultados da operação."
         actions={
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-            <DateRangePicker
-              value={dateRange}
-              onChange={onDateChange}
-              displayLabel={periodDisplayLabel(escopo.periodo)}
-              activePresetId={periodActivePresetId(escopo.periodo)}
-              minDate={pickerMinDate(coverageFrom, monthFill)}
-            />
-            <Button variant="secondary" onClick={exportar}>
-              Exportar
-            </Button>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                minDate={pickerMinDate(coverageFrom, monthFill)}
+              />
+              <Button variant="secondary" onClick={exportar}>
+                Exportar
+              </Button>
+            </div>
+            <LastUpdated />
           </div>
         }
       />

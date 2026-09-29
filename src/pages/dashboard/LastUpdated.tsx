@@ -15,11 +15,8 @@ export function lastUpdatedLabel(at: Date, now: Date = new Date()): string {
 const TIP_LAST_UPDATED =
   "Horário da última busca das vendas de hoje no Millennium. O fechamento de dias anteriores, feito de madrugada, não altera este horário.";
 
-/**
- * Quando os dados do ERP foram atualizados pela última vez (sem sync ainda = nada).
- * `inline` = junto da descrição da tela: separador "·" no desktop, linha própria no celular.
- */
-export function LastUpdated({ plain = false, inline = false }: { plain?: boolean; inline?: boolean }) {
+/** Linha abaixo dos filtros das telas: quando os dados do ERP foram atualizados pela última vez (sem sync ainda = nada). */
+export function LastUpdated({ plain = false }: { plain?: boolean }) {
   const session = useActiveSession();
   const [at, setAt] = useState<Date | null>(null);
 
@@ -40,18 +37,6 @@ export function LastUpdated({ plain = false, inline = false }: { plain?: boolean
 
   if (!at) return null;
   if (plain) return <span>{lastUpdatedLabel(at)}</span>;
-  if (inline) {
-    return (
-      <span className="mt-0.5 block sm:mt-0 sm:inline">
-        <span aria-hidden className="mx-2 hidden text-t2 sm:inline">
-          ·
-        </span>
-        <Tooltip label={TIP_LAST_UPDATED}>
-          <span className="cursor-help text-t2">{lastUpdatedLabel(at)}</span>
-        </Tooltip>
-      </span>
-    );
-  }
   return (
     <Tooltip label={TIP_LAST_UPDATED}>
       <span className="cursor-help text-[11.5px] text-t2">{lastUpdatedLabel(at)}</span>

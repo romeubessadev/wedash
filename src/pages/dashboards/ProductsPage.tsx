@@ -335,24 +335,22 @@ export default function ProductsPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
-        subtitle={
-          <>
-            Acompanhe desempenho, margem e composição do mix de produtos.
-            <LastUpdated inline />
-          </>
-        }
+        subtitle="Acompanhe desempenho, margem e composição do mix de produtos."
         actions={
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-            <DateRangePicker
-              value={dateRange}
-              onChange={onDateChange}
-              displayLabel={periodDisplayLabel(escopo.periodo)}
-              activePresetId={periodActivePresetId(escopo.periodo)}
-              minDate={pickerMinDate(coverageFrom, monthFill)}
-            />
-            <Button variant="secondary" onClick={exportar}>
-              Exportar
-            </Button>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                minDate={pickerMinDate(coverageFrom, monthFill)}
+              />
+              <Button variant="secondary" onClick={exportar}>
+                Exportar
+              </Button>
+            </div>
+            <LastUpdated />
           </div>
         }
       />

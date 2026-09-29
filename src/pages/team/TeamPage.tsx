@@ -280,38 +280,36 @@ export function TeamPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Equipe" }]}
         title="Equipe"
-        subtitle={
-          <>
-            Acompanhe o desempenho da equipe de vendas.
-            <LastUpdated inline />
-          </>
-        }
+        subtitle="Acompanhe o desempenho da equipe de vendas."
         actions={
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-            <DateRangePicker
-              value={dateRange}
-              onChange={onDateChange}
-              displayLabel={periodDisplayLabel(escopo.periodo)}
-              activePresetId={periodActivePresetId(escopo.periodo)}
-              minDate={pickerMinDate(coverageFrom, monthFill)}
-            />
-            {view.turnosDisponiveis.length > 0 && (
-              <Dropdown
-                align="right"
-                trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
-                items={[
-                  { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
-                  ...view.turnosDisponiveis.map((t) => ({
-                    label: t,
-                    active: view.turnoFiltro === t,
-                    onClick: () => setTurnoSel(t),
-                  })),
-                ]}
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                minDate={pickerMinDate(coverageFrom, monthFill)}
               />
-            )}
-            <Button variant="secondary" onClick={exportar}>
-              Exportar
-            </Button>
+              {view.turnosDisponiveis.length > 0 && (
+                <Dropdown
+                  align="right"
+                  trigger={<FiltroTurnoTrigger rotulo={view.turnoFiltro ?? "Todos os turnos"} />}
+                  items={[
+                    { label: "Todos os turnos", active: view.turnoFiltro == null, onClick: () => setTurnoSel(null) },
+                    ...view.turnosDisponiveis.map((t) => ({
+                      label: t,
+                      active: view.turnoFiltro === t,
+                      onClick: () => setTurnoSel(t),
+                    })),
+                  ]}
+                />
+              )}
+              <Button variant="secondary" onClick={exportar}>
+                Exportar
+              </Button>
+            </div>
+            <LastUpdated />
           </div>
         }
       />
