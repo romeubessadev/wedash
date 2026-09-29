@@ -58,7 +58,6 @@ const operacao: NavGroup = {
 };
 
 /** Abas das telas de cada grupo = os mesmos itens do menu. */
-export const stockTabs = estoque.items.map(({ label, to }) => ({ label, to }));
 export const managementTabs = gestao.items.map(({ label, to }) => ({ label, to }));
 export const operationTabs = operacao.items.map(({ label, to }) => ({ label, to }));
 

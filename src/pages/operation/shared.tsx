@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button, Card, CardHeader, CardSubtitle, CardTitle, EmptyState, FormField, Input, PageHeader, Select, TabNav } from "@/components/ui";
-import { managementTabs, operationTabs, stockTabs } from "@/layout/nav-wedash";
+import { managementTabs, operationTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -42,7 +42,7 @@ export function useScopedStores() {
 export type SectionName = "Estoque" | "Gestão" | "Configurações";
 
 const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
-  Estoque: stockTabs,
+  Estoque: [],
   Gestão: managementTabs,
   "Configurações": operationTabs,
 };
