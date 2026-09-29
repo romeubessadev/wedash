@@ -372,7 +372,6 @@ export function ProductsSkeleton() {
   );
 }
 
-/** Estoque > Produtos: listagem de produtos (busca e filtros no topo). */
 /** Página de tabela sem card (padrão Data Tables): tabela com borda + rodapé "Mostrando…" / paginação. */
 export function StockProductsSkeleton() {
   const cols = 5;

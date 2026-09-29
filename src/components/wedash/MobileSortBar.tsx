@@ -10,15 +10,18 @@ export function MobileSortBar<K extends string>({
   sortDir,
   onChange,
   className,
+  always = false,
 }: {
   options: SortOption<K>[];
   sortKey: K;
   sortDir: SortDir;
   onChange: (key: K, dir: SortDir) => void;
   className?: string;
+  /** Mostra também no computador (tabela sem cabeçalho clicável). */
+  always?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] font-semibold text-t1 md:hidden print:hidden", className)}>
+    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] font-semibold text-t1 print:hidden", !always && "md:hidden", className)}>
       <span className="text-t2">Ordenar por</span>
       {options.map((o) => {
         const active = o.key === sortKey;

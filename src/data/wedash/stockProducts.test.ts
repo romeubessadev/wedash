@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStockProductsView, composePrice, productBrand, stockTransfers, suggestSaleTable } from "./stockProducts";
+import { buildStockProductsView, composePrice, productBrand, stockStatus, stockTransfers, suggestSaleTable } from "./stockProducts";
 import { EMPTY_STORE_COSTS, type Store } from "./stores";
 
 const store = (over: Partial<Store> & Pick<Store, "id">): Store =>
@@ -114,6 +114,30 @@ describe("buildStockProductsView", () => {
     ]);
     expect(p.lojas[0].transferencias).toEqual([{ para: "QUIOSQUE", de: ["ESTOQUE"], qtd: 71 }]);
     expect(view.rows.find((r) => r.codigo === "X")!.transferir).toBe(0);
+  });
+
+  it("em falta = vendeu nos últimos 30 dias na loja e está sem saldo nela", () => {
+    const view = buildStockProductsView({
+      stores: [store({ id: "a" }), store({ id: "b" })],
+      catalog: new Map(),
+      stock: [
+        { storeId: "a", code: "P1", qty: 4 },
+        { storeId: "a", code: "P3", qty: 2 },
+      ],
+      costPrices: new Map(),
+      salePrices: new Map(),
+      saleTableId: null,
+      charged: [
+        { storeId: "b", code: "P1", revenueCents: 5000, items: 1 },
+        { storeId: "a", code: "P2", revenueCents: 0, items: 2 },
+      ],
+      includeSold: true,
+    });
+    const status = (c: string) => stockStatus(view.rows.find((r) => r.codigo === c)!);
+    expect(status("P1")).toBe("falta");
+    expect(status("P2")).toBe("falta");
+    expect(status("P3")).toBe("ok");
+    expect(view.rows.find((r) => r.codigo === "P2")!.itensVendidos30d).toBe(2);
   });
 });
 

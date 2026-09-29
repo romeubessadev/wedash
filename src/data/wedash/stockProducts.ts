@@ -1,5 +1,5 @@
 /**
- * Estoque > Produtos: custo, despesas sobre a venda e lucro por peça de cada produto, por loja.
+ * Estoque (saldo por local, transferência, em falta) e Tabelas de venda (custo, despesas sobre a venda e lucro por peça), por loja.
  * Custo de aquisição = custo da tabela de custo da loja + ICMS ST (% do custo).
  * Despesas sobre a venda = ICMS + royalties + taxa de marketing (da marca do produto) + aluguel percentual
  * (só Shopping) — todas em % do preço. Lucro por peça = preço − despesas − custo de aquisição.
@@ -21,6 +21,8 @@ export type StockInput = {
   saleTableId: number | null;
   /** Vendas dos últimos 30 dias por loja × produto (preço médio praticado). */
   charged: Array<{ storeId: string; code: string; revenueCents: number; items: number }>;
+  /** Inclui produtos sem saldo que venderam nos últimos 30 dias (produto em falta). */
+  includeSold?: boolean;
 };
 
 export type CostLine = { label: string; pct: number; valor: number };
@@ -119,6 +121,8 @@ export type StockStoreDetail = {
   transferencias: StockTransfer[];
   composicao: PriceComposition;
   praticado: { preco: number; itens: number; lucro: number | null; margemPct: number | null } | null;
+  /** Peças vendidas nos últimos 30 dias na loja. */
+  vendidos30d: number;
 };
 
 export type StockProductRow = {
@@ -163,6 +167,16 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
   return costPrices.get(store.costTableId)?.get(code) ?? null;
 }
 
+/** Situação do produto na aba Estoque (a mais grave primeiro). */
+export type StockStatus = "negativo" | "transferir" | "falta" | "ok";
+
+export function stockStatus(r: StockProductRow): StockStatus {
+  if (r.lojas.some((l) => l.estoque < 0)) return "negativo";
+  if (r.transferir > 0) return "transferir";
+  if (r.lojas.some((l) => l.estoque <= 0 && l.vendidos30d > 0)) return "falta";
+  return "ok";
+}
+
 export function buildStockProductsView(input: StockInput): StockProductsView {
   const prices = input.saleTableId == null ? new Map<string, number>() : (input.salePrices.get(input.saleTableId) ?? new Map());
   const stockBy = new Map<string, number>();
@@ -187,6 +201,7 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
   for (const s of input.stock) {
     if (storeIds.has(s.storeId) && (s.qty !== 0 || Object.values(s.locations ?? {}).some((q) => q !== 0))) codes.add(s.code);
   }
+  if (input.includeSold) for (const c of input.charged) if (storeIds.has(c.storeId) && c.items > 0) codes.add(c.code);
 
   const rows: StockProductRow[] = [];
   const negativos: NegativeStock[] = [];
@@ -209,7 +224,7 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
         const p = composePrice(store, code, Math.round(ch.revenueCents / ch.items), costCents);
         praticado = { preco: ch.revenueCents / ch.items / 100, itens: ch.items, lucro: p.lucro, margemPct: p.margemPct };
       }
-      return { store, estoque, locais, transferencias: stockTransfers(locais), composicao, praticado };
+      return { store, estoque, locais, transferencias: stockTransfers(locais), composicao, praticado, vendidos30d: ch?.items ?? 0 };
     });
 
     const neg = lojas.filter((l) => l.estoque < 0);
@@ -246,7 +261,7 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
       precoMinimo: pick((c) => c.precoMinimo),
       precoPraticado: itensPraticados > 0 ? receitaPraticada / itensPraticados : null,
       margemPraticadaPct: lucroPraticado != null && receitaPraticada > 0 ? (lucroPraticado / receitaPraticada) * 100 : null,
-      itensVendidos30d: itensPraticados,
+      itensVendidos30d: lojas.reduce((s, l) => s + l.vendidos30d, 0),
       variaPorLoja: varia,
       lojas,
     });

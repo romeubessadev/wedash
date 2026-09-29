@@ -1,5 +1,5 @@
 /**
- * Estoque > Produtos: leitura (estoque da loja, tabelas/preços de venda, tabela usada nas vendas, catálogo)
+ * Estoque e Tabelas de venda: leitura (estoque da loja, tabelas/preços de venda, tabela usada nas vendas, catálogo)
  * e busca no Millennium sob demanda (Edge `erp-stock-sync`).
  */
 import { labelCase, titleName } from "@/lib/format";

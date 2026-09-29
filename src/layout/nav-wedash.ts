@@ -21,12 +21,15 @@ const ICONE = {
   estoque: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12.01l8.73-5.05M12 22.08V12",
 };
 
-/** Produtos (Gestor e Gerente); depois entram Previsão de estoque etc. */
+/** Estoque · Tabelas de venda (Gestor e Gerente); depois entram Previsão de estoque etc. */
 const estoque: NavGroup = {
   label: "Estoque",
-  description: "Veja o custo, o preço e o estoque de cada produto.",
+  description: "Acompanhe o estoque e compare o lucro em cada tabela de venda.",
   icon: ICONE.estoque,
-  items: [{ label: "Produtos", to: paths.stock.products }],
+  items: [
+    { label: "Estoque", to: paths.stock.inventory },
+    { label: "Tabelas de venda", to: paths.stock.saleTables },
+  ],
 };
 
 /** Metas · Desafios · Turnos · Colaboradores (Gestor e Gerente). */

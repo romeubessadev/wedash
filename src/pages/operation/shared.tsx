@@ -49,7 +49,7 @@ const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
 
 /** Código das outras abas da seção — baixado junto para a troca de aba não esperar o download. */
 const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
-  Estoque: [],
+  Estoque: [() => import("@/pages/stock/InventoryPage"), () => import("@/pages/stock/SaleTablesPage")],
   Gestão: [
     () => import("@/pages/goals/GoalsPage"),
     () => import("@/pages/management/ChallengesPage"),
