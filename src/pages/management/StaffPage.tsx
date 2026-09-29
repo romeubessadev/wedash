@@ -11,7 +11,7 @@ import {
   type StoreSeller,
   type StoreShift,
 } from "@/data/wedash/stores";
-import { titleName } from "@/lib/format";
+import { shiftName } from "@/lib/format";
 import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
 
 /** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o turno de cada pessoa. */
@@ -115,7 +115,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
               <option value="">{shifts.length === 0 ? "Cadastre um turno" : "Sem turno"}</option>
               {shifts.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {titleName(s.name)} · {s.start}–{s.end}
+                  {shiftName(s.name)} · {s.start}–{s.end}
                 </option>
               ))}
             </Select>

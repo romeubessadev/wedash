@@ -1,5 +1,5 @@
 import { defaultWeekHours, effectiveWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
-import { collaboratorName, titleName } from "@/lib/format";
+import { collaboratorName, shiftName } from "@/lib/format";
 
 export type PointType = "SHOPPING" | "RUA";
 export type Division = "WEPINK" | "WPINK";
@@ -648,7 +648,7 @@ export async function fetchStoreShifts(tenantId: string, storeId: string): Promi
   }
   return (data ?? []).map((r) => ({
     id: r.id,
-    name: r.name,
+    name: shiftName(r.name),
     start: String(r.start_time).slice(0, 5),
     end: String(r.end_time).slice(0, 5),
   }));
@@ -662,7 +662,7 @@ export async function saveStoreShift(args: {
   const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "Supabase não configurado" };
-  const row = { name: titleName(args.shift.name), start_time: args.shift.start, end_time: args.shift.end };
+  const row = { name: shiftName(args.shift.name), start_time: args.shift.start, end_time: args.shift.end };
   const { data, error } = args.shift.id
     ? await sb.from("store_shift").update(row).eq("id", args.shift.id).select("id").single()
     : await sb

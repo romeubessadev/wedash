@@ -38,8 +38,13 @@ export function collaboratorName(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
 
+/** Nome do turno: caixa alta (gravado e exibido). */
+export function shiftName(s: string | null | undefined): string {
+  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+}
+
 /**
- * Nome de pessoa / turno: primeira letra de cada palavra maiúscula ("Ana Paula de Souza").
+ * Nome de pessoa: primeira letra de cada palavra maiúscula ("Ana Paula de Souza").
  * Partículas (de, da, do, das, dos, e) ficam minúsculas fora do início. Espelho SQL na migration
  * `20260926170000_title_case_names` e em `supabase/functions/_shared/text.ts`.
  */

@@ -3,14 +3,14 @@ import { Button, Card, EmptyState, Input, useToast } from "@/components/ui";
 import { ShiftRowsSkeleton, StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { deleteStoreShift, fetchStoreShifts, saveStoreShift, type Store, type StoreShift } from "@/data/wedash/stores";
 import { Icon, icons } from "@/pages/users/Icons";
-import { titleName } from "@/lib/format";
+import { shiftName } from "@/lib/format";
 import { FormActions, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, TimeSelect, nextHalfHour, useScopedStores } from "@/pages/operation/shared";
 
 /** Linha editável; `id` ausente = turno novo ainda não salvo. */
 type ShiftDraft = { key: string; id?: string; name: string; start: string; end: string };
 
 const toDraft = (s: StoreShift): ShiftDraft => ({ key: s.id, id: s.id, name: s.name, start: s.start, end: s.end });
-const toShift = (d: ShiftDraft): StoreShift => ({ id: d.id ?? "", name: titleName(d.name), start: d.start, end: d.end });
+const toShift = (d: ShiftDraft): StoreShift => ({ id: d.id ?? "", name: shiftName(d.name), start: d.start, end: d.end });
 
 /** Gestão > Turnos — turnos de cada loja. O turno de cada pessoa fica em Colaboradores. */
 export function ShiftsPage() {

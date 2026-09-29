@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { collaboratorName, titleName } from "@/lib/format";
+import { collaboratorName, shiftName } from "@/lib/format";
 import {
   applyFillToDayAggs,
   applyFillToProductCosts,
@@ -528,7 +528,7 @@ export async function fetchSellerShifts(
       employeeId: r.millennium_employee_id == null ? null : Number(r.millennium_employee_id),
       geradorId: r.millennium_gerador_id == null ? null : Number(r.millennium_gerador_id),
       nameKeys: r.name_keys ?? [],
-      name: titleName(r.store_shift.name),
+      name: shiftName(r.store_shift.name),
       start: String(r.store_shift.start_time).slice(0, 5),
       end: String(r.store_shift.end_time).slice(0, 5),
     });
