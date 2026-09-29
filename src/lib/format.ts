@@ -33,6 +33,11 @@ export function companyNameCase(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
 
+/** Nome de colaborador (equipe vinda do Millennium): caixa alta em todo o app. */
+export function collaboratorName(s: string | null | undefined): string {
+  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+}
+
 /**
  * Nome de pessoa / turno: primeira letra de cada palavra maiúscula ("Ana Paula de Souza").
  * Partículas (de, da, do, das, dos, e) ficam minúsculas fora do início. Espelho SQL na migration

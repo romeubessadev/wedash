@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { titleName } from "@/lib/format";
+import { collaboratorName, titleName } from "@/lib/format";
 import {
   applyFillToDayAggs,
   applyFillToProductCosts,
@@ -183,7 +183,7 @@ function mapSellerDay(r: SellerDayRow): SalesSellerDayAgg {
     storeId: r.store_id,
     day: r.day,
     sellerKey: String(r.seller_key ?? ""),
-    sellerName: titleName(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
+    sellerName: collaboratorName(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
     sellerEmployeeId: r.seller_employee_id == null ? null : Number(r.seller_employee_id),
     sellerGeradorId: r.seller_gerador_id == null ? null : Number(r.seller_gerador_id),
     brand: r.brand,
