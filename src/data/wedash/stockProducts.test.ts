@@ -116,28 +116,26 @@ describe("buildStockProductsView", () => {
     expect(view.rows.find((r) => r.codigo === "X")!.transferir).toBe(0);
   });
 
-  it("em falta = vendeu nos últimos 30 dias na loja e está sem saldo nela", () => {
+  it("negativo = total de alguma loja do filtro abaixo de zero; senão ok", () => {
     const view = buildStockProductsView({
       stores: [store({ id: "a" }), store({ id: "b" })],
       catalog: new Map(),
       stock: [
         { storeId: "a", code: "P1", qty: 4 },
+        { storeId: "b", code: "P1", qty: -1 },
+        { storeId: "a", code: "P2", qty: 3, locations: { ESTOQUE: 5, QUIOSQUE: -2 } },
         { storeId: "a", code: "P3", qty: 2 },
       ],
       costPrices: new Map(),
       salePrices: new Map(),
       saleTableId: null,
-      charged: [
-        { storeId: "b", code: "P1", revenueCents: 5000, items: 1 },
-        { storeId: "a", code: "P2", revenueCents: 0, items: 2 },
-      ],
-      includeSold: true,
+      charged: [{ storeId: "a", code: "P4", revenueCents: 5000, items: 1 }],
     });
     const status = (c: string) => stockStatus(view.rows.find((r) => r.codigo === c)!);
-    expect(status("P1")).toBe("falta");
-    expect(status("P2")).toBe("falta");
+    expect(status("P1")).toBe("negativo");
+    expect(status("P2")).toBe("ok");
     expect(status("P3")).toBe("ok");
-    expect(view.rows.find((r) => r.codigo === "P2")!.itensVendidos30d).toBe(2);
+    expect(view.rows.some((r) => r.codigo === "P4")).toBe(false);
   });
 });
 

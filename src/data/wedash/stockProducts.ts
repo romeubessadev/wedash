@@ -21,8 +21,6 @@ export type StockInput = {
   saleTableId: number | null;
   /** Vendas dos últimos 30 dias por loja × produto (preço médio praticado). */
   charged: Array<{ storeId: string; code: string; revenueCents: number; items: number }>;
-  /** Inclui produtos sem saldo que venderam nos últimos 30 dias (produto em falta). */
-  includeSold?: boolean;
 };
 
 export type CostLine = { label: string; pct: number; valor: number };
@@ -167,14 +165,11 @@ export function costCentsFor(costPrices: StockInput["costPrices"], store: Store,
   return costPrices.get(store.costTableId)?.get(code) ?? null;
 }
 
-/** Situação do produto na aba Estoque (a mais grave primeiro). */
-export type StockStatus = "negativo" | "transferir" | "falta" | "ok";
+/** Situação do produto na aba Estoque: negativo = total de alguma loja do filtro abaixo de zero. */
+export type StockStatus = "negativo" | "ok";
 
 export function stockStatus(r: StockProductRow): StockStatus {
-  if (r.lojas.some((l) => l.estoque < 0)) return "negativo";
-  if (r.transferir > 0) return "transferir";
-  if (r.lojas.some((l) => l.estoque <= 0 && l.vendidos30d > 0)) return "falta";
-  return "ok";
+  return r.lojas.some((l) => l.estoque < 0) ? "negativo" : "ok";
 }
 
 export function buildStockProductsView(input: StockInput): StockProductsView {
@@ -201,8 +196,6 @@ export function buildStockProductsView(input: StockInput): StockProductsView {
   for (const s of input.stock) {
     if (storeIds.has(s.storeId) && (s.qty !== 0 || Object.values(s.locations ?? {}).some((q) => q !== 0))) codes.add(s.code);
   }
-  if (input.includeSold) for (const c of input.charged) if (storeIds.has(c.storeId) && c.items > 0) codes.add(c.code);
-
   const rows: StockProductRow[] = [];
   const negativos: NegativeStock[] = [];
 

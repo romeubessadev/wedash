@@ -222,7 +222,6 @@ export function useStockData({ prices }: { prices: boolean }) {
             salePrices,
             saleTableId: tabelaAtiva,
             charged: data.charged,
-            includeSold: !prices,
           })
         : null,
     [data, lojas, salePrices, tabelaAtiva, prices],

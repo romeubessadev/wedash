@@ -3,7 +3,7 @@ import { Alert, Badge, DataTable, type DataTableColumn, type SortDir } from "@/c
 import type { StatusVariant } from "@/lib/status";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { MobileSortBar } from "@/components/wedash/MobileSortBar";
-import { stockStatus, type StockProductRow, type StockStatus } from "@/data/wedash/stockProducts";
+import { stockStatus, type StockStatus } from "@/data/wedash/stockProducts";
 import { cn } from "@/lib/cn";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -21,29 +21,19 @@ import {
   localQty,
   qty,
   stockLocations,
-  transferText,
 } from "./shared";
 import { useStockData } from "./useStockData";
 
-type StatusFiltro = "todos" | Exclude<StockStatus, "ok">;
+type StatusFiltro = "todos" | StockStatus;
 type SortKey = "nome" | "estoque";
 
 const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant }> = {
-  negativo: { label: "Estoque negativo", variant: "danger" },
-  transferir: { label: "Transferir", variant: "warning" },
-  falta: { label: "Em falta", variant: "danger" },
+  negativo: { label: "Negativo", variant: "danger" },
   ok: { label: "Ok", variant: "success" },
 };
 
-/** O que fazer com o produto, uma linha por loja (vai abaixo do status, na própria linha da tabela). */
-function statusLines(r: StockProductRow, status: StockStatus, variasLojas: boolean): string[] {
-  const loja = (nome: string) => (variasLojas ? `${nome}: ` : "");
-  if (status !== "transferir") return [];
-  return r.lojas.flatMap((l) => l.transferencias.map((t) => `${loja(l.store.fantasia)}${transferText(t)}`));
-}
-
 export function InventoryPage() {
-  const { lojas, storeKey, view, loading, syncing, atualizadoTexto } = useStockData({ prices: false });
+  const { storeKey, view, loading, syncing, atualizadoTexto } = useStockData({ prices: false });
   const [busca, setBusca] = useState("");
   const [statusSel, setStatus] = useState<StatusFiltro>("todos");
   const [categoria, setCategoria] = useState("");
@@ -53,18 +43,14 @@ export function InventoryPage() {
   const printing = usePrintMode();
   const showSkeleton = useMinSkeleton(loading);
   const exportar = useExportPdf("Estoque", null, { periodo: false });
-  const variasLojas = lojas.length > 1;
 
   const comStatus = useMemo(() => (view?.rows ?? []).map((r) => ({ r, status: stockStatus(r) })), [view]);
-  const contagem = (s: StockStatus) => comStatus.filter((x) => x.status === s).length;
-  const nNegativo = contagem("negativo");
-  const nTransferir = contagem("transferir");
-  const nFalta = contagem("falta");
+  const nNegativo = comStatus.filter((x) => x.status === "negativo").length;
+  const nOk = comStatus.length - nNegativo;
   const statusOpcoes: Array<{ value: StatusFiltro; label: string }> = [
     { value: "todos", label: "Todos os status" },
-    ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Estoque negativo (${nNegativo})` }] : []),
-    ...(nTransferir > 0 ? [{ value: "transferir" as const, label: `Transferir (${nTransferir})` }] : []),
-    ...(nFalta > 0 ? [{ value: "falta" as const, label: `Em falta (${nFalta})` }] : []),
+    ...(nNegativo > 0 ? [{ value: "negativo" as const, label: `Negativo (${nNegativo})` }] : []),
+    ...(nOk > 0 ? [{ value: "ok" as const, label: `Ok (${nOk})` }] : []),
   ];
   const status = statusOpcoes.some((o) => o.value === statusSel) ? statusSel : "todos";
   const categorias = view?.categorias ?? [];
@@ -120,12 +106,7 @@ export function InventoryPage() {
     {
       key: "status",
       header: "Status",
-      render: ({ r, status: s }) => (
-        <div className="min-w-[200px] max-w-[280px]">
-          <StatusBadge r={r} status={s} />
-          <StatusText lines={statusLines(r, s, variasLojas)} />
-        </div>
-      ),
+      render: ({ status: s }) => <Badge variant={STATUS_BADGE[s].variant}>{STATUS_BADGE[s].label}</Badge>,
     },
   ];
 
@@ -144,7 +125,7 @@ export function InventoryPage() {
       <SectionHeader
         section="Estoque"
         title="Estoque"
-        subtitle="Veja o saldo de cada produto por local, o que transferir e o que está em falta."
+        subtitle="Veja o saldo de cada produto por local de estoque."
         actions={
           <HeaderFilters
             updated={<UpdatedLine text={atualizadoTexto} tip="Estoque buscado no Millennium ao abrir a tela (a cada 30 minutos) e no botão Atualizar do topo." />}
@@ -163,29 +144,13 @@ export function InventoryPage() {
           </HeaderFilters>
         }
         notices={
-          !showSkeleton && view && (nTransferir > 0 || nNegativo > 0) ? (
-            <>
-              {nTransferir > 0 && (
-                <Alert
-                  variant="warning"
-                  title={
-                    nTransferir === 1
-                      ? "1 produto precisa de transferência entre locais de estoque."
-                      : `${nTransferir} produtos precisam de transferência entre locais de estoque.`
-                  }
-                >
-                  Um local está com saldo negativo e outro local da loja tem o produto.
-                </Alert>
-              )}
-              {nNegativo > 0 && (
-                <Alert
-                  variant="warning"
-                  title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
-                >
-                  Confira as entradas e saídas desses produtos na loja.
-                </Alert>
-              )}
-            </>
+          !showSkeleton && view && nNegativo > 0 ? (
+            <Alert
+              variant="warning"
+              title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
+            >
+              Confira as entradas e saídas desses produtos na loja.
+            </Alert>
           ) : undefined
         }
       />
@@ -230,18 +195,6 @@ export function InventoryPage() {
 }
 
 export default InventoryPage;
-
-function StatusBadge({ r, status }: { r: StockProductRow; status: StockStatus }) {
-  return <Badge variant={STATUS_BADGE[status].variant}>{status === "transferir" ? `Transferir ${qty(r.transferir)}` : STATUS_BADGE[status].label}</Badge>;
-}
-
-function StatusText({ lines }: { lines: string[] }) {
-  return lines.map((t) => (
-    <p key={t} className="mt-1 whitespace-normal text-[11.5px] leading-snug text-t2">
-      {t}
-    </p>
-  ));
-}
 
 function LocalQty({ v }: { v: number }) {
   return <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", v < 0 ? "font-bold text-bad" : v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
