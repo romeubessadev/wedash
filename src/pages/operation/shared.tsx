@@ -49,7 +49,7 @@ const SECTION_TABS: Record<SectionName, typeof managementTabs> = {
 
 /** Código das outras abas da seção — baixado junto para a troca de aba não esperar o download. */
 const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
-  Estoque: [() => import("@/pages/stock/InventoryPage"), () => import("@/pages/stock/SaleTablesPage")],
+  Estoque: [],
   Gestão: [
     () => import("@/pages/goals/GoalsPage"),
     () => import("@/pages/management/ChallengesPage"),
@@ -83,7 +83,7 @@ export function SectionHeader({
   const tabs = SECTION_TABS[section];
   return (
     <>
-      <PageHeader crumbs={[{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} notices={notices} />
+      <PageHeader crumbs={section === title ? [{ label: title }] : [{ label: section }, { label: title }]} title={title} subtitle={subtitle} actions={actions} notices={notices} />
       {tabs.length > 1 && <TabNav items={tabs} />}
     </>
   );

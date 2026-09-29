@@ -40,7 +40,7 @@ export const paths = {
   team: "/dashboard/team",
   /** CRUD de metas (fora do Dashboard). */
   goals: "/goals",
-  /** Estoque: saldo por local e tabelas de venda (depois: previsão de estoque…). `products` = URL antiga. */
+  /** Estoque: saldo por local. `saleTables` e `products` = URLs antigas (redirecionam). */
   stock: {
     inventory: "/stock/inventory",
     saleTables: "/stock/sale-tables",

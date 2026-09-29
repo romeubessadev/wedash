@@ -51,7 +51,7 @@ function transferTip(r: StockProductRow, variasLojas: boolean): string {
 const STATUS_PESO: Record<StockStatus, number> = { negativo: 2, aguardando: 1, ok: 0 };
 
 export function InventoryPage() {
-  const { lojas, storeKey, view, loading, syncing, atualizadoTexto } = useStockData({ prices: false });
+  const { lojas, storeKey, view, loading, syncing, atualizadoTexto } = useStockData();
   const [busca, setBusca] = useState("");
   const [statusSel, setStatus] = useState<StatusFiltro>("todos");
   const [categoria, setCategoria] = useState("");
