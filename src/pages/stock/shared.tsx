@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Pagination } from "@/components/ui";
+import { Avatar, Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { StockProductRow, StockTransfer } from "@/data/wedash/stockProducts";
 import { brlCent, num } from "@/lib/format";
@@ -58,13 +58,16 @@ export function TableFooter({ shown, total, page, totalPages, onPage }: { shown:
 /** Nome do produto + código · categoria, primeira coluna das tabelas. */
 export function ProductCell({ r, extra }: { r: StockProductRow; extra?: ReactNode }) {
   return (
-    <div className="min-w-0">
-      <p className="text-[13.5px] font-bold text-t0">{r.nome}</p>
-      <p className="text-[11.5px] text-t2">
-        {r.codigo}
-        {r.categoria && ` · ${r.categoria}`}
-      </p>
-      {extra}
+    <div className="flex min-w-0 max-w-[320px] items-center gap-2.5">
+      <Avatar name={r.nome} size="sm" />
+      <div className="min-w-0">
+        <p className="truncate text-[13.5px] font-bold text-t0">{r.nome}</p>
+        <p className="truncate text-[11.5px] text-t2">
+          {r.codigo}
+          {r.categoria && ` · ${r.categoria}`}
+        </p>
+        {extra}
+      </div>
     </div>
   );
 }

@@ -26,7 +26,7 @@ import {
 import { useStockData } from "./useStockData";
 
 type StatusFiltro = "todos" | Exclude<StockStatus, "ok">;
-type SortKey = "nome" | "estoque" | "vendidos";
+type SortKey = "nome" | "estoque";
 
 const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant }> = {
   negativo: { label: "Estoque negativo", variant: "danger" },
@@ -47,7 +47,7 @@ function statusLines(r: StockProductRow, status: StockStatus, variasLojas: boole
   if (status === "falta")
     return r.lojas
       .filter((l) => l.estoque <= 0 && l.vendidos30d > 0)
-      .map((l) => `${loja(l.store.fantasia)}sem saldo e ${qty(l.vendidos30d)} vendidos nos últimos 30 dias.`);
+      .map((l) => `${loja(l.store.fantasia)}sem saldo, mas vendeu nos últimos 30 dias.`);
   return [];
 }
 
@@ -89,9 +89,7 @@ export function InventoryPage() {
     const dir = sortDir === "asc" ? 1 : -1;
     out.sort((a, b) => {
       if (sortKey === "nome") return a.r.nome.localeCompare(b.r.nome, "pt-BR") * dir;
-      const va = sortKey === "estoque" ? a.r.estoque : a.r.itensVendidos30d;
-      const vb = sortKey === "estoque" ? b.r.estoque : b.r.itensVendidos30d;
-      return (va - vb) * dir || a.r.nome.localeCompare(b.r.nome, "pt-BR");
+      return (a.r.estoque - b.r.estoque) * dir || a.r.nome.localeCompare(b.r.nome, "pt-BR");
     });
     return out;
   }, [comStatus, busca, status, categoria, sortKey, sortDir]);
@@ -110,11 +108,7 @@ export function InventoryPage() {
     {
       key: "produto",
       header: "Produto",
-      render: ({ r }) => (
-        <div className="min-w-[220px] max-w-[340px] whitespace-normal">
-          <ProductCell r={r} />
-        </div>
-      ),
+      render: ({ r }) => <ProductCell r={r} />,
     },
     {
       key: "status",
@@ -142,12 +136,6 @@ export function InventoryPage() {
           } satisfies DataTableColumn<Linha>,
         ]
       : []),
-    {
-      key: "vendidos",
-      header: "Vendidos 30 dias",
-      align: "right",
-      render: ({ r }) => <SoldQty v={r.itensVendidos30d} />,
-    },
   ];
 
   const statusLabel = statusOpcoes.find((o) => o.value === status)?.label ?? "Todos os status";
@@ -222,7 +210,6 @@ export function InventoryPage() {
               options={[
                 { key: "nome", label: "Produto", text: true },
                 { key: "estoque", label: "Estoque" },
-                { key: "vendidos", label: "Vendidos" },
               ]}
               sortKey={sortKey}
               sortDir={sortDir}
@@ -242,14 +229,7 @@ export function InventoryPage() {
               )}
             </div>
           ) : (
-            <>
-              <DataTable className="hidden md:block print:block" columns={columns} data={pageRows} rowKey={({ r }) => r.codigo} />
-              <div className="flex flex-col gap-3 md:hidden print:hidden">
-                {pageRows.map(({ r, status: s }) => (
-                  <InventoryCard key={r.codigo} r={r} status={s} locais={locais} mostraTotal={mostraTotal} lines={statusLines(r, s, variasLojas)} />
-                ))}
-              </div>
-            </>
+            <DataTable columns={columns} data={pageRows} rowKey={({ r }) => r.codigo} />
           )}
           {linhas.length > 0 && <TableFooter shown={pageRows.length} total={linhas.length} page={pageSafe} totalPages={totalPages} onPage={setPage} />}
         </>
@@ -278,47 +258,4 @@ function LocalQty({ v }: { v: number }) {
 
 function TotalQty({ v }: { v: number }) {
   return <span className={cn("whitespace-nowrap font-mono text-[13px] font-bold tabular-nums", v < 0 ? "text-bad" : "text-t0")}>{qty(v)}</span>;
-}
-
-function SoldQty({ v }: { v: number }) {
-  return <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
-}
-
-function InventoryCard({
-  r,
-  status,
-  locais,
-  mostraTotal,
-  lines,
-}: {
-  r: StockProductRow;
-  status: StockStatus;
-  locais: string[];
-  mostraTotal: boolean;
-  lines: string[];
-}) {
-  const celulas = [
-    ...locais.map((nome) => ({ label: nome, value: <LocalQty v={localQty(r, nome)} /> })),
-    ...(mostraTotal ? [{ label: locais.length > 0 ? "Total" : "Estoque", value: <TotalQty v={r.estoque} /> }] : []),
-    { label: "Vendidos 30 dias", value: <SoldQty v={r.itensVendidos30d} /> },
-  ];
-  return (
-    <div className="rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <ProductCell r={r} />
-        <div className="shrink-0">
-          <StatusBadge r={r} status={status} />
-        </div>
-      </div>
-      <StatusText lines={lines} />
-      <dl className="mt-3 grid grid-cols-3 gap-2">
-        {celulas.map((c) => (
-          <div key={c.label} className="min-w-0 rounded-[var(--radius-vela-sm)] bg-bg-inset px-2.5 py-2">
-            <dt className="truncate text-[10.5px] font-bold uppercase tracking-wide text-t2">{c.label}</dt>
-            <dd className="mt-0.5">{c.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
 }
