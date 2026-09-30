@@ -2,7 +2,6 @@ import { Avatar, Badge, CardTitle, EmptyState, ProgressBar } from "@/components/
 import { DonutChart } from "@/components/charts";
 import { brlK, num } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { TrophyIcon } from "@/pages/dashboards/icons";
 import type { RankingRow, StoreRankingRow } from "@/data/wedash/live";
 import type { SellerRow } from "@/data/wedash/teamViews";
 /** Medalhas do leaderboard Vela (SalesDashboard / CRM) — anel, troféu e rótulos. */
@@ -20,6 +19,22 @@ const PODIO_ALTURA: Record<1 | 2 | 3, string> = {
 
 /** Ordem visual do pódio: 2º | 1º | 3º */
 const PODIO_ORDEM = [1, 0, 2] as const;
+
+const MEDALHA_EMOJI: Record<1 | 2 | 3, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+function MedalhaBadge({ pos, apagada = false }: { pos: 1 | 2 | 3; apagada?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-2 bg-bg-2 text-[20px] leading-none",
+        apagada && "opacity-40 grayscale",
+      )}
+      aria-hidden
+    >
+      {MEDALHA_EMOJI[pos]}
+    </span>
+  );
+}
 
 /** Pódio top 3 — aba Ranking (ouro / prata / bronze; degrau na cor primária). */
 export function BlocoRanking({
@@ -41,14 +56,43 @@ export function BlocoRanking({
   }
 
   const top3 = ranking.slice(0, 3);
-  const slots = PODIO_ORDEM.map((i) => top3[i]).filter((l): l is RankingRow => Boolean(l));
 
   return (
     <div className="flex items-end justify-center gap-2.5 pt-3 sm:gap-6">
-      {slots.map((l) => {
-        const pos = Math.min(3, Math.max(1, l.posicao)) as 1 | 2 | 3;
+      {PODIO_ORDEM.map((i) => {
+        const pos = (i + 1) as 1 | 2 | 3;
         const medal = MEDALHA[pos];
         const isOuro = pos === 1;
+        const l = top3[i];
+        if (!l) {
+          return (
+            <div
+              key={`vazio-${pos}`}
+              className={cn("flex flex-col items-center text-center", isOuro ? "w-[34%] max-w-[168px]" : "w-[30%] max-w-[148px]")}
+            >
+              <div className="relative mb-2.5">
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full border-2 border-dashed border-line text-t3",
+                    isOuro ? "h-20 w-20" : "h-16 w-16",
+                  )}
+                >
+                  —
+                </span>
+                <MedalhaBadge pos={pos} apagada />
+              </div>
+              <p className="text-[13px] font-bold text-t2 sm:text-[14px]">Sem {pos}º colocado</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-t3">Nenhuma venda</p>
+              <p className="mt-0.5 font-mono text-[13px] font-extrabold text-t3 sm:text-[14px]">—</p>
+              <div
+                className={cn("mt-3 flex w-full items-end justify-center rounded-t-2xl", PODIO_ALTURA[pos])}
+                style={{ background: "color-mix(in srgb, var(--acc) 16%, transparent)" }}
+              >
+                <span className="pb-3 text-[24px] font-extrabold leading-none text-t3 sm:text-[28px]">{pos}º</span>
+              </div>
+            </div>
+          );
+        }
         return (
           <div
             key={l.colaboradorId}
@@ -80,13 +124,7 @@ export function BlocoRanking({
               >
                 <Avatar size={isOuro ? "2xl" : "xl"} name={l.nome} />
               </span>
-              <span
-                className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-2"
-                style={{ background: medal.cor, color: "#1a1228" }}
-                aria-hidden
-              >
-                <TrophyIcon size={14} />
-              </span>
+              <MedalhaBadge pos={pos} />
             </div>
 
             <p className="truncate text-[13px] font-bold text-t0 sm:text-[14px]">{l.nome.split(" ")[0]}</p>
