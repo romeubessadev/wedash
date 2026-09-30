@@ -2169,7 +2169,7 @@ async function syncOnboardingRegistry(job: SyncJob, deps: SyncJobDeps): Promise<
  * Atualizar cadastros (Configurações > Integrações): lojas (nome, fantasia, CNPJ, inauguração),
  * gerador de cada loja e a lista de tabelas de custo do ERP (opções do Select, sem preços).
  * Produtos, preços e colaboradores ficam nos gatilhos automáticos (produto/vendedor desconhecido,
- * troca de tabela) e no Atualizar de Gestão > Colaboradores.
+ * troca de tabela) e no Atualizar de Gestão > Vendedores.
  * Cada parte segue se outra falhar; alguma falhou → job FAILED com a lista. Sessão caída interrompe.
  */
 async function runRegistryJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncResult> {

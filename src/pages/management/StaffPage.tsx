@@ -14,14 +14,14 @@ import {
 import { shiftName } from "@/lib/format";
 import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
 
-/** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o grupo de cada pessoa. */
+/** Gestão > Vendedores — equipe de vendas de cada loja (Millennium) e o grupo de cada pessoa. */
 export function StaffPage() {
   const { session, lojas, loading } = useScopedStores();
   return (
     <StoreCardsPage
       section="Gestão"
-      title="Colaboradores"
-      subtitle="Colaboradores de cada loja, sincronizados com o Millennium."
+      title="Vendedores"
+      subtitle="Vendedores de cada loja, sincronizados com o Millennium."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} team wide />}
       lojas={lojas}
@@ -79,7 +79,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     setSyncing(false);
     if (!r.ok) return show(r.message, "danger");
     setTick((n) => n + 1);
-    show("Colaboradores atualizados.", "success");
+    show("Vendedores atualizados.", "success");
   }
 
   async function changeShift(sellerId: string, shiftId: string | null) {
@@ -135,7 +135,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       variant={variant}
       onClick={() => void atualizar()}
       disabled={syncing}
-      title="Busca no Millennium os colaboradores desta loja."
+      title="Busca no Millennium os vendedores desta loja."
       icon={syncing ? undefined : <RefreshIcon />}
     >
       {syncing ? "Atualizando…" : "Atualizar"}
@@ -178,11 +178,11 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           framed={false}
           className="pt-4!"
           icon="👥"
-          title={semEquipe || tab === "ativos" ? "Nenhum colaborador ativo" : "Nenhum colaborador desligado"}
+          title={semEquipe || tab === "ativos" ? "Nenhum vendedor ativo" : "Nenhum vendedor desligado"}
           description={
             semEquipe || tab === "ativos"
-              ? "Os colaboradores vêm do Millennium. Use Atualizar para buscar os colaboradores desta loja."
-              : "Colaboradores desativados no Millennium aparecem aqui."
+              ? "Os vendedores vêm do Millennium. Use Atualizar para buscar os vendedores desta loja."
+              : "Vendedores desativados no Millennium aparecem aqui."
           }
           action={semEquipe ? refreshButton("primary") : undefined}
         />

@@ -32,7 +32,7 @@ const estoque: NavGroup = {
   ],
 };
 
-/** Metas · Desafios · Grupos · Colaboradores (Gestor e Gerente). */
+/** Metas · Desafios · Grupos · Vendedores (Gestor e Gerente). */
 const gestao: NavGroup = {
   label: "Gestão",
   description: "Gerencie metas, desafios, grupos e equipe.",
@@ -41,7 +41,7 @@ const gestao: NavGroup = {
     { label: "Metas", to: paths.goals },
     { label: "Desafios", to: paths.management.challenges },
     { label: "Grupos", to: paths.management.shifts },
-    { label: "Colaboradores", to: paths.management.staff },
+    { label: "Vendedores", to: paths.management.staff },
   ],
 };
 

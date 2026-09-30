@@ -12,14 +12,14 @@ type ShiftDraft = { key: string; id?: string; name: string; start: string; end: 
 const toDraft = (s: StoreShift): ShiftDraft => ({ key: s.id, id: s.id, name: s.name, start: s.start, end: s.end });
 const toShift = (d: ShiftDraft): StoreShift => ({ id: d.id ?? "", name: shiftName(d.name), start: d.start, end: d.end });
 
-/** Gestão > Grupos — grupos de cada loja (store_shift). O grupo de cada pessoa fica em Colaboradores. */
+/** Gestão > Grupos — grupos de cada loja (store_shift). O grupo de cada pessoa fica em Vendedores. */
 export function ShiftsPage() {
   const { session, lojas, loading } = useScopedStores();
   return (
     <StoreCardsPage
       section="Gestão"
       title="Grupos"
-      subtitle="Configure os grupos de cada loja. O grupo de cada colaborador é definido em Colaboradores."
+      subtitle="Configure os grupos de cada loja. O grupo de cada vendedor é definido em Vendedores."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} shifts />}
       lojas={lojas}
@@ -113,7 +113,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
             className="py-4!"
             icon="👥"
             title="Nenhum grupo cadastrado"
-            description="Crie os grupos da loja para definir o grupo de cada colaborador."
+            description="Crie os grupos da loja para definir o grupo de cada vendedor."
             action={
               <Button type="button" size="sm" icon={<Icon d={icons.plus} size={14} />} onClick={add}>
                 Adicionar grupo

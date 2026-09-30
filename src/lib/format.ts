@@ -33,7 +33,7 @@ export function companyNameCase(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
 
-/** Nome de colaborador (equipe vinda do Millennium): caixa alta em todo o app. */
+/** Nome de vendedor (equipe vinda do Millennium): caixa alta em todo o app. */
 export function collaboratorName(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
