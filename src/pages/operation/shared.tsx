@@ -191,6 +191,13 @@ export function numText(v: number | null | undefined, unit: "%" | "R$" = "%"): s
   return String(v).replace(".", ",");
 }
 
+/** Máscara de R$: só dígitos, preenchidos pelos centavos ("123456" → "1.234,56"). */
+export function maskBrl(txt: string): string {
+  const digits = txt.replace(/\D/g, "").replace(/^0+/, "").slice(0, 13);
+  if (!digits) return "";
+  return (Number(digits) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Campo numérico com sufixo (%) ou prefixo (R$). */
 export function NumberField({
   label,
@@ -236,11 +243,11 @@ export function NumberInput({
   return (
     <div className={cn("relative", className)}>
       <Input
-        inputMode="decimal"
+        inputMode={money ? "numeric" : "decimal"}
         placeholder={money ? "0,00" : "0"}
         value={value}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(money ? maskBrl(e.target.value) : e.target.value)}
         className={cn(money ? "pl-10" : "pr-8", compact && "h-9!")}
         aria-label={ariaLabel}
       />
