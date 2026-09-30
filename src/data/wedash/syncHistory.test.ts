@@ -17,6 +17,11 @@ describe("syncHistoryItem", () => {
     expect(syncHistoryItem(row({ kind: "SEED" }))?.text).toBe("Vendas atualizadas");
   });
 
+  it("automático sem venda nova fica de fora; manual sempre aparece", () => {
+    expect(syncHistoryItem(row({ payload: { auto: true, noSalesChange: true } }))).toBeNull();
+    expect(syncHistoryItem(row({ payload: { noSalesChange: true } }))?.text).toBe("Vendas atualizadas");
+  });
+
   it("falha: manual aparece; automática fica de fora", () => {
     const f = syncHistoryItem(row({ status: "FAILED" }));
     expect(f).toMatchObject({ text: "Não foi possível atualizar as vendas", ok: false });

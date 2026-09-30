@@ -74,7 +74,7 @@ import {
   syncLogIssueCount,
   type SyncLogRow,
 } from "./syncLog.ts";
-import { listaFingerprint, type ListaMemo } from "./listaFingerprint.ts";
+import { listaChanged, listaFingerprint, type ListaMemo } from "./listaFingerprint.ts";
 import { createSellerLinker, type LinkerStore, type SellerLinkerDeps } from "./sellerLinker.ts";
 import type { ErpStore } from "./millenniumStores.ts";
 import { AUTO_SESSION_MARK, localClock, pendingDays } from "./autoRefresh.ts";
@@ -1251,6 +1251,8 @@ export type SyncJobDeps = {
     jobId: string;
     status: "SUCCEEDED" | "FAILED";
     error?: string;
+    /** Rodada automática sem venda nova (`payload.noSalesChange`): o sino de Notificações ignora. */
+    noSalesChange?: boolean;
   }) => Promise<void>;
   loadCredential: (credentialId: string) => Promise<SyncCredential>;
   /** Erros/avisos do job → `sync_log` (Configurações > Logs). Best-effort. */
@@ -1470,7 +1472,7 @@ export type SyncJobDeps = {
 export type RunSyncSummary = { sales: number; revenueCents: number; timings: StepTimings };
 
 export type RunSyncResult =
-  | { ok: true; storesDone: number; summary?: RunSyncSummary }
+  | { ok: true; storesDone: number; summary?: RunSyncSummary; salesChanged?: boolean }
   | { ok: false; reason: "locked" | "busy" | "password" | "other"; error?: string };
 
 export function ymdInTz(date: Date, timeZone: string): string {
@@ -2576,6 +2578,7 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
   await deps.markJobRunning(job.id);
   const startedAt = deps.now();
   const auto = job.payload.auto === true;
+  let salesChanged = false;
 
   const finish = async (res: RunSyncResult, storesDone: number): Promise<RunSyncResult> => {
     const error = res.ok ? undefined : (res.error ?? res.reason);
@@ -2584,6 +2587,7 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
       jobId: job.id,
       status: res.ok ? "SUCCEEDED" : "FAILED",
       ...(error ? { error: `${mark}${error}` } : {}),
+      ...(res.ok && auto && !salesChanged ? { noSalesChange: true } : {}),
     });
     await deps.insertSyncRun({
       tenantId: job.tenantId,
@@ -2653,6 +2657,7 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
         console.warn(`  Fechamento pendente ${day} falhou — segue para hoje: ${res.error ?? res.reason}`);
         break recovery;
       }
+      if (res.salesChanged !== false) salesChanged = true;
       await markStoresClosed(deps, storeIds.map((storeId) => ({ storeId, day })));
     }
   }
@@ -2671,6 +2676,7 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
     innerDeps,
   );
   if (!res.ok) return finish(res, 0);
+  if (res.salesChanged !== false) salesChanged = true;
 
   const at = deps.now();
   if (deps.markStoresSynced && stores.length > 0) {
@@ -2716,6 +2722,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
   const compact = Boolean(job.compactLog);
   let totalSales = 0;
   let totalRevenueCents = 0;
+  /** Alguma loja trouxe Lista diferente da última vista (sino só notifica rodada automática com venda nova). */
+  let salesChanged = false;
   const totalTimings = () => {
     const all = new StepTimings();
     for (const t of [jobTimings, ...storeTimings.values()]) {
@@ -3429,6 +3437,14 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           `  [${store.code}] Lista/formas ok · ${storeSales} venda(s) · ${storeDays} dia(s)`,
         );
         const fingerprint = memo && dayErrors === 0 ? listaFingerprint(realToday, listaForBrand) : null;
+        const singleDay = windows.length === 1 && windows[0]!.from === windows[0]!.to ? windows[0]!.from : null;
+        if (deps.listaMemo && singleDay && dayErrors === 0 && !deps.closedMonth) {
+          const seenFp = singleDay === realToday && fingerprint ? fingerprint : listaFingerprint(singleDay, listaForBrand);
+          if (listaChanged(deps.listaMemo.seen(store.id, singleDay), seenFp, listaForBrand.length)) salesChanged = true;
+          deps.listaMemo.setSeen(store.id, singleDay, seenFp);
+        } else if (storeSales > 0) {
+          salesChanged = true;
+        }
         if (fingerprint && mayReuse && fingerprint === prevFingerprint) {
           const ms = nowMs() - tStore;
           const revenueCents = listaForBrand.reduce((a, r) => a + r.revenueCents, 0);
@@ -3563,6 +3579,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       return {
         ok: true,
         storesDone,
+        salesChanged,
         summary: { sales: totalSales, revenueCents: totalRevenueCents, timings: totalTimings() },
       };
     }
@@ -3580,7 +3597,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       perStore: storeDurations,
     });
 
-    return { ok: true, storesDone };
+    return { ok: true, storesDone, salesChanged };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logJobEnd({

@@ -1233,6 +1233,47 @@ describe("Atualizar (manual e automático)", () => {
     }
   });
 
+  it("rodada automática sem venda nova marca noSalesChange (sino ignora); venda nova não marca", async () => {
+    vi.useFakeTimers({ now: new Date("2026-09-19T15:00:00.000Z"), toFake: ["Date"] });
+    try {
+      const sale = (op: string, cents: number) => ({
+        operationCode: op,
+        occurredAt: new Date("2026-09-19T14:30:00.000Z"),
+        revenueCents: cents,
+        itemQty: 1,
+        storeId: "s1",
+        millenniumOpCode: Number(op),
+        nf: op,
+        tipoOperacao: "S",
+      });
+      let lista = [sale("1", 100_00)];
+      const markJobFinished = vi.fn().mockResolvedValue(undefined);
+      const deps = makeDeps({
+        listStores: vi.fn().mockResolvedValue([{ ...stores[0], lastClosedDay: "2026-09-18" }]),
+        fetchSalesLista: vi.fn().mockImplementation(async () => lista),
+        fetchCouponReport: vi.fn().mockResolvedValue([]),
+        fetchRelatorioMargem: vi.fn().mockResolvedValue([]),
+        listaMemo: createListaMemo(),
+        markJobFinished,
+        now: () => new Date(),
+      });
+      const run = () => runSyncJob(baseJob({ kind: "FORCE", payload: { auto: true, relogin: true } }), deps);
+      const lastFinish = () => markJobFinished.mock.calls.at(-1)![0];
+
+      expect((await run()).ok).toBe(true);
+      expect(lastFinish().noSalesChange).toBeUndefined();
+
+      expect((await run()).ok).toBe(true);
+      expect(lastFinish()).toMatchObject({ status: "SUCCEEDED", noSalesChange: true });
+
+      lista = [...lista, sale("2", 50_00)];
+      expect((await run()).ok).toBe(true);
+      expect(lastFinish().noSalesChange).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rodada que fecha o dia (pedido explícito) é sempre completa, mesmo com a Lista igual", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-20T02:40:00.000Z"), toFake: ["Date"] });
     try {

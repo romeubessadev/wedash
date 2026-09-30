@@ -7,6 +7,8 @@ export type SyncJobRow = {
   status: string;
   payload: {
     auto?: boolean;
+    /** Rodada automática que não achou venda nova no Millennium. */
+    noSalesChange?: boolean;
     from?: string;
     to?: string;
     fillUntil?: string;
@@ -57,7 +59,7 @@ export function syncHistoryItem(row: SyncJobRow): SyncHistoryItem | null {
   } else if (row.kind === "REGISTRY") {
     text = ok ? "Cadastros atualizados" : "Não foi possível atualizar os cadastros";
   } else {
-    if (!ok && p.auto) return null;
+    if (p.auto && (!ok || p.noSalesChange)) return null;
     text = ok ? "Vendas atualizadas" : "Não foi possível atualizar as vendas";
   }
   return { id: row.id, at: new Date(row.finished_at), text, ok };
@@ -74,6 +76,7 @@ export async function fetchSyncHistory(tenantId: string, limit = 20): Promise<Sy
     .in("status", ["SUCCEEDED", "FAILED"])
     .not("finished_at", "is", null)
     .is("payload->>deep", null)
+    .is("payload->>noSalesChange", null)
     .order("finished_at", { ascending: false })
     .limit(limit * 2);
   if (error) {

@@ -322,13 +322,20 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       if (error) throw error;
     },
 
-    async markJobFinished({ jobId, status, error: errMsg }) {
+    async markJobFinished({ jobId, status, error: errMsg, noSalesChange }) {
+      let payload: Record<string, unknown> | undefined;
+      if (noSalesChange) {
+        const { data, error: readErr } = await sb.from("sync_job").select("payload").eq("id", jobId).single();
+        if (readErr) throw readErr;
+        payload = { ...((data?.payload ?? {}) as Record<string, unknown>), noSalesChange: true };
+      }
       const { error } = await sb
         .from("sync_job")
         .update({
           status,
           error: errMsg ?? null,
           finished_at: new Date().toISOString(),
+          ...(payload ? { payload } : {}),
         })
         .eq("id", jobId);
       if (error) throw error;

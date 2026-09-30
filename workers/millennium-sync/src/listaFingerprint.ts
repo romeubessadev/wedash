@@ -32,13 +32,31 @@ export type ListaMemo = {
   get: (storeId: string) => string | undefined;
   set: (storeId: string, fingerprint: string) => void;
   forget: (storeId: string) => void;
+  /** Última Lista vista da loja no dia (qualquer rodada sem falha) — decide se a rodada trouxe venda nova. */
+  seen: (storeId: string, day: string) => string | undefined;
+  setSeen: (storeId: string, day: string, fingerprint: string) => void;
 };
+
+const SEEN_DAYS_PER_STORE = 3;
 
 export function createListaMemo(): ListaMemo {
   const map = new Map<string, string>();
+  const seen = new Map<string, Map<string, string>>();
   return {
     get: (id) => map.get(id),
     set: (id, fp) => void map.set(id, fp),
     forget: (id) => void map.delete(id),
+    seen: (id, day) => seen.get(id)?.get(day),
+    setSeen: (id, day, fp) => {
+      const byDay = seen.get(id) ?? new Map<string, string>();
+      byDay.set(day, fp);
+      for (const old of [...byDay.keys()].sort().slice(0, -SEEN_DAYS_PER_STORE)) byDay.delete(old);
+      seen.set(id, byDay);
+    },
   };
+}
+
+/** A Lista mudou desde a última vista? Dia sem Lista vista (dia novo, worker reiniciado) = mudou só se tem venda. */
+export function listaChanged(prev: string | undefined, fingerprint: string, rowCount: number): boolean {
+  return prev ? prev !== fingerprint : rowCount > 0;
 }
