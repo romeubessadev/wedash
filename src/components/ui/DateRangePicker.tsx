@@ -431,9 +431,6 @@ export function DateRangePicker({
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
         <span className={cn("min-w-0 truncate font-semibold", size === "sm" ? "text-xs" : "text-[13.5px]", value || displayLabel ? "text-t0" : "text-t2")}>{rotulo}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-t2 transition-transform", open && "rotate-180")}>
-          <path d="m6 9 6 6 6-6" />
-        </svg>
       </button>
       {painel}
     </div>
