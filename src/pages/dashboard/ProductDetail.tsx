@@ -239,7 +239,18 @@ function useLazyProductsData(escopo: Scope, tenantId: string | undefined, enable
 
 /* ---------- Modal ---------- */
 
-type TopSort = "nome" | "itens" | "faturamento" | "margem";
+type TopSort = "nome" | "itens" | "faturamento" | "lucro" | "margem";
+
+const valorDoSort = (r: { itens: number; faturamento: number; lucro: number | null; margemPct: number | null }, sort: TopSort) =>
+  sort === "itens" ? r.itens : sort === "lucro" ? r.lucro : sort === "margem" ? r.margemPct : r.faturamento;
+
+function CelulaLucro({ v }: { v: number | null }) {
+  return (
+    <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", v == null ? "text-t2" : v < 0 ? "text-bad" : "text-ok")}>
+      {v == null ? "—" : brlCent(v)}
+    </td>
+  );
+}
 
 export function MetricaDetalhe({
   label,
@@ -272,7 +283,7 @@ export function MetricaDetalhe({
   );
 }
 
-/** Mesmo padrão da tabela Top produtos (# · Produto · Itens · Faturamento · Margem); clique abre o produto. */
+/** Mesmo padrão da tabela Top produtos (# · Produto · Itens · Faturamento · Lucro bruto · Margem); clique abre o produto. */
 function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[]; onProduto: (chave: string) => void }) {
   const [sort, setSort] = useState<TopSort>("faturamento");
   const [dir, setDir] = useState<SortDir>("desc");
@@ -280,8 +291,8 @@ function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[
     const d = dir === "asc" ? 1 : -1;
     return [...produtos].sort((a, b) => {
       if (sort === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * d;
-      const va = sort === "itens" ? a.itens : sort === "margem" ? a.margemPct : a.faturamento;
-      const vb = sort === "itens" ? b.itens : sort === "margem" ? b.margemPct : b.faturamento;
+      const va = valorDoSort(a, sort);
+      const vb = valorDoSort(b, sort);
       if (va == null && vb == null) return b.faturamento - a.faturamento;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -297,13 +308,14 @@ function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[
   };
   return (
     <div className="mt-2 overflow-x-auto">
-      <table className="w-full min-w-[520px] border-collapse text-sm">
+      <table className="w-full min-w-[620px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
             <th className="px-1 pb-3 text-left font-bold">#</th>
             <ThSort label="Produto" active={sort === "nome"} dir={dir} onClick={() => alternar("nome")} align="left" className="px-1 pb-3" />
             <ThSort label="Itens vendidos" active={sort === "itens"} dir={dir} onClick={() => alternar("itens")} className="px-1 pb-3" />
             <ThSort label="Faturamento" active={sort === "faturamento"} dir={dir} onClick={() => alternar("faturamento")} className="px-1 pb-3" />
+            <ThSort label="Lucro bruto" active={sort === "lucro"} dir={dir} onClick={() => alternar("lucro")} className="px-1 pb-3" />
             <ThSort label="Margem" active={sort === "margem"} dir={dir} onClick={() => alternar("margem")} className="px-1 pb-3" />
           </tr>
         </thead>
@@ -333,6 +345,7 @@ function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[
               </td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+              <CelulaLucro v={p.lucro} />
               <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
                 {pctFmt(p.margemPct)}
               </td>
@@ -358,8 +371,8 @@ function CategoriasDaClasse({
     const d = dir === "asc" ? 1 : -1;
     return [...categorias].sort((a, b) => {
       if (sort === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * d;
-      const va = sort === "itens" ? a.itens : sort === "margem" ? a.margemPct : a.faturamento;
-      const vb = sort === "itens" ? b.itens : sort === "margem" ? b.margemPct : b.faturamento;
+      const va = valorDoSort(a, sort);
+      const vb = valorDoSort(b, sort);
       if (va == null && vb == null) return b.faturamento - a.faturamento;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -375,13 +388,14 @@ function CategoriasDaClasse({
   };
   return (
     <div className="mt-2 overflow-x-auto">
-      <table className="w-full min-w-[620px] border-collapse text-sm">
+      <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
             <th className="px-1 pb-3 text-left font-bold">#</th>
             <ThSort label="Categoria" active={sort === "nome"} dir={dir} onClick={() => alternar("nome")} align="left" className="px-1 pb-3" />
             <ThSort label="Itens vendidos" active={sort === "itens"} dir={dir} onClick={() => alternar("itens")} className="px-1 pb-3" />
             <ThSort label="Faturamento" active={sort === "faturamento"} dir={dir} onClick={() => alternar("faturamento")} className="px-1 pb-3" />
+            <ThSort label="Lucro bruto" active={sort === "lucro"} dir={dir} onClick={() => alternar("lucro")} className="px-1 pb-3" />
             <ThSort label="Margem" active={sort === "margem"} dir={dir} onClick={() => alternar("margem")} className="px-1 pb-3" />
             <th className="px-1 pb-3 text-right font-bold">
               <span className="inline-flex items-center gap-1">
@@ -414,6 +428,7 @@ function CategoriasDaClasse({
               </td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(c.itens)}</td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(c.faturamento)}</td>
+              <CelulaLucro v={c.lucro} />
               <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", c.margemPct == null ? "text-t2" : "text-ok")}>
                 {pctFmt(c.margemPct)}
               </td>

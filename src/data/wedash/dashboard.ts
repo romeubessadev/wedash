@@ -2885,6 +2885,7 @@ export interface ProductDetailItem {
   /** Fatia do faturamento da linha (0–100). */
   pct: number;
   /** null = algum dia com venda do produto sem custo (nada estimado). */
+  lucro: number | null;
   margemPct: number | null;
 }
 
@@ -2893,6 +2894,7 @@ export interface ProductDetailCategory {
   nome: string;
   itens: number;
   faturamento: number;
+  lucro: number | null;
   margemPct: number | null;
   /** Participação no faturamento de todas as categorias (0–100). */
   pct: number;
@@ -3081,15 +3083,19 @@ function buildItemsDetail(
   }
   const produtos: ProductDetailItem[] = [...porProduto.entries()]
     .filter(([, p]) => p.faturamento > 0)
-    .map(([key, p]) => ({
-      chave: key,
-      codigo: key.startsWith("#") ? "" : key,
-      nome: labelUpper(p.nome || key),
-      faturamento: p.faturamento,
-      itens: p.itens,
-      pct: divSeguro(p.faturamento, atual.fat) * 100,
-      margemPct: margemPorProduto ? acumular(noAtual, key).margemPct : null,
-    }))
+    .map(([key, p]) => {
+      const custo = margemPorProduto ? acumular(noAtual, key) : null;
+      return {
+        chave: key,
+        codigo: key.startsWith("#") ? "" : key,
+        nome: labelUpper(p.nome || key),
+        faturamento: p.faturamento,
+        itens: p.itens,
+        pct: divSeguro(p.faturamento, atual.fat) * 100,
+        lucro: custo?.lucro ?? null,
+        margemPct: custo?.margemPct ?? null,
+      };
+    })
     .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
 
   const cmpAtual = acumular(noAtualCmp);
@@ -3219,6 +3225,7 @@ export function buildAbcClassDetail(
       nome: c.nome,
       itens: view.categorias.find((x) => x.categoriaId === c.categoriaId)?.itens ?? det.itens,
       faturamento: c.faturamento,
+      lucro: det.lucro,
       margemPct: det.margemPct,
       pct: c.pct,
       pctAcumulado: c.pctAcumulado,
