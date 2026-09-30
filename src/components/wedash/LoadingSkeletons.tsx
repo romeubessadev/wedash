@@ -532,6 +532,87 @@ export function TeamTableSkeleton({ withShift = true, rows = 3 }: { withShift?: 
   );
 }
 
+/** Metas: card da listagem (ícone + nome/período + status · meta · barra · chips · avatares + botões). */
+export function GoalCardsSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <Busy className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: count }, (_, i) => (
+        <Card key={i}>
+          <div className="mb-4 flex items-center gap-3">
+            <Skeleton className="h-11 w-11 shrink-0 rounded-[12px]" />
+            <div className="min-w-0 flex-1">
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="mt-2 h-3 w-2/5" />
+            </div>
+            <Skeleton className="h-6 w-24 shrink-0 self-start rounded-full" />
+          </div>
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="mt-2 h-5 w-32" />
+          <div className="mt-3 flex items-center justify-between">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+          <Skeleton className="mt-2 h-2 w-full rounded-full" />
+          <div className="mt-3.5 flex gap-1.5">
+            <Pill className="w-20" />
+            <Pill className="w-16" />
+            <Pill className="w-20" />
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+            <div className="flex -space-x-2">
+              {Array.from({ length: 3 }, (_, j) => (
+                <Skeleton key={j} className="h-8 w-8 rounded-full border-2 border-bg-2" />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-16 rounded-[10px]" />
+              <Skeleton className="h-8 w-24 rounded-[10px]" />
+            </div>
+          </div>
+        </Card>
+      ))}
+    </Busy>
+  );
+}
+
+/** Detalhe da meta: card da meta (título + badges + faixa + tabela da escada). */
+export function GoalDetailSkeleton() {
+  return (
+    <Busy>
+      <Card padding="lg">
+        <Title className="w-48" />
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <Pill className="w-20" />
+          <Pill className="w-28" />
+          <Pill className="w-24" />
+          <Pill className="w-16" />
+        </div>
+        <div className="mt-6 flex items-end justify-between">
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-7 w-20" />
+        </div>
+        <Skeleton className="mt-4 h-3 w-full rounded-full" />
+        <div className="mt-2 flex justify-between">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-3 w-20" />
+          ))}
+        </div>
+        <div className="mt-6 flex flex-col gap-3">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="ml-auto h-3.5 w-24" />
+              <Skeleton className="hidden h-3.5 w-16 md:block" />
+              <Skeleton className="hidden h-6 w-24 rounded-full md:block" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </Busy>
+  );
+}
+
 /** Lojas: mesmo card da listagem (ícone + fantasia/CNPJ + badge Filial · avatares + "N na equipe"). */
 export function CardGridSkeleton({ count = 3 }: { count?: number }) {
   return (

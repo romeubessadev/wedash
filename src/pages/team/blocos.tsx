@@ -454,6 +454,7 @@ export function FaixaMetaGlobal({
   embedded = false,
   hideTitle = false,
   degraus = defaultTiers,
+  hojeIso,
 }: {
   meta: NetworkGlobalGoal;
   embedded?: boolean;
@@ -461,8 +462,10 @@ export function FaixaMetaGlobal({
   hideTitle?: boolean;
   /** Degraus desta meta (default = escada padrão). */
   degraus?: { nome: string; atingimentoMinPct: number; comissaoPct: number }[];
+  /** Dia de hoje (dados reais); sem ele usa o relógio da fixture. */
+  hojeIso?: string;
 }) {
-  const mostraProjecao = metaLiberouProjecao(meta.inicio, meta.fim);
+  const mostraProjecao = metaLiberouProjecao(meta.inicio, meta.fim, hojeIso);
   const fecha = meta.projetadoPct >= 100;
   const escalaMax = Math.max(...degraus.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
@@ -669,9 +672,11 @@ function IconNiveis() {
 export function CardMeta({
   card,
   metaAtiva,
+  hojeIso,
 }: {
   card: GoalCardView;
   metaAtiva: boolean;
+  hojeIso?: string;
 }) {
   const tipoLabel = card.tipo === "individual" ? "Individual" : "Grupo";
   return (
@@ -693,10 +698,12 @@ export function CardMeta({
             {m}
           </Badge>
         ))}
-        <Badge variant="neutral" className="gap-1">
-          <IconGrupos />
-          {card.qtdGrupos} {card.qtdGrupos === 1 ? "grupo" : "grupos"}
-        </Badge>
+        {card.qtdGrupos > 0 ? (
+          <Badge variant="neutral" className="gap-1">
+            <IconGrupos />
+            {card.qtdGrupos} {card.qtdGrupos === 1 ? "grupo" : "grupos"}
+          </Badge>
+        ) : null}
         <Badge variant="neutral" className="gap-1">
           <IconVendedoras />
           {card.qtdVendedoras} na equipe
@@ -708,7 +715,7 @@ export function CardMeta({
       </div>
 
       <div className="mt-4">
-        <FaixaMetaGlobal meta={card.faixa} embedded hideTitle degraus={card.degraus} />
+        <FaixaMetaGlobal meta={card.faixa} embedded hideTitle degraus={card.degraus} hojeIso={hojeIso} />
       </div>
 
       <CardVendedoras

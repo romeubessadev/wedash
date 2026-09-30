@@ -89,6 +89,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname === paths.live.root ||
     location.pathname.startsWith(paths.live.root + "/") ||
     location.pathname === paths.goals ||
+    location.pathname.startsWith(paths.goals + "/") ||
     location.pathname.startsWith("/stock/") ||
     location.pathname.startsWith("/management/") ||
     location.pathname.startsWith("/operation/") ||
