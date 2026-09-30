@@ -83,7 +83,7 @@ const KPI_COLORS = [
 ];
 
 type SortKey = "nome" | "faturamento" | "itens" | "lucro" | "margemPct" | "variacaoPct";
-type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
+type TopProdSort = "nome" | "itens" | "faturamento" | "lucro" | "margem";
 
 const CORES_ABC: Record<AbcClass, string> = {
   A: "var(--bad)",
@@ -177,7 +177,13 @@ export default function ProductsPage() {
   // "Produto" (nome) reordena o Top 5 por faturamento.
   const topProdutos = useMemo(() => {
     const metrica = (p: ProductItemRow) =>
-      topProdSort === "itens" ? p.itens : topProdSort === "margem" ? (p.margemPct ?? -Infinity) : p.faturamento;
+      topProdSort === "itens"
+        ? p.itens
+        : topProdSort === "lucro"
+          ? (p.lucro ?? -Infinity)
+          : topProdSort === "margem"
+            ? (p.margemPct ?? -Infinity)
+            : p.faturamento;
     const top5 = [...view.produtos].sort((a, b) => metrica(b) - metrica(a) || b.faturamento - a.faturamento).slice(0, 5);
     if (topProdSort === "nome") {
       const dir = topProdDir === "asc" ? 1 : -1;
@@ -488,13 +494,14 @@ export default function ProductsPage() {
             <EmptyBlock />
           ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+            <table className="w-full min-w-[600px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <ThSort label="Produto" active={topProdSort === "nome"} dir={topProdDir} onClick={() => toggleTopProdSort("nome")} align="left" className="px-1 pb-3" />
                   <ThSort label="Itens vendidos" active={topProdSort === "itens"} dir={topProdDir} onClick={() => toggleTopProdSort("itens")} className="px-1 pb-3" />
                   <ThSort label="Faturamento" active={topProdSort === "faturamento"} dir={topProdDir} onClick={() => toggleTopProdSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Lucro bruto" active={topProdSort === "lucro"} dir={topProdDir} onClick={() => toggleTopProdSort("lucro")} className="px-1 pb-3" />
                   <ThSort label="Margem" active={topProdSort === "margem"} dir={topProdDir} onClick={() => toggleTopProdSort("margem")} className="px-1 pb-3" />
                 </tr>
               </thead>
@@ -524,6 +531,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                    <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", corLucro(p.lucro))}>{moneyOrDash(p.lucro)}</td>
                     <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
                       {pctFmt(p.margemPct)}
                     </td>

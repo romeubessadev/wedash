@@ -380,7 +380,7 @@ export function ProductsSkeleton() {
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TopTableSkeleton titleW="w-44" />
-        <TopTableSkeleton />
+        <TopTableSkeleton variacao />
       </div>
       <TopTableSkeleton titleW="w-44" rows={8} search variacao className="mt-4" />
     </Busy>
