@@ -94,11 +94,9 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname.startsWith("/operation/") ||
     location.pathname.startsWith(paths.settings.root);
 
-  // Menu do avatar: Meu perfil · (Gestor) Integrações, Usuários, Logs · Sair.
-  const administracao: DropdownItem[] = isGestor(session.role)
+  // Menu do avatar: Conta = Meu perfil · (Gestor) Integrações, Usuários, Logs · Sair.
+  const conta: DropdownItem[] = isGestor(session.role)
     ? [
-        { divider: true, label: "" },
-        { heading: true, label: "Administração" },
         { label: "Integrações", icon: <MenuIcon d={ICON_INTEGRACOES} />, onClick: () => navigate(paths.settings.erp) },
         { label: "Usuários", icon: <MenuIcon d={ICON_USUARIOS} />, onClick: () => navigate(paths.settings.users) },
         { label: "Logs", icon: <MenuIcon d={ICON_LOGS} />, onClick: () => navigate(paths.settings.logs) },
@@ -177,8 +175,9 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
             </div>
           }
           items={[
+            { heading: true, label: "Conta" },
             { label: "Meu perfil", icon: <MenuIcon d={ICON_PERFIL} />, onClick: () => navigate(paths.profile) },
-            ...administracao,
+            ...conta,
             { divider: true, label: "" },
             {
               label: "Sair",

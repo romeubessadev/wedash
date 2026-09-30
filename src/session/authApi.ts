@@ -413,6 +413,79 @@ export async function createAccess(
   return { ok: true, name, avatarUrl };
 }
 
+/** Nome e sobrenome gravados na identity (Meu perfil). Sem os campos separados, divide o nome. */
+export async function fetchMyNames(fallbackName: string): Promise<{ firstName: string; lastName: string }> {
+  const dividir = () => {
+    const [first = "", ...rest] = fallbackName.trim().split(/\s+/);
+    return { firstName: first, lastName: rest.join(" ") };
+  };
+  const sb = getSupabase();
+  if (!sb) return dividir();
+  const { data: userData } = await sb.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return dividir();
+  const { data } = await sb.from("identity").select("first_name, last_name").eq("auth_user_id", uid).maybeSingle();
+  if (!data?.first_name) return dividir();
+  return { firstName: titleName(data.first_name), lastName: titleName(data.last_name ?? "") };
+}
+
+export type SaveProfileInput = { firstName: string; lastName: string; photo: File | null; removePhoto: boolean };
+
+/** Meu perfil: grava nome, sobrenome e foto (trocada ou removida) na identity. */
+export async function saveMyProfile(
+  input: SaveProfileInput,
+): Promise<{ ok: true; name: string; avatarUrl: string | null | undefined } | { ok: false; error: string }> {
+  const firstName = titleName(input.firstName);
+  const lastName = titleName(input.lastName);
+  const name = titleName(`${firstName} ${lastName}`);
+
+  const sb = getSupabase();
+  if (!sb) {
+    await delay(300);
+    const avatarUrl = input.photo ? URL.createObjectURL(input.photo) : input.removePhoto ? null : undefined;
+    return { ok: true, name, avatarUrl };
+  }
+
+  const { data: userData } = await sb.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo." };
+
+  let avatarUrl: string | null | undefined;
+  if (input.photo) {
+    const up = await uploadAvatar(input.photo);
+    if (!up.ok) return up;
+    avatarUrl = up.url;
+  } else if (input.removePhoto) {
+    avatarUrl = null;
+  }
+
+  const { error } = await sb
+    .from("identity")
+    .update({ first_name: firstName, last_name: lastName, name, ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}) })
+    .eq("auth_user_id", uid);
+  if (error) {
+    console.warn("saveMyProfile:", error.message);
+    return { ok: false, error: "Não foi possível salvar as alterações. Tente novamente." };
+  }
+  return { ok: true, name, avatarUrl };
+}
+
+/** Meu perfil: confere a senha atual (novo login) e troca a senha sem encerrar a sessão. */
+export async function changeMyPassword(email: string, atual: string, nova: string): Promise<{ ok: boolean; error?: string }> {
+  const check = validarSenha(nova);
+  if (!check.ok) return { ok: false, error: check.erro };
+  const sb = getSupabase();
+  if (!sb) {
+    await delay(400);
+    return { ok: true };
+  }
+  const { error: loginErr } = await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: atual });
+  if (loginErr) return { ok: false, error: "Senha atual incorreta." };
+  const { error } = await sb.auth.updateUser({ password: nova });
+  if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
+  return { ok: true };
+}
+
 /** Destino após login / troca de senha / raiz. */
 export function destinationAfterAuth(s: Session, de?: string | null): string {
   if (s.temporaryPassword) return paths.access.createAccess;

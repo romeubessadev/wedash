@@ -6,12 +6,17 @@ import { isGestor } from "@/layout/nav-wedash";
 
 /** Mesma ordem do menu do avatar. */
 const TABS = [
+  { label: "Meu perfil", to: paths.profile },
   { label: "Integrações", to: paths.settings.erp },
   { label: "Usuários", to: paths.settings.users },
   { label: "Logs", to: paths.settings.logs },
 ];
 
 const META: Record<string, { title: string; subtitle: string }> = {
+  [paths.profile]: {
+    title: "Meu perfil",
+    subtitle: "Gerencie seus dados, sua senha e o tema do app.",
+  },
   [paths.settings.stores]: {
     title: "Lojas",
     subtitle: "Configure o funcionamento de cada loja.",
@@ -31,8 +36,9 @@ const META: Record<string, { title: string; subtitle: string }> = {
 };
 
 /**
- * Shell de Administração (menu do avatar) — mesmo padrão Vela (TabNav).
- * Abas só para o Gestor nas telas Integrações · Usuários · Logs; Lojas (só por URL por enquanto) fica sem abas.
+ * Shell de Conta (menu do avatar) — mesmo padrão Vela (TabNav).
+ * Abas só para o Gestor em Meu perfil · Integrações · Usuários · Logs; Gerente vê só Meu perfil (sem abas).
+ * Lojas (só por URL por enquanto) fica sem abas.
  */
 export function WedashSettingsLayout() {
   const { pathname } = useLocation();
@@ -43,7 +49,7 @@ export function WedashSettingsLayout() {
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: "Administração" }, { label: meta.title }]}
+        crumbs={[{ label: "Conta" }, { label: meta.title }]}
         title={meta.title}
         subtitle={meta.subtitle}
       />

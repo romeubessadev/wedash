@@ -328,10 +328,13 @@ export function CamposNome({
 export function CampoFoto({
   nome,
   foto,
+  atual = null,
   onChange,
 }: {
   nome: NomePessoa;
   foto: File | null;
+  /** URL da foto já salva (Meu perfil); "Remover foto" chama onChange(null). */
+  atual?: string | null;
   onChange: (foto: File | null) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -349,6 +352,7 @@ export function CampoFoto({
 
   const iniciais = `${nome.nome.trim().charAt(0)}${nome.sobrenome.trim().charAt(0)}`.toUpperCase();
   const escolher = () => input.current?.click();
+  const imagem = preview ?? atual;
 
   return (
     <div className="flex flex-col items-center">
@@ -356,12 +360,12 @@ export function CampoFoto({
         <button
           type="button"
           onClick={escolher}
-          aria-label={foto ? "Trocar foto de perfil" : "Adicionar foto de perfil"}
+          aria-label={imagem ? "Trocar foto de perfil" : "Adicionar foto de perfil"}
           className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[24px] text-[32px] font-extrabold text-white"
           style={{ background: "linear-gradient(135deg,#7c5cff,#56a8ff)" }}
         >
-          {preview ? (
-            <img src={preview} alt="" className="h-full w-full object-cover" />
+          {imagem ? (
+            <img src={imagem} alt="" className="h-full w-full object-cover" />
           ) : iniciais ? (
             iniciais
           ) : (
@@ -383,7 +387,7 @@ export function CampoFoto({
           </svg>
         </button>
       </div>
-      {foto ? (
+      {imagem ? (
         <button type="button" onClick={() => onChange(null)} className={cn(acessoLink, "mt-2.5")}>
           Remover foto
         </button>

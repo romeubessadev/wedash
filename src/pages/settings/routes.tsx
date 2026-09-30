@@ -12,6 +12,7 @@ const ErpIntegrationPage = lazyPage(() => import("./ErpIntegrationPage"), "ErpIn
 const SyncLogsPage = lazyPage(() => import("./SyncLogsPage"), "SyncLogsPage");
 const StoreDetailPage = lazyPage(() => import("./StoreDetailPage"), "StoreDetailPage");
 const SystemUsersPage = lazyPage(() => import("./SystemUsersPage"), "SystemUsersPage");
+const MyProfilePage = lazyPage(() => import("./MyProfilePage"), "MyProfilePage");
 /**
  * WeDash: /settings → Lojas; /settings/stores | /settings/erp com TabNav + sidebar.
  * Vela template: /settings/:tab (general, company, …) no SettingsPage.
@@ -23,6 +24,7 @@ export const settingsRoutes: RouteObject[] = [
   {
     element: <WedashSettingsLayout />,
     children: [
+      { path: paths.profile, element: <MyProfilePage /> },
       { path: paths.settings.stores, element: <StoresSettingsPage /> },
       {
         element: <RequireRole roles={GESTOR_ROLES} />,
