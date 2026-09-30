@@ -227,6 +227,7 @@ export function NumberInput({
   disabled,
   unit,
   compact = false,
+  invalid = false,
   className,
   "aria-label": ariaLabel,
 }: {
@@ -236,6 +237,8 @@ export function NumberInput({
   unit: "%" | "R$";
   /** Altura das linhas editáveis (h-9). */
   compact?: boolean;
+  /** Borda vermelha (campo com erro). */
+  invalid?: boolean;
   className?: string;
   "aria-label"?: string;
 }) {
@@ -248,7 +251,7 @@ export function NumberInput({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(money ? maskBrl(e.target.value) : e.target.value)}
-        className={cn(money ? "pl-10" : "pr-8", compact && "h-9!")}
+        className={cn(money ? "pl-10" : "pr-8", compact && "h-9!", invalid && "border-bad!")}
         aria-label={ariaLabel}
       />
       <span className={cn("pointer-events-none absolute top-1/2 -translate-y-1/2 text-[13px] text-t2", money ? "left-3" : "right-3")}>

@@ -32,10 +32,13 @@ export function DatePicker({
   maxDate,
   placeholder = "dd/mm/aaaa",
   className,
+  invalid = false,
   "aria-label": ariaLabel,
 }: {
   value: Date | null;
   onChange: (d: Date) => void;
+  /** Borda vermelha (campo com erro). */
+  invalid?: boolean;
   /** Dias antes disso ficam bloqueados. */
   minDate?: Date | null;
   /** Dias depois disso ficam bloqueados (sem limite se ausente). */
@@ -197,7 +200,7 @@ export function DatePicker({
         aria-label={ariaLabel}
         className={cn(
           "flex h-[42px] w-full min-w-0 items-center gap-2.5 rounded-[11px] border bg-bg-inset px-3.5 text-left transition-colors",
-          open ? "border-acc" : "border-line hover:border-acc",
+          open ? "border-acc" : invalid ? "border-bad" : "border-line hover:border-acc",
         )}
       >
         <svg
