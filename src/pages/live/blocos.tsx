@@ -26,7 +26,7 @@ function MedalhaBadge({ pos, apagada = false }: { pos: 1 | 2 | 3; apagada?: bool
   return (
     <span
       className={cn(
-        "absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-2 bg-bg-2 text-[20px] leading-none",
+        "absolute -right-2 -top-2 text-[26px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]",
         apagada && "opacity-40 grayscale",
       )}
       aria-hidden
