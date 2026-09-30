@@ -416,6 +416,20 @@ export function DateRangePicker({
           open ? "border-acc" : "border-line hover:border-acc",
         )}
       >
+        <svg
+          width={size === "sm" ? 13 : 15}
+          height={size === "sm" ? 13 : 15}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={open ? "var(--acc)" : "var(--t2)"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="shrink-0"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
         <span className={cn("min-w-0 truncate font-semibold", size === "sm" ? "text-xs" : "text-[13.5px]", value || displayLabel ? "text-t0" : "text-t2")}>{rotulo}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-t2 transition-transform", open && "rotate-180")}>
           <path d="m6 9 6 6 6-6" />
