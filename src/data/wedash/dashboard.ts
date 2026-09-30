@@ -4035,7 +4035,8 @@ export interface OverviewView {
   topVendedoras: TopSeller[];
   /** Ranking completo (maior faturamento primeiro) — a tela escolhe a métrica e corta o Top N.
    *  `chave` = mesma do `ProductItemRow` (abre o detalhe do produto). */
-  topProdutos: (TopItem & { chave?: string; sub?: string; itens?: number; categoria?: string; trend?: number })[];
+  /** `lucro`: null = algum dia com venda sem custo gravado; ausente = fixture. */
+  topProdutos: (TopItem & { chave?: string; sub?: string; itens?: number; categoria?: string; trend?: number; lucro?: number | null })[];
   rankingLojas: (TopItem & { id?: string; pctMeta?: number; pctRede?: number; trend?: number })[];
   /** Faturamento da rede no período (badge do Ranking — independente do StorePicker). */
   rankingRedeTotal?: number;
@@ -4059,6 +4060,8 @@ export type OverviewAggInput = {
   sellerShifts?: import("./salesTypes").SellerShiftRef[];
   /** Top produtos ({E7A5C5C7}) — brand=ALL. Pode incluir dias do período anterior p/ variação. */
   productDayAggs?: import("./salesTypes").SalesProductDayAgg[];
+  /** CMV por produto do período (RELATORIOMARGEM) — lucro bruto do Top produtos. */
+  productCostDayAggs?: import("./salesTypes").SalesProductCostDayAgg[];
   /** Histórico antes do período (curva da meta por dia da semana) — `goalHistoryDayRange`. */
   goalHistoryDayAggs?: import("./salesTypes").SalesDayAgg[];
   /** Mesmo dia da semana nas semanas anteriores (curva da meta por hora) — `goalHistorySameWeekdays`. */
@@ -4815,45 +4818,78 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
       turno: turnoDaVendedora(v),
     }));
 
-  // Top produtos — {E7A5C5C7}; variação vs período anterior se houver dados.
+  // Top produtos — agrupado por `COD_PRODUTO` (igual à tela Produtos); variação vs período anterior.
+  // Lucro bruto = faturamento − CMV (RELATORIOMARGEM) − ICMS − ICMS ST da loja; sem custo num dia = null.
   const antPeriod = previousPeriod(periodo);
-  const prodMap = new Map<number, { nome: string; codigo: string; fat: number; itens: number }>();
-  const prodMapAnt = new Map<number, number>();
+  const storeById = new Map(fs.map((f) => [f.id, f]));
+  const custoKey = (storeId: string, day: string, code: string) => `${storeId}|${day}|${code}`;
+  const custos = new Map<string, number>();
+  for (const r of input.productCostDayAggs ?? []) {
+    if (r.day < periodo.inicio || r.day > periodo.fim) continue;
+    const k = custoKey(r.storeId, r.day, r.productCode.trim());
+    custos.set(k, (custos.get(k) ?? 0) + r.cmvCents / 100);
+  }
+  const taxas = new Map<string, ReturnType<typeof custosDaFilialReal>>();
+  const taxaDaLoja = (storeId: string) => {
+    const f = storeById.get(storeId);
+    if (!f) return null;
+    let t = taxas.get(storeId);
+    if (!t) {
+      t = custosDaFilialReal(f);
+      taxas.set(storeId, t);
+    }
+    return t;
+  };
+  const custosUsados = new Set<string>();
+  const prodMap = new Map<
+    string,
+    { nome: string; codigo: string; fat: number; itens: number; cmv: number; impostos: number; semCusto: boolean }
+  >();
+  const prodMapAnt = new Map<string, number>();
   for (const row of input.productDayAggs ?? []) {
     if (escopo.filialIds.length > 0 && !scopedStoreIds.has(row.storeId)) continue;
+    const key = productRowKey(row);
+    const v = row.revenueCents / 100;
     if (row.day >= periodo.inicio && row.day <= periodo.fim) {
-      const acc = prodMap.get(row.productId) ?? {
-        nome: row.productName,
-        codigo: "",
-        fat: 0,
-        itens: 0,
-      };
-      acc.fat += row.revenueCents / 100;
+      const acc = prodMap.get(key) ?? { nome: row.productName, codigo: "", fat: 0, itens: 0, cmv: 0, impostos: 0, semCusto: false };
+      acc.fat += v;
       acc.itens += row.itemCount;
       if (row.productName) acc.nome = row.productName;
-      if (row.productCode?.trim()) acc.codigo = row.productCode.trim();
-      prodMap.set(row.productId, acc);
+      const code = row.productCode?.trim() ?? "";
+      if (code) acc.codigo = code;
+      const taxa = taxaDaLoja(row.storeId);
+      if (!taxa) acc.semCusto = true;
+      else {
+        acc.impostos += (v * taxa.icmsPct) / 100;
+        if (v > 0) {
+          const k = custoKey(row.storeId, row.day, code);
+          const cmv = code ? custos.get(k) : undefined;
+          if (cmv == null) acc.semCusto = true;
+          else if (!custosUsados.has(k)) {
+            custosUsados.add(k);
+            acc.cmv += cmv;
+            acc.impostos += (cmv * taxa.icmsStPct) / 100;
+          }
+        }
+      }
+      prodMap.set(key, acc);
     } else if (row.day >= antPeriod.inicio && row.day <= antPeriod.fim) {
-      prodMapAnt.set(
-        row.productId,
-        (prodMapAnt.get(row.productId) ?? 0) + row.revenueCents / 100,
-      );
+      prodMapAnt.set(key, (prodMapAnt.get(key) ?? 0) + v);
     }
   }
-  const topProdutos: (TopItem & { sub?: string; itens?: number; categoria?: string; trend?: number })[] = [
-    ...prodMap.entries(),
-  ]
+  const topProdutos: OverviewView["topProdutos"] = [...prodMap.entries()]
     .sort((a, b) => b[1].fat - a[1].fat)
-    .map(([pid, p]) => {
-      const ant = prodMapAnt.get(pid) ?? 0;
+    .map(([key, p]) => {
+      const ant = prodMapAnt.get(key) ?? 0;
       const trendPct = ant > 0 ? Math.round(((p.fat - ant) / ant) * 100) : undefined;
       return {
-        chave: productRowKey({ productCode: p.codigo, productId: pid }),
+        chave: key,
         nome: labelUpper(p.nome),
         valor: p.fat,
         sub: `${p.itens} itens`,
         itens: p.itens,
         trend: trendPct,
+        lucro: p.semCusto ? null : p.fat - p.cmv - p.impostos,
       };
     });
 

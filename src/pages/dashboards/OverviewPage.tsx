@@ -14,6 +14,7 @@ import {
   fetchSalesPaymentDayAggs,
   fetchSalesSellerDayAggs,
   fetchSalesProductDayAggs,
+  fetchSalesProductCostDayAggs,
   fetchSalesCoverage,
   fetchSellerShifts,
   fetchSyncWatermark,
@@ -26,6 +27,7 @@ import type {
   SalesPaymentDayAgg,
   SalesSellerDayAgg,
   SalesProductDayAgg,
+  SalesProductCostDayAgg,
   SellerShiftRef,
 } from "@/data/wedash/salesTypes";
 import { brlCent, deIso, labelUpper, num, tipDelta, titleName } from "@/lib/format";
@@ -52,7 +54,7 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
-type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
+type TopProdSort = "nome" | "itens" | "faturamento" | "lucro" | "variacao";
 
 /** Ouro / prata / bronze — mesmo padrão do Sales leaderboard (Vela). */
 const RANK_MEDAL = ["#f7b84e", "#c7cdd6", "#d99a5c"];
@@ -130,6 +132,7 @@ export default function OverviewPage() {
   const [sellerDayAggs, setSellerDayAggs] = useState<SalesSellerDayAgg[]>([]);
   const [sellerShifts, setSellerShifts] = useState<SellerShiftRef[]>([]);
   const [productDayAggs, setProductDayAggs] = useState<SalesProductDayAgg[]>([]);
+  const [productCostDayAggs, setProductCostDayAggs] = useState<SalesProductCostDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const showSkeleton = useMinSkeleton(loading);
   const [watermark, setWatermark] = useState<Date | null>(null);
@@ -157,7 +160,7 @@ export default function OverviewPage() {
     const singleDay = periodo.inicio === periodo.fim;
     const goalDays = goalHistoryDayRange(periodo.inicio);
     try {
-      const [days, hours, cats, catalog, payments, sellers, products, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts] = await Promise.all([
+      const [days, hours, cats, catalog, payments, sellers, products, productCosts, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
           // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
@@ -202,6 +205,12 @@ export default function OverviewPage() {
           tenantId: session.tenantId,
           storeIds: escopo.filialIds,
           from: ant.inicio < periodo.inicio ? ant.inicio : periodo.inicio,
+          to: periodo.fim,
+        }),
+        fetchSalesProductCostDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: periodo.inicio,
           to: periodo.fim,
         }),
         fetchSyncWatermark(session.tenantId),
@@ -251,6 +260,7 @@ export default function OverviewPage() {
       setSellerDayAggs(sellers);
       setSellerShifts(shifts);
       setProductDayAggs(products);
+      setProductCostDayAggs(productCosts);
       setWatermark(wm);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
@@ -313,13 +323,14 @@ export default function OverviewPage() {
         sellerDayAggs,
         sellerShifts,
         productDayAggs,
+        productCostDayAggs,
         goalHistoryDayAggs,
         goalHistoryHourAggs,
         prevDayAggs,
         prevHourAggs,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, storesTick],
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, productCostDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, storesTick],
   );
 
   // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
@@ -327,7 +338,13 @@ export default function OverviewPage() {
   const topProdutosOrdenados = useMemo(() => {
     type P = (typeof view.topProdutos)[number];
     const metrica = (p: P) =>
-      topProdSort === "itens" ? (p.itens ?? 0) : topProdSort === "variacao" ? (p.trend ?? -Infinity) : p.valor;
+      topProdSort === "itens"
+        ? (p.itens ?? 0)
+        : topProdSort === "lucro"
+          ? (p.lucro ?? -Infinity)
+          : topProdSort === "variacao"
+            ? (p.trend ?? -Infinity)
+            : p.valor;
     const top5 = [...view.topProdutos]
       .sort((a, b) => metrica(b) - metrica(a) || b.valor - a.valor)
       .slice(0, 5);
@@ -852,7 +869,7 @@ export default function OverviewPage() {
             <EmptyBlock />
           ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+            <table className="w-full min-w-[620px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
@@ -876,6 +893,13 @@ export default function OverviewPage() {
                     active={topProdSort === "faturamento"}
                     dir={topProdDir}
                     onClick={() => toggleTopProdSort("faturamento")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Lucro bruto"
+                    active={topProdSort === "lucro"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("lucro")}
                     className="px-1 pb-3"
                   />
                   <ThSort
@@ -922,6 +946,14 @@ export default function OverviewPage() {
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.itens != null ? p.itens.toLocaleString("pt-BR") : (p.sub?.replace(" itens", "") ?? "—")}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.valor)}</td>
+                      <td
+                        className={cn(
+                          "px-1 py-3 text-right font-mono text-[13px] font-bold",
+                          p.lucro == null ? "text-t2" : p.lucro < 0 ? "text-bad" : "text-ok",
+                        )}
+                      >
+                        {p.lucro == null ? "—" : brlCent(p.lucro)}
+                      </td>
                       <td className="px-1 py-3 text-right text-xs font-bold" style={{ color: p.trend != null ? (p.trend >= 0 ? "var(--ok)" : "var(--bad)") : undefined }}>
                         {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "—"}
                       </td>

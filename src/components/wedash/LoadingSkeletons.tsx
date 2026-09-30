@@ -347,7 +347,7 @@ export function OverviewSkeleton({ weekdays = true }: { weekdays?: boolean }) {
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TeamHighlightsSkeleton />
-        <TopTableSkeleton />
+        <TopTableSkeleton variacao />
       </div>
     </Busy>
   );
