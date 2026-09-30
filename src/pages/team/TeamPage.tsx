@@ -276,7 +276,7 @@ export function TeamPage() {
 
   return (
     <div className="flex flex-col p-4 sm:p-6 print:p-0">
-      <ReportHeader filtros={view.turnosDisponiveis.length > 0 ? [{ label: "Turno", valor: view.turnoFiltro ?? "Todos os turnos" }] : []} />
+      <ReportHeader filtros={view.turnosDisponiveis.length > 0 ? [{ label: "Grupo", valor: view.turnoFiltro ?? "Todos os grupos" }] : []} />
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Equipe" }]}
         title="Equipe"
@@ -293,10 +293,10 @@ export function TeamPage() {
               />
               {view.turnosDisponiveis.length > 0 && (
                 <HeaderFilter
-                  label="Turno"
+                  label="Grupo"
                   value={view.turnoFiltro ?? ""}
                   onChange={(v) => setTurnoSel(v || null)}
-                  options={[{ value: "", label: "Todos os turnos" }, ...view.turnosDisponiveis.map((t) => ({ value: t, label: t }))]}
+                  options={[{ value: "", label: "Todos os grupos" }, ...view.turnosDisponiveis.map((t) => ({ value: t, label: t }))]}
                 />
               )}
               <Button variant="secondary" onClick={exportar}>
@@ -340,21 +340,21 @@ export function TeamPage() {
             <Card className="flex flex-col">
               <CardHeader>
                 <div className="flex items-center gap-1.5">
-                  <CardTitle>Faturamento por turno</CardTitle>
-                  <TipHelp label="Mostra a participação de cada turno no faturamento da equipe." />
+                  <CardTitle>Faturamento por grupo</CardTitle>
+                  <TipHelp label="Mostra a participação de cada grupo no faturamento da equipe." />
                 </div>
               </CardHeader>
               {!temVendasEquipe ? (
                 <EmptyBlock />
               ) : !view.turnosConfigurados ? (
                 <EmptyBlock
-                  icon="🕒"
-                  title="Turnos não configurados"
-                  description="Cadastre os turnos das lojas e vincule a equipe para comparar o desempenho por turno."
+                  icon="👥"
+                  title="Grupos não configurados"
+                  description="Cadastre os grupos das lojas e vincule a equipe para comparar o desempenho por grupo."
                   action={
                     podeConfigurar ? (
                       <Button size="sm" onClick={() => navigate(paths.management.shifts)}>
-                        Configurar turnos
+                        Configurar grupos
                       </Button>
                     ) : undefined
                   }
@@ -542,7 +542,7 @@ export function TeamPage() {
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
-                  <th className="px-1 pb-3 text-left font-bold">Turno</th>
+                  <th className="px-1 pb-3 text-left font-bold">Grupo</th>
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} className="px-1 pb-3" />
                   <ThSort label="Nº de vendas" active={sortKey === "vendas"} dir={sortDir} onClick={() => toggleSort("vendas")} className="px-1 pb-3" />
                   <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} className="px-1 pb-3" />

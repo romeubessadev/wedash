@@ -144,7 +144,7 @@ function TeamMemberDetailModal({
         .filter(Boolean)
         .join(" · ")
     : "";
-  const base = turnoFiltro ? `do turno ${turnoFiltro}` : "da equipe";
+  const base = turnoFiltro ? `do grupo ${turnoFiltro}` : "da equipe";
   return (
     <Modal open={open} onClose={onClose} title={detalhe?.nome ?? titulo} size="lg">
       {loading ? (

@@ -14,7 +14,7 @@ import {
 import { shiftName } from "@/lib/format";
 import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
 
-/** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o turno de cada pessoa. */
+/** Gestão > Colaboradores — equipe de vendas de cada loja (Millennium) e o grupo de cada pessoa. */
 export function StaffPage() {
   const { session, lojas, loading } = useScopedStores();
   return (
@@ -93,7 +93,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       else next[sellerId] = antes;
       return next;
     });
-    show("Não foi possível alterar o turno. Tente novamente.", "danger");
+    show("Não foi possível alterar o grupo. Tente novamente.", "danger");
   }
 
   const columns = useMemo<DataTableColumn<StoreSeller>[]>(
@@ -101,7 +101,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       ...SELLER_COLUMNS,
       {
         key: "shift",
-        header: "Turno",
+        header: "Grupo",
         render: (v) => {
           const atual = v.id in shiftOf ? shiftOf[v.id] : v.shiftId;
           return (
@@ -110,9 +110,9 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
               value={atual ?? ""}
               disabled={shifts.length === 0}
               onChange={(e) => void changeShift(v.id, e.target.value || null)}
-              aria-label={`Turno de ${v.name}`}
+              aria-label={`Grupo de ${v.name}`}
             >
-              <option value="">{shifts.length === 0 ? "Cadastre um turno" : "Sem turno"}</option>
+              <option value="">{shifts.length === 0 ? "Cadastre um grupo" : "Sem grupo"}</option>
               {shifts.map((s) => (
                 <option key={s.id} value={s.id}>
                   {shiftName(s.name)} · {s.start}–{s.end}

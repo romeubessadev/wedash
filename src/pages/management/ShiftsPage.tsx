@@ -12,14 +12,14 @@ type ShiftDraft = { key: string; id?: string; name: string; start: string; end: 
 const toDraft = (s: StoreShift): ShiftDraft => ({ key: s.id, id: s.id, name: s.name, start: s.start, end: s.end });
 const toShift = (d: ShiftDraft): StoreShift => ({ id: d.id ?? "", name: shiftName(d.name), start: d.start, end: d.end });
 
-/** Gestão > Turnos — turnos de cada loja. O turno de cada pessoa fica em Colaboradores. */
+/** Gestão > Grupos — grupos de cada loja (store_shift). O grupo de cada pessoa fica em Colaboradores. */
 export function ShiftsPage() {
   const { session, lojas, loading } = useScopedStores();
   return (
     <StoreCardsPage
       section="Gestão"
-      title="Turnos"
-      subtitle="Configure os turnos de cada loja. O turno de cada colaborador é definido em Colaboradores."
+      title="Grupos"
+      subtitle="Configure os grupos de cada loja. O grupo de cada colaborador é definido em Colaboradores."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} shifts />}
       lojas={lojas}
@@ -69,8 +69,8 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     const nomes = new Set<string>();
     for (const s of shifts) {
       const nome = s.name.trim();
-      if (!nome) return show("Dê um nome para cada turno.", "danger");
-      if (nomes.has(nome.toLowerCase())) return show(`Já existe um turno chamado “${nome}”.`, "danger");
+      if (!nome) return show("Dê um nome para cada grupo.", "danger");
+      if (nomes.has(nome.toLowerCase())) return show(`Já existe um grupo chamado “${nome}”.`, "danger");
       nomes.add(nome.toLowerCase());
       if (s.start >= s.end) return show(`${nome}: o horário de início deve ser anterior ao horário de fim.`, "danger");
     }
@@ -111,12 +111,12 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           <EmptyState
             framed={false}
             className="py-4!"
-            icon="🕒"
-            title="Nenhum turno cadastrado"
-            description="Crie os turnos da loja para definir o turno de cada colaborador."
+            icon="👥"
+            title="Nenhum grupo cadastrado"
+            description="Crie os grupos da loja para definir o grupo de cada colaborador."
             action={
               <Button type="button" size="sm" icon={<Icon d={icons.plus} size={14} />} onClick={add}>
-                Adicionar turno
+                Adicionar grupo
               </Button>
             }
           />
@@ -126,10 +126,10 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
               <div key={s.key} className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                 <Input
                   className="h-9! min-w-0 flex-1 basis-full sm:basis-auto"
-                  placeholder="Nome do turno (ex.: Manhã)"
+                  placeholder="Nome do grupo (ex.: Manhã)"
                   value={s.name}
                   onChange={(e) => change(s.key, { name: e.target.value })}
-                  aria-label="Nome do turno"
+                  aria-label="Nome do grupo"
                 />
                 <TimeSelect value={s.start} onChange={(v) => change(s.key, { start: v })} />
                 <span className="text-t2">–</span>
@@ -137,7 +137,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
                 <button
                   type="button"
                   onClick={() => setShifts(shifts.filter((x) => x.key !== s.key))}
-                  aria-label="Excluir turno"
+                  aria-label="Excluir grupo"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-bad"
                 >
                   <Icon d={icons.trash} size={16} />
@@ -153,7 +153,7 @@ function ShiftsCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
             className="flex items-center gap-1.5 self-start text-[12.5px] font-semibold text-acc hover:underline"
           >
             <Icon d={icons.plus} size={14} />
-            Adicionar turno
+            Adicionar grupo
           </button>
         )}
         {(shifts.length > 0 || dirty) && <FormActions dirty={dirty} saving={saving} onReset={() => setShifts(saved.map(toDraft))} />}

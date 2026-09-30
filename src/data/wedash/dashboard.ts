@@ -3340,7 +3340,7 @@ export type TeamAggInput = {
   sellerShifts?: import("./salesTypes").SellerShiftRef[];
 };
 
-export const TEAM_SEM_TURNO = "Sem turno definido";
+export const TEAM_SEM_TURNO = "Sem grupo definido";
 
 /** Nome do turno a partir do rótulo "Manhã · 09:00–15:00" (sem turno = TEAM_SEM_TURNO). */
 export function teamShiftName(turno?: string): string {
