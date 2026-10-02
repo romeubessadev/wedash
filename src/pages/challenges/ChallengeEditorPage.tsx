@@ -15,7 +15,6 @@ import {
   useToast,
 } from "@/components/ui";
 import { ChallengeEditorSkeleton } from "@/components/wedash/LoadingSkeletons";
-import { ProductNameCell } from "@/components/wedash/ProductNameCell";
 import {
   challengeFormToInput,
   challengeToForm,
@@ -110,9 +109,13 @@ export default function ChallengeEditorPage() {
   useEffect(() => {
     if (!id && lojaFiltro) setForm((f) => ({ ...f, storeId: lojaFiltro }));
   }, [id, lojaFiltro]);
-  /** Loja já definida (StorePicker numa loja, usuário de 1 loja ou edição): sem combo, a loja vai abaixo do título. */
+  /** Loja já definida (StorePicker numa loja, usuário de 1 loja ou edição): combo aparece bloqueado. */
   const lojaFixa = Boolean(id) || Boolean(lojaFiltro) || lojas.length === 1;
-  const lojaAtual = lojas.find((l) => l.id === form.storeId);
+  const lojaHint = id
+    ? "A loja não pode ser alterada depois que o desafio é criado."
+    : lojaFiltro && lojas.length > 1
+      ? "Para escolher outra loja, selecione Todas as lojas no topo."
+      : undefined;
 
   const sourceId = id ?? copyId;
   const [loadingSource, setLoadingSource] = useState(Boolean(sourceId));
@@ -190,20 +193,9 @@ export default function ChallengeEditorPage() {
       </div>
       <div className="mb-5">
         <h1 className="text-[22px] font-extrabold tracking-tight text-t0">{titulo}</h1>
-        {((lojaFixa && lojaAtual) || copiedFrom) && (
+        {copiedFrom && (
           <p className="mt-1 text-[13px] text-t2">
-            {lojaFixa && lojaAtual && (
-              <>
-                Loja: <span className="font-semibold text-t1">{lojaAtual.fantasia}</span>
-                {" · "}Filial {lojaAtual.codFilial}
-              </>
-            )}
-            {lojaFixa && lojaAtual && copiedFrom && " · "}
-            {copiedFrom && (
-              <>
-                Cópia de <span className="font-semibold text-t1">{copiedFrom}</span>
-              </>
-            )}
+            Cópia de <span className="font-semibold text-t1">{copiedFrom}</span>
           </p>
         )}
       </div>
@@ -280,22 +272,25 @@ export default function ChallengeEditorPage() {
               />
             </FormField>
           </div>
-          {!lojaFixa && (
-            <FormField label="Loja" required error={errors.storeId}>
-              <Select
-                value={form.storeId}
-                onChange={(e) => set({ storeId: e.target.value })}
-                className={cn(!form.storeId && "text-t2", errors.storeId && "border-bad!")}
-              >
-                {!form.storeId && <option value="">Selecione a loja</option>}
-                {lojas.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.fantasia} · Filial {l.codFilial}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-          )}
+          <FormField label="Loja" required error={errors.storeId} hint={lojaHint}>
+            <Select
+              value={form.storeId}
+              onChange={(e) => set({ storeId: e.target.value })}
+              disabled={lojaFixa}
+              className={cn(
+                !form.storeId && "text-t2",
+                lojaFixa && "cursor-not-allowed opacity-60",
+                errors.storeId && "border-bad!",
+              )}
+            >
+              {!form.storeId && <option value="">Selecione a loja</option>}
+              {lojas.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.fantasia} · Filial {l.codFilial}
+                </option>
+              ))}
+            </Select>
+          </FormField>
         </div>
       </Card>
 
@@ -635,7 +630,7 @@ function ProductPicker({
           ) : lista.length === 0 ? (
             <p className="px-2.5 py-2.5 text-[12.5px] text-t2">Nenhum produto encontrado.</p>
           ) : (
-            lista.map((p, i) => {
+            lista.map((p) => {
               const ativo = escolhidos.has(p.code);
               return (
                 <button
@@ -644,7 +639,7 @@ function ProductPicker({
                   aria-pressed={ativo}
                   onClick={() => alternar(p)}
                   className={cn(
-                    "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                    "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors",
                     ativo ? "bg-acc-soft" : "hover:bg-bg-3",
                   )}
                 >
@@ -657,7 +652,8 @@ function ProductPicker({
                     {ativo && <Icon d={icons.check} size={12} />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <ProductNameCell nome={p.name} idx={i} sub={[p.code, p.category].filter(Boolean).join(" · ")} />
+                    <span className="block truncate text-[12.5px] font-semibold text-t0">{p.name}</span>
+                    <span className="block truncate text-[11px] text-t2">{[p.code, p.category].filter(Boolean).join(" · ")}</span>
                   </span>
                 </button>
               );

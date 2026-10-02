@@ -274,9 +274,13 @@ export default function GoalEditorPage() {
   useEffect(() => {
     if (!id && lojaFiltro) setStoreId(lojaFiltro);
   }, [id, lojaFiltro]);
-  /** Loja já definida (StorePicker numa loja, usuário de 1 loja ou edição): sem combo, a loja vai abaixo do título. */
+  /** Loja já definida (StorePicker numa loja, usuário de 1 loja ou edição): combo aparece bloqueado. */
   const lojaFixa = Boolean(id) || Boolean(lojaFiltro) || lojas.length === 1;
-  const lojaAtual = lojas.find((l) => l.id === storeId);
+  const lojaHint = id
+    ? "A loja não pode ser alterada depois que a meta é criada."
+    : lojaFiltro && lojas.length > 1
+      ? "Para escolher outra loja, selecione Todas as lojas no topo."
+      : undefined;
   const [name, setName] = useState("");
   const [startsOn, setStartsOn] = useState<Date | null>(null);
   const [endsOn, setEndsOn] = useState<Date | null>(null);
@@ -468,21 +472,9 @@ export default function GoalEditorPage() {
         <h1 className="text-[22px] font-extrabold tracking-tight text-t0">
           {titulo}
         </h1>
-        {((lojaFixa && lojaAtual) || copiedFrom) && (
+        {copiedFrom && (
           <p className="mt-1 text-[13px] text-t2">
-            {lojaFixa && lojaAtual && (
-              <>
-                Loja:{" "}
-                <span className="font-semibold text-t1">{lojaAtual.fantasia}</span>
-                {" · "}Filial {lojaAtual.codFilial}
-              </>
-            )}
-            {lojaFixa && lojaAtual && copiedFrom && " · "}
-            {copiedFrom && (
-              <>
-                Cópia de <span className="font-semibold text-t1">{copiedFrom.name}</span>
-              </>
-            )}
+            Cópia de <span className="font-semibold text-t1">{copiedFrom.name}</span>
           </p>
         )}
       </div>
@@ -531,25 +523,25 @@ export default function GoalEditorPage() {
                 />
               </FormField>
             </div>
-            {!lojaFixa && (
-              <FormField label="Loja" required error={errors.storeId}>
-                <Select
-                  value={storeId}
-                  onChange={(e) => setStoreId(e.target.value)}
-                  className={cn(
-                    !storeId && "text-t2",
-                    errors.storeId && "border-bad!",
-                  )}
-                >
-                  {!storeId && <option value="">Selecione a loja</option>}
-                  {lojas.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.fantasia} · Filial {l.codFilial}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
+            <FormField label="Loja" required error={errors.storeId} hint={lojaHint}>
+              <Select
+                value={storeId}
+                onChange={(e) => setStoreId(e.target.value)}
+                disabled={lojaFixa}
+                className={cn(
+                  !storeId && "text-t2",
+                  lojaFixa && "cursor-not-allowed opacity-60",
+                  errors.storeId && "border-bad!",
+                )}
+              >
+                {!storeId && <option value="">Selecione a loja</option>}
+                {lojas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.fantasia} · Filial {l.codFilial}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
             <FormField
               label="Meta da loja"
               required
