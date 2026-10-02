@@ -8,6 +8,7 @@ import { usesMinSales } from "@/data/wedash/challengeForm";
 import {
   fetchChallenge,
   fetchChallengeInput,
+  isIndexMetric,
   usesScope,
   type ChallengeAggInput,
   type ChallengeRecord,
@@ -307,7 +308,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
                     {p.grupo && <p className="text-[11px] text-t2">{p.grupo}</p>}
                   </td>
                   <td className="py-2.5 pr-3 text-right font-mono font-bold text-t0">
-                    {aComecar ? "—" : p.resultado != null ? metricValueLabel(c.metric, p.resultado) : <SemItens />}
+                    {aComecar ? "—" : p.resultado != null ? metricValueLabel(c.metric, p.resultado) : <SemItens indice={isIndexMetric(c.metric)} />}
                   </td>
                   {usaVendas && <td className="py-2.5 pr-3 text-right font-mono font-bold text-t1">{aComecar ? "—" : num(p.vendas)}</td>}
                   <td className="py-2.5 pr-3">
@@ -330,8 +331,8 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
   );
 }
 
-const SemItens = () => (
-  <Tooltip label="Resultado indisponível porque faltam dados de itens em pelo menos um dia com vendas.">
+const SemItens = ({ indice }: { indice: boolean }) => (
+  <Tooltip label={`${indice ? "Índice" : "Resultado"} indisponível porque faltam dados de itens em pelo menos um dia com vendas.`}>
     <span className="cursor-help">—</span>
   </Tooltip>
 );

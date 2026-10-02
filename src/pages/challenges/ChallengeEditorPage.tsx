@@ -57,7 +57,7 @@ const METRIC_HELP: Record<ChallengeMetric, string> = {
   PA: "Média de itens por venda de cada pessoa no período.",
   TICKET: "Valor médio das vendas de cada pessoa no período.",
   INDEX:
-    "Combina faturamento (50%), ticket médio (25%) e P.A. (25%) de cada pessoa, comparados com a média da equipe no período. 100 é a média da equipe; 120 é 20% acima.",
+    "Combina faturamento (50%), ticket médio (25%) e P.A. (25%), comparando o resultado de cada pessoa com a média da equipe. Índice 100 representa a média; 120 representa 20% acima.",
 };
 
 const SCOPE_HELP: Record<Exclude<ChallengeScope, "ALL">, string> = {
@@ -363,7 +363,9 @@ export default function ChallengeEditorPage() {
               onChange={(v) => v && set({ mode: v })}
             />
             <p className="mt-1.5 text-[11.5px] text-t2">
-              {indice ? "No Índice de desempenho, ganha quem tiver o maior índice. Em caso de empate, as pessoas empatadas recebem o prêmio da posição e a posição seguinte é pulada." : CHALLENGE_MODE_HELP[modo]}
+              {indice
+                ? "Ganha quem tiver o maior índice. Em caso de empate, as pessoas empatadas recebem o prêmio da posição e a posição seguinte é pulada."
+                : CHALLENGE_MODE_HELP[modo]}
             </p>
           </FormField>
           <div className="flex flex-col gap-4">
@@ -374,7 +376,7 @@ export default function ChallengeEditorPage() {
               hint={
                 modo === "MINIMUM"
                   ? "Quem atingir esse valor no período ganha o prêmio."
-                  : "Opcional. Quem ficar abaixo deste valor não recebe prêmio, mesmo que esteja entre as primeiras posições."
+                  : `Opcional. Quem ficar abaixo deste ${indice ? "índice" : "valor"} não recebe prêmio, mesmo que esteja entre as primeiras posições.`
               }
             >
               <TargetInput metric={form.metric} value={form.target} onChange={(target) => set({ target })} invalid={Boolean(errors.target)} />

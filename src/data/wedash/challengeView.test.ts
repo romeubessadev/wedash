@@ -168,17 +168,26 @@ describe("buildChallengeView — participantes e resultado", () => {
     expect(ticket.ANA.resultado).toBe(88.2);
   });
 
-  it("Índice de desempenho: 50% faturamento + 25% ticket + 25% P.A., comparados com a média de quem vendeu", () => {
+  it("Índice de desempenho: 50% faturamento + 25% ticket + 25% P.A., vs a média simples de quem vendeu (média dos índices = 100)", () => {
     const v = build(
-      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1 }),
-      input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 10, 15, 80_000)] }),
+      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1, target: 100 }),
+      input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 20, 30, 120_000)] }),
     );
     const p = byName(v);
-    expect(p.ANA.resultado).toBe(111.9);
-    expect(p.BIA.resultado).toBe(88.1);
+    expect(p.ANA.resultado).toBe(105.28);
+    expect(p.BIA.resultado).toBe(94.72);
+    expect((p.ANA.resultado ?? 0) + (p.BIA.resultado ?? 0)).toBeCloseTo(200);
     expect(p.CAROL.resultado).toBe(0);
     expect(p.ANA.vencedor).toBe(true);
     expect(metricValueLabel("INDEX", 111.9)).toBe("111,9");
+  });
+
+  it("Índice de desempenho: situação em pontos", () => {
+    const aggs = input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 20, 30, 120_000)] });
+    const disputa = byName(build(challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1 }), aggs));
+    expect(disputa.BIA.falta).toBe("Faltam 10,6 pontos para o 1º lugar");
+    const piso = byName(build(challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1, target: 100 }), aggs));
+    expect(piso.BIA.falta).toBe("Faltam 5,3 pontos para o mínimo");
   });
 
   it("Índice de desempenho = \"—\" para todos se alguém que vendeu tem dia sem itens", () => {

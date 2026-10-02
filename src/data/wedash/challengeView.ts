@@ -34,13 +34,25 @@ export const INDEX_WEIGHTS = { faturamento: 0.5, ticket: 0.25, pa: 0.25 } as con
 export interface IndexTeamBase {
   /** Faturamento médio por pessoa (só quem vendeu). */
   faturamentoMedio: number;
-  /** Faturamento ÷ vendas da equipe. */
+  /** Média dos tickets individuais (não o ticket consolidado: quem vende mais não pesa mais). */
   ticket: number;
-  /** Itens ÷ vendas da equipe. */
+  /** Média dos P.A.s individuais. */
   pa: number;
 }
 
-/** 100 = média da equipe em tudo. Faturamento em R$ (ou centavos — só precisa ser a mesma unidade da base). */
+/** Médias simples entre quem vendeu → a média dos índices dessas pessoas é exatamente 100. */
+export function indexTeamBase(pessoas: { faturamento: number; vendas: number; itens: number }[]): IndexTeamBase | null {
+  const comVenda = pessoas.filter((p) => p.vendas > 0);
+  if (comVenda.length === 0) return null;
+  const media = (f: (p: (typeof comVenda)[number]) => number) => comVenda.reduce((s, p) => s + f(p), 0) / comVenda.length;
+  return {
+    faturamentoMedio: media((p) => p.faturamento),
+    ticket: media((p) => p.faturamento / p.vendas),
+    pa: media((p) => p.itens / p.vendas),
+  };
+}
+
+/** Faturamento em R$ ou centavos — só precisa ser a mesma unidade da base. */
 export function performanceIndex(p: { faturamento: number; vendas: number; itens: number }, base: IndexTeamBase): number {
   if (p.vendas <= 0) return 0;
   const parte = (v: number, ref: number) => (ref > 0 ? v / ref : 0);
@@ -125,7 +137,7 @@ function faltaLabel(metric: ChallengeMetric, diff: number): string {
   if (metric === "PA") return `Falta ${num(diff, 2)} de P.A.`;
   if (metric === "INDEX") {
     const pontos = Math.max(0.1, Math.ceil(diff * 10 - 1e-9) / 10);
-    return pontos === 1 ? "Falta 1,0 ponto de índice" : `Faltam ${num(pontos, 1)} pontos de índice`;
+    return pontos === 1 ? "Falta 1,0 ponto" : `Faltam ${num(pontos, 1)} pontos`;
   }
   if (metric === "TICKET") return `Faltam ${brlCent(diff)} de ticket médio`;
   if (metric === "VALUE") return `Faltam ${brlCent(diff)}`;
@@ -219,17 +231,9 @@ export function buildChallengeView(args: {
     }
   }
 
-  const comVenda = [...accs.values()].filter((a) => a.vendas > 0);
-  const vendasEquipe = comVenda.reduce((s, a) => s + a.vendas, 0);
-  const fatEquipe = comVenda.reduce((s, a) => s + a.faturamentoCents, 0);
-  const indexBase: IndexTeamBase | null =
-    comVenda.length > 0 && vendasEquipe > 0 && !comVenda.some((a) => a.semItens)
-      ? {
-          faturamentoMedio: fatEquipe / comVenda.length,
-          ticket: fatEquipe / vendasEquipe,
-          pa: comVenda.reduce((s, a) => s + a.itensVendas, 0) / vendasEquipe,
-        }
-      : null;
+  const indexBase: IndexTeamBase | null = [...accs.values()].some((a) => a.vendas > 0 && a.semItens)
+    ? null
+    : indexTeamBase([...accs.values()].map((a) => ({ faturamento: a.faturamentoCents, vendas: a.vendas, itens: a.itensVendas })));
 
   const resultadoDe = (a: Acc): number | null => {
     if (status === "upcoming") return null;
