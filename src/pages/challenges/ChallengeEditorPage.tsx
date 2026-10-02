@@ -427,7 +427,7 @@ export default function ChallengeEditorPage() {
             </div>
             <p className="mt-1.5 text-[11.5px] text-t2">A gerência ganha se a equipe chegar à meta da gerência.</p>
             {form.managerOn && (
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-3 flex flex-col gap-4">
                 <FormField
                   label="Meta da gerência"
                   required
