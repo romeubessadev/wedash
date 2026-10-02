@@ -78,7 +78,8 @@ const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento médio por pessoa: faturamento da equipe ÷ pessoas do desafio, incluindo quem não vendeu.",
   PA: "P.A. da equipe: total de itens ÷ total de vendas.",
   TICKET: "Ticket médio da equipe: faturamento ÷ total de vendas.",
-  INDEX: "Cada pessoa precisa chegar a este índice para contar para a gerência.",
+  INDEX:
+    "Mesma fórmula do índice, comparando a equipe com o mesmo número de dias antes do desafio. 100 representa o mesmo desempenho do período anterior; 105 representa 5% acima.",
 };
 
 const PODIUM_LABEL = ["Prêmio do 1º lugar", "Prêmio do 2º lugar", "Prêmio do 3º lugar"];
@@ -442,13 +443,15 @@ export default function ChallengeEditorPage() {
               <Switch
                 checked={form.managerOn}
                 onChange={(v) =>
-                  set(v && !form.managerTarget.trim() ? { managerOn: v, managerTarget: form.target } : { managerOn: v })
+                  set(
+                    v && !form.managerTarget.trim() && !indice ? { managerOn: v, managerTarget: form.target } : { managerOn: v },
+                  )
                 }
               />
             </div>
             <p className="mt-1.5 text-[11.5px] text-t2">
               {indice
-                ? "A gerência recebe o prêmio quando pelo menos o número de pessoas definido abaixo atingir o índice mínimo da gerência."
+                ? "A gerência recebe o prêmio quando o índice da equipe, comparado com o período anterior de mesma duração, atingir o mínimo definido abaixo."
                 : "A gerência recebe o prêmio quando a equipe atinge a meta definida abaixo."}
             </p>
             {form.managerOn && (
@@ -466,23 +469,6 @@ export default function ChallengeEditorPage() {
                     invalid={Boolean(errors.managerTarget)}
                   />
                 </FormField>
-                {indice && (
-                  <FormField
-                    label="Pessoas que precisam atingir"
-                    required
-                    error={errors.managerPeople}
-                    hint="Número mínimo de pessoas com o índice mínimo da gerência para a gerência ganhar o prêmio."
-                  >
-                    <Input
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={form.managerPeople}
-                      onChange={(e) => set({ managerPeople: e.target.value.replace(/\D/g, "").slice(0, 3) })}
-                      className={errors.managerPeople ? "border-bad!" : undefined}
-                      aria-label="Pessoas que precisam atingir"
-                    />
-                  </FormField>
-                )}
                 <FormField label="Prêmio da gerência" required error={errors.managerPrize}>
                   <PrizeField
                     prize={form.managerPrize}

@@ -8,7 +8,7 @@ import {
   performanceIndex,
   prizeLabel,
 } from "./challengeView";
-import { emptyChallengeAggInput, type ChallengeAggInput, type ChallengeRecord } from "./challengesRepo";
+import { emptyChallengeAggInput, managerIndexWindows, type ChallengeAggInput, type ChallengeRecord } from "./challengesRepo";
 import type { GoalTeamMember } from "./goalsRepo";
 import type { SalesSellerDayAgg, SalesSellerProductDayAgg } from "./salesTypes";
 
@@ -28,7 +28,6 @@ const challenge = (over: Partial<ChallengeRecord> = {}): ChallengeRecord => ({
   prizes: [{ kind: "MONEY", amount: 100 }],
   managerPrize: null,
   managerTarget: null,
-  managerMinPeople: null,
   ...over,
 });
 
@@ -201,14 +200,43 @@ describe("buildChallengeView — participantes e resultado", () => {
     expect(v.participantes.some((x) => x.vencedor)).toBe(false);
   });
 
-  it("Índice: gerência ganha quando pelo menos N pessoas atingem o índice mínimo da gerência", () => {
-    const aggs = input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 20, 30, 120_000)] });
-    const c = (people: number) =>
-      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1, managerPrize: { kind: "MONEY", amount: 80 }, managerTarget: 100, managerMinPeople: people });
-    expect(build(c(1), aggs).gerencia).toMatchObject({ resultado: 1, alvo: 1, indiceMinimo: 100, atingiu: true });
-    expect(build(c(2), aggs).gerencia).toMatchObject({ resultado: 1, alvo: 2, atingiu: false });
-    const semMinVendas = build({ ...c(1), minSales: 15 }, aggs).gerencia;
-    expect(semMinVendas).toMatchObject({ resultado: 0, atingiu: false });
+  it("Índice: gerência pelo índice da equipe × o mesmo nº de dias antes do desafio (em andamento, até ontem)", () => {
+    const aggs = input({
+      sellerDays: [
+        sellerDay(1, 10, 20, 100_000),
+        sellerDay(2, 20, 30, 120_000),
+        // hoje (parcial) não entra
+        sellerDay(1, 50, 50, 900_000, { day: "2026-10-08" }),
+        sellerDay(1, 10, 15, 80_000, { day: "2026-09-29" }),
+        sellerDay(2, 10, 20, 120_000, { day: "2026-09-29" }),
+        // fora dos 3 dias comparados (28/09 a 30/09)
+        sellerDay(2, 50, 50, 900_000, { day: "2026-10-02" }),
+      ],
+    });
+    const c = (managerTarget: number) =>
+      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1, managerPrize: { kind: "MONEY", amount: 80 }, managerTarget });
+    // 100 × (0,5 × 110.000/100.000 + 0,25 × 8.000/10.000 + 0,25 × 1,75/1,75) = 100
+    expect(build(c(100), aggs).gerencia).toMatchObject({
+      resultado: 100,
+      alvo: 100,
+      periodoAnterior: { from: "2026-09-28", to: "2026-10-04" },
+      atingiu: true,
+    });
+    expect(build(c(101), aggs).gerencia).toMatchObject({ resultado: 100, atingiu: false });
+    expect(build(c(100), aggs, "2026-10-05").gerencia).toMatchObject({ resultado: null, atingiu: false });
+    const semAnterior = input({ sellerDays: [sellerDay(1, 10, 20, 100_000)] });
+    expect(build(c(100), semAnterior).gerencia?.resultado).toBeNull();
+  });
+
+  it("managerIndexWindows: período anterior inteiro e janelas comparadas até ontem", () => {
+    const c = { startsOn: "2026-10-05", endsOn: "2026-10-11" };
+    expect(managerIndexWindows(c, "2026-10-08")).toEqual({
+      anterior: { from: "2026-09-28", to: "2026-10-04" },
+      atual: { from: "2026-10-05", to: "2026-10-07" },
+      comparado: { from: "2026-09-28", to: "2026-09-30" },
+    });
+    expect(managerIndexWindows(c, "2026-10-20").comparado).toEqual({ from: "2026-09-28", to: "2026-10-04" });
+    expect(managerIndexWindows(c, "2026-10-05").atual).toBeNull();
   });
 
   it("performanceIndex: na média da equipe = 100", () => {
@@ -388,7 +416,7 @@ describe("buildChallengeView — gerência, incompleto e status", () => {
         managerTarget,
       });
     const aggs = input({ sellerProducts: [item(1001, "BS1", 5), item(1002, "BS1", 4)] });
-    expect(build(c(3), aggs).gerencia).toEqual({ resultado: 3, alvo: 3, indiceMinimo: null, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
+    expect(build(c(3), aggs).gerencia).toEqual({ resultado: 3, alvo: 3, periodoAnterior: null, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
     const v = build(c(4), aggs);
     expect(v.gerencia).toMatchObject({ resultado: 3, alvo: 4, atingiu: false });
     expect(v.atingiram).toBe(2);

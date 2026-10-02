@@ -42,10 +42,8 @@ export interface ChallengeForm {
   prizes: PrizeForm[];
   managerOn: boolean;
   managerPrize: PrizeForm;
-  /** Média da equipe que a gerência precisa alcançar, na unidade da métrica (Índice: índice mínimo da gerência). */
+  /** Média da equipe que a gerência precisa alcançar, na unidade da métrica (Índice: índice da equipe × período anterior). */
   managerTarget: string;
-  /** Índice: quantas pessoas precisam atingir o índice mínimo da gerência. */
-  managerPeople: string;
 }
 
 export interface ChallengeFormErrors {
@@ -61,7 +59,6 @@ export interface ChallengeFormErrors {
   prizes?: Record<number, string>;
   managerPrize?: string;
   managerTarget?: string;
-  managerPeople?: string;
 }
 
 const REQUIRED = "Campo obrigatório.";
@@ -85,7 +82,6 @@ export function emptyChallengeForm(storeId: string): ChallengeForm {
     managerOn: false,
     managerPrize: emptyPrize(),
     managerTarget: "",
-    managerPeople: "",
   };
 }
 
@@ -172,11 +168,6 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
     if (me) e.managerPrize = me;
     const mt = targetError(f.metric, f.managerTarget, true);
     if (mt) e.managerTarget = mt;
-    if (isIndexMetric(f.metric)) {
-      const n = parseNumber(f.managerPeople);
-      if (n == null) e.managerPeople = REQUIRED;
-      else if (!Number.isInteger(n) || n < 1) e.managerPeople = "Informe um número inteiro a partir de 1.";
-    }
   }
   return e;
 }
@@ -199,7 +190,6 @@ export function challengeFormToInput(f: ChallengeForm): ChallengeInput {
     prizes: activePrizes(f).map(prizeValue),
     managerPrize: f.managerOn ? prizeValue(f.managerPrize) : null,
     managerTarget: f.managerOn ? targetValue(f.metric, f.managerTarget) : null,
-    managerMinPeople: f.managerOn && isIndexMetric(f.metric) ? Math.round(parseNumber(f.managerPeople) ?? 1) : null,
   };
 }
 
@@ -233,6 +223,5 @@ export function challengeToForm(c: ChallengeRecord | ChallengeInput): ChallengeF
     managerOn: c.managerPrize != null,
     managerPrize: c.managerPrize ? prizeToForm(c.managerPrize) : emptyPrize(),
     managerTarget: c.managerPrize ? targetToText(c.metric, c.managerTarget) : "",
-    managerPeople: c.managerPrize && c.managerMinPeople != null ? String(c.managerMinPeople) : "",
   };
 }

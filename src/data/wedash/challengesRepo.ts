@@ -2,6 +2,7 @@
  * Gestão > Desafios — tabela `challenge` (1 loja por desafio; vários desafios da loja podem cruzar o período).
  * Prêmio no banco em centavos (`{kind:"MONEY",cents}`); no app em reais (`{kind:"MONEY",amount}`).
  */
+import { intervaloDias, somarDias } from "@/lib/format";
 import type { GoalTeamMember } from "./goalsRepo";
 import type { NonSalesPeople } from "./salesRepo";
 import type { SalesSellerDayAgg, SalesSellerProductDayAgg } from "./salesTypes";
@@ -47,10 +48,8 @@ export interface ChallengeRecord {
   /** Disputa: 1º, 2º, 3º (1 a 3) · Mínimo: 1 (por pessoa que atingir). */
   prizes: ChallengePrize[];
   managerPrize: ChallengePrize | null;
-  /** Meta da gerência = média da equipe, na unidade da métrica (Índice: índice mínimo da gerência). Só com `managerPrize`. */
+  /** Meta da gerência = média da equipe, na unidade da métrica (Índice: índice da equipe × período anterior). Só com `managerPrize`. */
   managerTarget: number | null;
-  /** Índice: quantas pessoas precisam atingir `managerTarget` para a gerência ganhar. */
-  managerMinPeople: number | null;
 }
 
 export type ChallengeInput = Omit<ChallengeRecord, "id">;
@@ -62,7 +61,7 @@ const SCOPES: readonly ChallengeScope[] = ["PRODUCTS", "CATEGORIES", "ALL"];
 const MODES: readonly ChallengeMode[] = ["CONTEST", "MINIMUM"];
 
 export const usesScope = (m: ChallengeMetric) => m === "QUANTITY" || m === "VALUE";
-/** Índice de desempenho: só "Quem fizer mais"; gerência ganha por nº de pessoas no índice mínimo (a média da equipe é sempre 100). */
+/** Índice de desempenho: só "Quem fizer mais"; gerência ganha pelo índice da equipe × o mesmo nº de dias antes do desafio. */
 export const isIndexMetric = (m: ChallengeMetric) => m === "INDEX";
 
 /** Tipo + escopo da linha; aceita o formato antigo (metric PRODUCTS/CATEGORIES = Quantidade). */
@@ -145,18 +144,12 @@ function parseManagerTarget(raw: unknown, fallback: number | null): number | nul
   return t != null && t > 0 ? t : fallback;
 }
 
-function parseManagerPeople(raw: unknown): number | null {
-  const n = raw && typeof raw === "object" && !Array.isArray(raw) ? numOrNull((raw as { people?: unknown }).people) : null;
-  return n != null && Number.isInteger(n) && n >= 1 ? n : null;
-}
-
 export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
   const metricScope = parseMetricScope(r.metric, r.scope);
   const indice = isIndexMetric(metricScope.metric);
-  const managerPeople = indice ? parseManagerPeople(r.manager_prize) : null;
+  // Índice: o piso das vendedoras não serve de meta da gerência (outra escala) → sem meta, sem prêmio.
   const managerTargetRaw = parseManagerTarget(r.manager_prize, indice ? null : numOrNull(r.target));
-  // Índice sem índice mínimo ou sem nº de pessoas = gerência incompleta → sem prêmio.
-  const managerPrize = indice && (managerPeople == null || managerTargetRaw == null) ? null : parsePrize(r.manager_prize);
+  const managerPrize = indice && managerTargetRaw == null ? null : parsePrize(r.manager_prize);
   return {
     id: r.id,
     storeId: r.store_id,
@@ -172,7 +165,6 @@ export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
     prizes: parsePrizes(r.prizes),
     managerPrize,
     managerTarget: managerPrize ? managerTargetRaw : null,
-    managerMinPeople: managerPrize ? managerPeople : null,
   };
 }
 
@@ -199,11 +191,7 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
     min_sales: c.minSales,
     prizes: c.prizes.map(prizeToJson),
     manager_prize: c.managerPrize
-      ? {
-          ...prizeToJson(c.managerPrize),
-          target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100,
-          ...(indice ? { people: c.managerMinPeople } : {}),
-        }
+      ? { ...prizeToJson(c.managerPrize), target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100 }
       : null,
   };
 }
@@ -360,6 +348,28 @@ export function fetchChallengeCatalog(): Promise<ChallengeCatalog> {
   return run;
 }
 
+export interface DayRange {
+  from: string;
+  to: string;
+}
+
+/**
+ * Janelas do índice da equipe (gerência no Índice de desempenho): o desafio × o mesmo nº de dias logo antes dele.
+ * `anterior` = período anterior inteiro (texto da tela). Em andamento conta até ontem nos dois lados (sem dia parcial);
+ * `comparado` = null enquanto não há dia fechado.
+ */
+export function managerIndexWindows(
+  c: Pick<ChallengeRecord, "startsOn" | "endsOn">,
+  today: string,
+): { anterior: DayRange; atual: DayRange | null; comparado: DayRange | null } {
+  const dur = intervaloDias(c.startsOn, c.endsOn).length;
+  const anterior = { from: somarDias(c.startsOn, -dur), to: somarDias(c.startsOn, -1) };
+  const fim = c.endsOn < today ? c.endsOn : somarDias(today, -1);
+  if (fim < c.startsOn) return { anterior, atual: null, comparado: null };
+  const dias = intervaloDias(c.startsOn, fim).length;
+  return { anterior, atual: { from: c.startsOn, to: fim }, comparado: { from: anterior.from, to: somarDias(anterior.from, dias - 1) } };
+}
+
 /** Dados que a conta do desafio precisa (lidos 1× para todos os desafios da tela). */
 export interface ChallengeAggInput {
   /** Itens por pessoa × produto (Produtos/Categorias), sem gerência / freelancer. */
@@ -417,7 +427,10 @@ export async function fetchChallengeInput(q: {
   const { fetchAllPages, fetchNonSalesPeople, fetchSalesDayAggs, fetchSalesSellerDayAggs } = await import("./salesRepo");
   const { fetchGoalTeam } = await import("./goalsRepo");
   const storeIds = [...new Set(q.challenges.map((c) => c.storeId))];
-  const from = q.challenges.reduce((m, c) => (c.startsOn < m ? c.startsOn : m), q.challenges[0].startsOn);
+  // Índice com prêmio da gerência compara a equipe com o mesmo nº de dias antes do desafio.
+  const inicio = (c: ChallengeRecord) =>
+    isIndexMetric(c.metric) && c.managerPrize ? managerIndexWindows(c, q.today).anterior.from : c.startsOn;
+  const from = q.challenges.reduce((m, c) => (inicio(c) < m ? inicio(c) : m), inicio(q.challenges[0]));
   const maxEnd = q.challenges.reduce((m, c) => (c.endsOn > m ? c.endsOn : m), q.challenges[0].endsOn);
   const to = maxEnd < q.today ? maxEnd : q.today;
   const needsItems = q.challenges.some((c) => usesScope(c.metric) && c.scope !== "ALL");

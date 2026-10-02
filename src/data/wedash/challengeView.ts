@@ -1,7 +1,9 @@
 import { brlCent, collaboratorName, dataCurta, deIso, intervaloDias, num, somarDias } from "@/lib/format";
 import {
+  managerIndexWindows,
   usesScope,
   type ChallengeAggInput,
+  type DayRange,
   type ChallengeInput,
   type ChallengeMetric,
   type ChallengeMode,
@@ -10,6 +12,7 @@ import {
   type ChallengeScope,
 } from "./challengesRepo";
 import type { GoalTeamMember } from "./goalsRepo";
+import type { SalesSellerDayAgg } from "./salesTypes";
 import { goalStatus, prazoRestante, type GoalStatus } from "./goalView";
 
 export type ChallengeStatus = GoalStatus;
@@ -65,6 +68,32 @@ export function performanceIndex(p: { faturamento: number; vendas: number; itens
   );
 }
 
+export interface IndexPersonTotals {
+  faturamento: number;
+  vendas: number;
+  itens: number;
+  semItens: boolean;
+}
+
+/**
+ * Índice da equipe (gerência): mesma fórmula, com as médias da equipe agora × as do período anterior.
+ * 100 = igual ao período anterior. Sem venda em algum lado ou com dia sem itens = null (nada estimado).
+ */
+export function teamIndex(atual: IndexPersonTotals[], anterior: IndexPersonTotals[]): number | null {
+  if ([...atual, ...anterior].some((p) => p.vendas > 0 && p.semItens)) return null;
+  const a = indexTeamBase(atual);
+  const b = indexTeamBase(anterior);
+  if (!a || !b) return null;
+  const parte = (v: number, ref: number) => (ref > 0 ? v / ref : 0);
+  const w = INDEX_WEIGHTS;
+  return (
+    100 *
+    (w.faturamento * parte(a.faturamentoMedio, b.faturamentoMedio) +
+      w.ticket * parte(a.ticket, b.ticket) +
+      w.pa * parte(a.pa, b.pa))
+  );
+}
+
 export const CHALLENGE_SCOPE_LABEL: Record<ChallengeScope, string> = {
   PRODUCTS: "Produtos escolhidos",
   CATEGORIES: "Categorias escolhidas",
@@ -93,12 +122,11 @@ export interface ChallengeParticipant {
 }
 
 export interface ChallengeManagerResult {
-  /** Índice: pessoas que atingiram `indiceMinimo`. */
+  /** Média da equipe (Índice: índice da equipe × período anterior). */
   resultado: number | null;
-  /** Índice: pessoas necessárias. */
   alvo: number;
-  /** Só no Índice: índice que cada pessoa precisa atingir para contar. */
-  indiceMinimo: number | null;
+  /** Só no Índice: período anterior inteiro usado na comparação. */
+  periodoAnterior: { from: string; to: string } | null;
   atingiu: boolean;
   premio: ChallengePrize;
 }
@@ -204,6 +232,11 @@ export function buildChallengeView(args: {
 
   for (const m of team) if (m.salesPerson) acc(m, "", m.name);
 
+  const membroDoDia = (r: SalesSellerDayAgg): GoalTeamMember | undefined =>
+    (r.sellerEmployeeId != null ? porCodigo.get(r.sellerEmployeeId) : undefined) ??
+    (r.sellerGeradorId != null ? porGerador.get(r.sellerGeradorId) : undefined) ??
+    porNome.get(r.sellerKey);
+
   const porProduto = usesScope(c.metric) && c.scope !== "ALL";
   if (status !== "upcoming") {
     if (porProduto) {
@@ -223,11 +256,7 @@ export function buildChallengeView(args: {
     }
     for (const r of aggs.sellerDays) {
       if (!noPeriodo(r)) continue;
-      const membro =
-        (r.sellerEmployeeId != null ? porCodigo.get(r.sellerEmployeeId) : undefined) ??
-        (r.sellerGeradorId != null ? porGerador.get(r.sellerGeradorId) : undefined) ??
-        porNome.get(r.sellerKey);
-      const a = acc(membro, r.sellerKey, r.sellerName);
+      const a = acc(membroDoDia(r), r.sellerKey, r.sellerName);
       a.vendas += r.salesCount;
       a.faturamentoCents += r.revenueCents;
       a.itensVendas += r.itemCount ?? 0;
@@ -322,16 +351,33 @@ export function buildChallengeView(args: {
   let gerencia: ChallengeManagerResult | null = null;
   const metaGerencia = c.managerTarget;
   if (c.managerPrize && metaGerencia != null && c.metric === "INDEX") {
-    const pessoas = c.managerMinPeople ?? 1;
-    const atingiram =
-      status === "upcoming" || indexBase == null
+    const janelas = managerIndexWindows(c, today);
+    const pessoasNa = (j: DayRange) => {
+      const m = new Map<string, IndexPersonTotals>();
+      for (const r of aggs.sellerDays) {
+        if (r.storeId !== c.storeId || r.day < j.from || r.day > j.to) continue;
+        const membro = membroDoDia(r);
+        const key = membro ? `e:${membro.employeeId}` : r.sellerKey ? `n:${r.sellerKey}` : null;
+        if (!key) continue;
+        const p = m.get(key) ?? { faturamento: 0, vendas: 0, itens: 0, semItens: false };
+        p.faturamento += r.revenueCents;
+        p.vendas += r.salesCount;
+        p.itens += r.itemCount ?? 0;
+        if (r.salesCount > 0 && !(r.itemCount && r.itemCount > 0)) p.semItens = true;
+        m.set(key, p);
+      }
+      return [...m.values()];
+    };
+    const indice =
+      status === "upcoming" || !janelas.atual || !janelas.comparado
         ? null
-        : base.filter((x) => concorre(x) && (x.resultado ?? 0) >= metaGerencia - 1e-9).length;
+        : teamIndex(pessoasNa(janelas.atual), pessoasNa(janelas.comparado));
+    const resultado = indice == null ? null : round2(indice);
     gerencia = {
-      resultado: atingiram,
-      alvo: pessoas,
-      indiceMinimo: metaGerencia,
-      atingiu: atingiram != null && atingiram >= pessoas,
+      resultado,
+      alvo: metaGerencia,
+      periodoAnterior: janelas.anterior,
+      atingiu: resultado != null && resultado >= metaGerencia - 1e-9,
       premio: c.managerPrize,
     };
   } else if (c.managerPrize && metaGerencia != null) {
@@ -359,7 +405,7 @@ export function buildChallengeView(args: {
     gerencia = {
       resultado,
       alvo: metaGerencia,
-      indiceMinimo: null,
+      periodoAnterior: null,
       atingiu: resultado != null && resultado > 0 && resultado >= metaGerencia - 1e-9,
       premio: c.managerPrize,
     };

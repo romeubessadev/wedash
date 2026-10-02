@@ -57,18 +57,16 @@ const GERENCIA_RESULTADO: Record<ChallengeRecord["metric"], string> = {
   VALUE: "Faturamento médio por pessoa",
   PA: "P.A. da equipe",
   TICKET: "Ticket médio da equipe",
-  INDEX: "Pessoas que atingiram",
+  INDEX: "Índice da equipe",
 };
 
 const ORDINAL = ["1º", "2º", "3º"];
 
-const pessoasTexto = (n: number) => `${num(n)} ${n === 1 ? "pessoa" : "pessoas"}`;
-
-/** " · meta de 2,00" · Índice: " · 3 pessoas com índice de 110,0 ou mais". */
+/** " · meta de 2,00" · Índice: " · índice da equipe de 105,0". */
 function managerGoalText(c: ChallengeRecord): string {
   if (c.managerTarget == null) return "";
-  if (c.managerMinPeople != null) return ` · ${pessoasTexto(c.managerMinPeople)} com índice de ${metricValueLabel(c.metric, c.managerTarget)} ou mais`;
-  return ` · meta de ${metricValueLabel(c.metric, c.managerTarget)}`;
+  const valor = metricValueLabel(c.metric, c.managerTarget);
+  return isIndexMetric(c.metric) ? ` · índice da equipe de ${valor}` : ` · meta de ${valor}`;
 }
 
 /** Gestão > Desafios > detalhe — resumo e participantes; encerrado = fechamento com quem ganhou o quê. */
@@ -273,29 +271,19 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
       {view.gerencia && !aComecar && (
         <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-xl bg-bg-inset px-3.5 py-3 text-[12.5px]">
           <p className="font-bold text-t0">Gerência</p>
-          {view.gerencia.indiceMinimo != null ? (
-            <>
-              <p className="text-t1">
-                <span className="text-t2">Pessoas com índice de {metricValueLabel(c.metric, view.gerencia.indiceMinimo)} ou mais: </span>
-                <span className="font-mono font-bold">{view.gerencia.resultado != null ? num(view.gerencia.resultado) : "—"}</span>
-              </p>
-              <p className="text-t1">
-                <span className="text-t2">Meta da gerência: </span>
-                <span className="font-mono font-bold">{pessoasTexto(view.gerencia.alvo)}</span>
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-t1">
-                <span className="text-t2">{GERENCIA_RESULTADO[c.metric]}: </span>
-                <span className="font-mono font-bold">{view.gerencia.resultado != null ? metricValueLabel(c.metric, view.gerencia.resultado) : "—"}</span>
-              </p>
-              <p className="text-t1">
-                <span className="text-t2">Meta da gerência: </span>
-                <span className="font-mono font-bold">{metricValueLabel(c.metric, view.gerencia.alvo)}</span>
-              </p>
-            </>
-          )}
+          <p className="flex items-center gap-1.5 text-t1">
+            <span className="text-t2">{GERENCIA_RESULTADO[c.metric]}: </span>
+            <span className="font-mono font-bold">{view.gerencia.resultado != null ? metricValueLabel(c.metric, view.gerencia.resultado) : "—"}</span>
+            {view.gerencia.periodoAnterior && (
+              <TipHelp
+                label={`Compara a equipe durante o desafio com o período de ${dataCurta(view.gerencia.periodoAnterior.from)} a ${dataCurta(view.gerencia.periodoAnterior.to)}: 50% faturamento médio por pessoa, 25% ticket médio e 25% P.A. 100 representa o mesmo desempenho do período anterior. Com o desafio em andamento, os dois lados consideram até ontem.${view.gerencia.resultado == null ? " Fica indisponível no primeiro dia do desafio, sem vendas em um dos períodos ou quando faltam dados de itens." : ""}`}
+              />
+            )}
+          </p>
+          <p className="text-t1">
+            <span className="text-t2">Meta da gerência: </span>
+            <span className="font-mono font-bold">{metricValueLabel(c.metric, view.gerencia.alvo)}</span>
+          </p>
           <p className="text-t1">
             <span className="text-t2">Prêmio: </span>
             <span className="font-bold">{prizeLabel(view.gerencia.premio)}</span>
