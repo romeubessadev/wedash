@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Breadcrumbs,
@@ -557,7 +557,26 @@ function PickerShell({ label, error, children }: { label: string; error?: string
   );
 }
 
-/** Lista sempre aberta com busca (Searchable select do Vela): clicar marca/desmarca sem fechar; escolhidos viram tags abaixo. */
+const TAGS_VISIVEIS = 12;
+
+/** Parte do nome que bate com a busca, na cor primária. */
+function destacar(nome: string, q: string): ReactNode {
+  const i = q ? semAcento(nome).indexOf(q) : -1;
+  if (i < 0) return nome;
+  return (
+    <>
+      {nome.slice(0, i)}
+      <span className="text-acc">{nome.slice(i, i + q.length)}</span>
+      {nome.slice(i + q.length)}
+    </>
+  );
+}
+
+/**
+ * Multi-select no padrão Searchable select do Vela: campo fechado; ao clicar abre o painel com busca,
+ * filtro Todos/Escolhidos, Selecionar todos e checkboxes — fica aberto enquanto marca (fecha no clique fora,
+ * Esc ou Concluir). Teclado: ↑/↓ navega, Enter marca. Escolhidos viram tags abaixo do campo.
+ */
 function ProductPicker({
   catalog,
   selected,
@@ -569,18 +588,65 @@ function ProductPicker({
   onChange: (v: { code: string; name: string }[]) => void;
   error?: string;
 }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [soEscolhidos, setSoEscolhidos] = useState(false);
+  const [ativo, setAtivo] = useState(0);
+  const [verTodas, setVerTodas] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   const escolhidos = useMemo(() => new Set(selected.map((p) => p.code)), [selected]);
+  const q = semAcento(query.trim());
   const lista = useMemo(() => {
     if (!catalog) return [];
-    const q = semAcento(query.trim());
-    if (!q) return catalog.products;
-    return catalog.products.filter((p) => semAcento(p.name).includes(q) || semAcento(p.code).includes(q));
-  }, [catalog, query]);
+    return catalog.products.filter(
+      (p) => (!soEscolhidos || escolhidos.has(p.code)) && (!q || semAcento(p.name).includes(q) || semAcento(p.code).includes(q)),
+    );
+  }, [catalog, q, soEscolhidos, escolhidos]);
   const alternar = (p: { code: string; name: string }) =>
     onChange(escolhidos.has(p.code) ? selected.filter((x) => x.code !== p.code) : [...selected, { code: p.code, name: p.name }]);
-  const buscando = query.trim().length > 0;
+  const buscando = q.length > 0;
   const todosDaBusca = lista.length > 0 && lista.every((p) => escolhidos.has(p.code));
+  const faltamNaBusca = lista.filter((p) => !escolhidos.has(p.code)).length;
+
+  const fechar = () => {
+    setOpen(false);
+    setQuery("");
+    setSoEscolhidos(false);
+    setAtivo(0);
+  };
+  useEffect(() => {
+    if (!open) return;
+    const fora = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) fechar();
+    };
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, [open]);
+  useEffect(() => {
+    listRef.current?.querySelector(`[data-idx="${ativo}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [ativo]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAtivo((i) => Math.min(i + 1, lista.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAtivo((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const p = lista[ativo];
+      if (p) alternar(p);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      fechar();
+      triggerRef.current?.focus();
+    }
+  };
+  const tags = verTodas ? selected : selected.slice(0, TAGS_VISIVEIS);
   const alternarBusca = () => {
     if (todosDaBusca) {
       const daBusca = new Set(lista.map((p) => p.code));
@@ -592,104 +658,182 @@ function ProductPicker({
 
   return (
     <PickerShell label="Produtos" error={error}>
-      <div
-        className={cn(
-          "overflow-hidden rounded-[var(--radius-vela-md)] border bg-bg-inset transition-colors",
-          error ? "border-bad" : "border-line focus-within:border-acc",
-        )}
-      >
-        <div className="flex h-[42px] items-center gap-2 border-b border-line px-3.5 text-t2">
-          <Icon d={icons.search} size={14} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={catalog ? "Buscar por produto ou código…" : "Carregando produtos…"}
-            disabled={!catalog}
-            aria-label="Buscar produto"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-t0 outline-none placeholder:text-t2"
-          />
-          {buscando && (
-            <button type="button" onClick={() => setQuery("")} aria-label="Limpar busca" className="shrink-0 cursor-pointer hover:text-t0">
-              <Icon d={icons.x} size={13} />
-            </button>
+      <div ref={boxRef} className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => (open ? fechar() : setOpen(true))}
+          disabled={!catalog}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className={cn(
+            "flex h-[42px] w-full cursor-pointer items-center gap-2 rounded-[var(--radius-vela-md)] border bg-bg-inset px-3.5 text-left text-[13px] transition-colors disabled:cursor-wait",
+            error ? "border-bad" : open ? "border-acc" : "border-line hover:border-acc",
           )}
-        </div>
-        {buscando && lista.length > 0 && (
-          <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2 text-[12px]">
-            <span className="text-t2">
-              {lista.length} {lista.length === 1 ? "produto encontrado" : "produtos encontrados"}
-            </span>
-            <button type="button" onClick={alternarBusca} className="cursor-pointer font-semibold text-acc hover:underline">
-              {todosDaBusca ? "Desmarcar todos" : "Selecionar todos"}
-            </button>
-          </div>
-        )}
-        <div className="max-h-72 overflow-y-auto p-1">
-          {!catalog ? (
-            <p className="px-2.5 py-2.5 text-[12.5px] text-t2">Carregando produtos…</p>
-          ) : lista.length === 0 ? (
-            <p className="px-2.5 py-2.5 text-[12.5px] text-t2">Nenhum produto encontrado.</p>
-          ) : (
-            lista.map((p) => {
-              const ativo = escolhidos.has(p.code);
-              return (
+        >
+          <span className={cn("min-w-0 flex-1 truncate", selected.length > 0 ? "font-semibold text-t0" : "text-t2")}>
+            {!catalog
+              ? "Carregando produtos…"
+              : selected.length > 0
+                ? `${selected.length} ${selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}`
+                : "Selecione os produtos"}
+          </span>
+          <Icon d={icons.chevronRight} size={15} className={cn("shrink-0 text-t2 transition-transform", open ? "-rotate-90" : "rotate-90")} />
+        </button>
+
+        {open && catalog && (
+          <div
+            onKeyDown={onKeyDown}
+            className="absolute inset-x-0 top-full z-40 mt-1.5 overflow-hidden rounded-[var(--radius-vela-md)] border border-acc bg-bg-2 shadow-[var(--shadow-vela)] animate-vela-pop"
+          >
+            <div className="flex h-[42px] items-center gap-2 border-b border-line px-3.5 text-t2">
+              <Icon d={icons.search} size={14} />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setAtivo(0);
+                }}
+                placeholder="Buscar por produto ou código…"
+                aria-label="Buscar produto"
+                className="min-w-0 flex-1 bg-transparent text-[13.5px] text-t0 outline-none placeholder:text-t2"
+              />
+              {buscando && (
                 <button
-                  key={p.code}
                   type="button"
-                  aria-pressed={ativo}
-                  onClick={() => alternar(p)}
-                  className={cn(
-                    "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors",
-                    ativo ? "bg-acc-soft" : "hover:bg-bg-3",
-                  )}
+                  onClick={() => {
+                    setQuery("");
+                    setAtivo(0);
+                  }}
+                  aria-label="Limpar busca"
+                  className="shrink-0 cursor-pointer hover:text-t0"
                 >
-                  <span
+                  <Icon d={icons.x} size={13} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-b border-line px-2.5 py-2">
+              <div className="flex gap-1">
+                {[
+                  { v: false, label: "Todos", n: catalog.products.length },
+                  { v: true, label: "Escolhidos", n: selected.length },
+                ].map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={() => {
+                      setSoEscolhidos(t.v);
+                      setAtivo(0);
+                    }}
                     className={cn(
-                      "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
-                      ativo ? "border-acc bg-acc text-white" : "border-line",
+                      "h-7 cursor-pointer rounded-[8px] border px-2.5 text-[11.5px] font-semibold transition-colors",
+                      soEscolhidos === t.v ? "border-acc bg-acc-soft text-acc" : "border-transparent text-t2 hover:text-t0",
                     )}
                   >
-                    {ativo && <Icon d={icons.check} size={12} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-semibold text-t0">{p.name}</span>
-                    <span className="block truncate text-[11px] text-t2">{[p.code, p.category].filter(Boolean).join(" · ")}</span>
-                  </span>
+                    {t.label} <span className="font-mono">{t.n}</span>
+                  </button>
+                ))}
+              </div>
+              {(buscando || soEscolhidos) && lista.length > 0 && (
+                <button type="button" onClick={alternarBusca} className="cursor-pointer text-[11.5px] font-semibold text-acc hover:underline">
+                  {todosDaBusca ? "Desmarcar todos" : `Selecionar todos (${faltamNaBusca})`}
                 </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-      {selected.length > 0 && (
-        <div className="mt-3">
-          <div className="mb-1.5 flex items-center justify-between gap-2 text-[11.5px]">
-            <span className="text-t2">
-              {selected.length} {selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}
-            </span>
-            <button type="button" onClick={() => onChange([])} className="cursor-pointer font-semibold text-t2 hover:text-bad">
-              Limpar
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {selected.map((p) => (
-              <span
-                key={p.code}
-                title={`${p.code} · ${p.name}`}
-                className="flex max-w-full items-center gap-1.5 rounded-lg bg-acc-soft px-2.5 py-1 text-xs font-semibold text-acc"
-              >
-                <span className="truncate">{p.name}</span>
+              )}
+            </div>
+
+            <div ref={listRef} role="listbox" aria-multiselectable className="max-h-64 overflow-y-auto p-1">
+              {lista.length === 0 ? (
+                <p className="px-2.5 py-6 text-center text-[12.5px] text-t2">
+                  {soEscolhidos && !buscando ? "Nenhum produto escolhido." : "Nenhum produto encontrado."}
+                </p>
+              ) : (
+                lista.map((p, i) => {
+                  const marcado = escolhidos.has(p.code);
+                  return (
+                    <button
+                      key={p.code}
+                      type="button"
+                      role="option"
+                      aria-selected={marcado}
+                      data-idx={i}
+                      onClick={() => alternar(p)}
+                      onMouseMove={() => ativo !== i && setAtivo(i)}
+                      className={cn(
+                        "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors",
+                        marcado ? "bg-acc-soft" : i === ativo && "bg-bg-3",
+                        marcado && i === ativo && "ring-1 ring-inset ring-acc/40",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
+                          marcado ? "border-acc bg-acc text-white" : "border-line bg-bg-inset",
+                        )}
+                      >
+                        {marcado && <Icon d={icons.check} size={12} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] font-semibold text-t0">{destacar(p.name, q)}</span>
+                        <span className="block truncate text-[11px] text-t2">{[p.code, p.category].filter(Boolean).join(" · ")}</span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-2">
+              <span className="text-[11.5px] text-t2">
+                {selected.length} {selected.length === 1 ? "escolhido" : "escolhidos"}
+              </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
-                  aria-label={`Remover ${p.name}`}
-                  className="shrink-0 cursor-pointer"
+                  onClick={() => onChange([])}
+                  disabled={selected.length === 0}
+                  className="h-8 cursor-pointer rounded-[8px] px-2.5 text-[12px] font-semibold text-t2 transition-colors hover:text-bad disabled:cursor-default disabled:opacity-40 disabled:hover:text-t2"
                 >
-                  <Icon d={icons.x} size={11} />
+                  Limpar
                 </button>
-              </span>
-            ))}
+                <Button size="sm" onClick={fechar}>
+                  Concluir
+                </Button>
+              </div>
+            </div>
           </div>
+        )}
+      </div>
+
+      {selected.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {tags.map((p) => (
+            <span
+              key={p.code}
+              title={`${p.code} · ${p.name}`}
+              className="flex max-w-full items-center gap-1.5 rounded-lg bg-acc-soft px-2.5 py-1 text-xs font-semibold text-acc"
+            >
+              <span className="truncate">{p.name}</span>
+              <button
+                type="button"
+                onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
+                aria-label={`Remover ${p.name}`}
+                className="shrink-0 cursor-pointer"
+              >
+                <Icon d={icons.x} size={11} />
+              </button>
+            </span>
+          ))}
+          {selected.length > TAGS_VISIVEIS && (
+            <button
+              type="button"
+              onClick={() => setVerTodas((v) => !v)}
+              className="h-[26px] cursor-pointer rounded-lg border border-line px-2.5 text-xs font-semibold text-t1 transition-colors hover:border-acc hover:text-acc"
+            >
+              {verTodas ? "Mostrar menos" : `+${selected.length - TAGS_VISIVEIS}`}
+            </button>
+          )}
         </div>
       )}
     </PickerShell>
