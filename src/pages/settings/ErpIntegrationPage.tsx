@@ -9,6 +9,7 @@ import {
   Input,
   Modal,
   Skeleton,
+  Tooltip,
   useToast,
 } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -44,7 +45,7 @@ const ESTADO_UI: Record<Estado, { label: string; cls: string; dot: string }> = {
   conectado: { label: "Conectado", cls: "text-ok", dot: "bg-ok" },
   pausado: { label: "Desconectado", cls: "text-t2", dot: "bg-t2" },
   senha: { label: "Senha inválida", cls: "text-bad", dot: "bg-bad" },
-  desconectado: { label: "Não conectado", cls: "text-t2", dot: "bg-t2" },
+  desconectado: { label: "Não configurado", cls: "text-t2", dot: "bg-t2" },
 };
 
 const ERRO_CREDENCIAL: Record<Extract<ErpCredentialChangeResult, { ok: false }>["reason"], string> = {
@@ -103,7 +104,7 @@ export function ErpIntegrationPage() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14.5px] font-bold text-t0">Millennium</p>
-              <p className="mt-0.5 text-[11.5px] text-t2">ERP Linx · vendas, custos e lojas</p>
+              <p className="mt-0.5 text-[11.5px] text-t2">ERP Linx · vendas, custos, lojas e equipe</p>
             </div>
           </div>
           {showSkeleton ? (
@@ -120,12 +121,14 @@ export function ErpIntegrationPage() {
               {estado === "conectado" ? (
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
-                    Configurar
+                    Gerenciar
                   </Button>
                   {podeAtualizar && (
-                    <Button size="sm" onClick={() => void atualizarCadastros()} disabled={atualizando}>
-                      {atualizando ? "Atualizando…" : "Atualizar"}
-                    </Button>
+                    <Tooltip label="Atualiza lojas e tabelas de custo do Millennium. Não busca vendas.">
+                      <Button size="sm" onClick={() => void atualizarCadastros()} disabled={atualizando}>
+                        {atualizando ? "Atualizando…" : "Atualizar cadastros"}
+                      </Button>
+                    </Tooltip>
                   )}
                 </div>
               ) : (
@@ -310,19 +313,22 @@ function MillenniumModal({
       }
     >
       <div className="flex flex-col gap-3.5">
-        <p className={`text-[13.5px] leading-relaxed ${estado === "senha" ? "text-bad" : "text-t1"}`}>
-          {conectado ? (
-            <>
-              A WeDash está sincronizando vendas, custos e lojas com o usuário{" "}
-              <strong className="font-semibold text-t0">{usuarioAnterior}</strong>. Ao desconectar, a sincronização é
-              interrompida e o usuário fica disponível para uso no Millennium.
-            </>
-          ) : estado === "senha" ? (
-            "A senha salva não é mais válida. Informe a senha atual do Millennium para voltar a sincronizar."
-          ) : (
-            "Informe um usuário e uma senha do Millennium. Antes de conectar, a WeDash testa a conexão e verifica os acessos necessários."
-          )}
-        </p>
+        {conectado ? (
+          <p className="text-[13.5px] leading-relaxed text-t1">
+            A WeDash está conectada ao Millennium com o usuário{" "}
+            <strong className="font-semibold text-t0">{usuarioAnterior}</strong>. As sincronizações acontecem
+            automaticamente enquanto a conexão estiver ativa.
+          </p>
+        ) : estado === "senha" ? (
+          <Alert variant="danger" title="A senha do Millennium não é mais válida.">
+            Conecte novamente com a senha atual para retomar a sincronização.
+          </Alert>
+        ) : (
+          <p className="text-[13.5px] leading-relaxed text-t1">
+            Informe o usuário e a senha do Millennium que a WeDash usará para sincronizar os dados. Antes de conectar,
+            verificamos o acesso às lojas e aos relatórios necessários.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <FormField label="Usuário do Millennium" required>
             <Input
@@ -375,27 +381,44 @@ function MillenniumModal({
             </div>
           </FormField>
         </div>
-        <Checkbox
-          className="items-start"
-          label={
-            <span>
-              Este usuário será exclusivo da WeDash
-              <span className="mt-0.5 block text-xs text-t2">
-                O Millennium permite apenas uma sessão por usuário. Para evitar interrupções na sincronização, use um
-                usuário criado exclusivamente para a WeDash.
-              </span>
-            </span>
-          }
-          checked={dedicada}
-          onChange={(e) => setDedicada(e.target.checked)}
-          disabled={travado}
-        />
-        <Checkbox
-          label="Autorizo a WeDash a usar estes dados para realizar a sincronização."
-          checked={conectado || autorizo}
-          onChange={(e) => setAutorizo(e.target.checked)}
-          disabled={travado}
-        />
+        {conectado ? (
+          <div className="space-y-3 text-[12.5px] leading-relaxed">
+            <div>
+              <p className="font-semibold text-t0">Alterar usuário ou senha</p>
+              <p className="mt-0.5 text-t2">Para trocar o usuário ou a senha, desconecte e conecte novamente com os novos dados.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-t0">Desconexão</p>
+              <p className="mt-0.5 text-t2">
+                Ao desconectar, a WeDash para de sincronizar os dados e encerra a sessão deste usuário no Millennium.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Checkbox
+              className="items-start"
+              label={
+                <span>
+                  Este usuário será usado somente pela WeDash
+                  <span className="mt-0.5 block text-xs text-t2">
+                    O Millennium permite apenas uma sessão por usuário. Use um usuário exclusivo para evitar interrupções
+                    e permitir que a WeDash se reconecte automaticamente se a sessão cair.
+                  </span>
+                </span>
+              }
+              checked={dedicada}
+              onChange={(e) => setDedicada(e.target.checked)}
+              disabled={travado}
+            />
+            <Checkbox
+              label="Autorizo a WeDash a usar este acesso para realizar a sincronização."
+              checked={autorizo}
+              onChange={(e) => setAutorizo(e.target.checked)}
+              disabled={travado}
+            />
+          </>
+        )}
         {pendente && (pendente.plan.kind === "partial" || pendente.plan.kind === "full") && (
           <Alert
             variant="danger"
@@ -427,13 +450,21 @@ function MillenniumModal({
               </>
             }
           >
-            {pendente.plan.kind === "partial"
-              ? "Essas lojas deixarão de ser sincronizadas e serão removidas da WeDash. As demais continuam normalmente."
-              : "Os dados sincronizados atuais serão removidos. As lojas serão cadastradas novamente e a carga inicial será refeita. Configurações como fuso e horário das lojas voltarão ao padrão."}
+            {pendente.plan.kind === "partial" ? (
+              "As lojas abaixo deixarão de ser sincronizadas e serão removidas da WeDash. As demais continuam normalmente."
+            ) : (
+              <>
+                <span className="block">
+                  A troca substituirá as lojas e os dados sincronizados atualmente na WeDash. As lojas disponíveis para o
+                  novo usuário serão cadastradas novamente e uma nova carga inicial será realizada.
+                </span>
+                <span className="mt-1.5 block">Configurações como fuso e horário das lojas voltarão ao padrão.</span>
+              </>
+            )}
           </Alert>
         )}
         {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}
-        {!canEdit && <p className="text-xs text-t2">Somente Gestores podem alterar a integração.</p>}
+        {!canEdit && <p className="text-xs text-t2">Você não tem permissão para alterar esta integração.</p>}
       </div>
     </Modal>
   );

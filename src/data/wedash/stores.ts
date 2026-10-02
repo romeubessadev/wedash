@@ -692,18 +692,18 @@ export async function setSellerShift(sellerId: string, shiftId: string | null): 
 }
 
 const SYNC_SELLERS_ERRORS: Record<string, string> = {
-  credential_missing: "Conecte o Millennium em Integrações, no menu do seu perfil.",
-  credential_invalid: "Senha do Millennium inválida. Reconecte em Integrações, no menu do seu perfil.",
-  integration_paused: "Integração desconectada. Conecte o Millennium em Integrações, no menu do seu perfil.",
-  erp_busy: "Millennium ocupado (limite de sessões). Tente de novo em instantes.",
-  forbidden: "Seu perfil não pode atualizar os vendedores.",
+  credential_missing: "A conexão com o Millennium ainda não foi configurada. Acesse Conta › Integrações para conectar.",
+  credential_invalid: "Não foi possível acessar o Millennium. Verifique os dados da integração em Conta › Integrações.",
+  integration_paused: "A conexão com o Millennium está desconectada. Acesse Conta › Integrações para conectar novamente.",
+  erp_busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
+  forbidden: "Você não tem permissão para atualizar os vendedores.",
 };
 
 /** Busca as vendedoras da loja no Millennium agora (Edge `erp-sellers-sync`) e grava em `store_seller`. */
 export async function syncStoreSellersNow(storeId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
-  if (!sb) return { ok: false, message: "Sem conexão com o servidor." };
+  if (!sb) return { ok: false, message: "Não foi possível conectar à WeDash. Verifique sua conexão e tente novamente." };
 
   const { data, error } = await sb.functions.invoke("erp-sellers-sync", { body: { storeId } });
   let body = data as { ok?: boolean; error?: string } | null;

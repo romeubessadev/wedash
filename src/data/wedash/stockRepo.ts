@@ -5,7 +5,7 @@
 import { labelCase } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { fetchAllPages } from "./salesRepo";
-import type { StockCatalogItem, StockInput } from "./stockProducts";
+import { STOCK_SALES_LOCATION, type StockCatalogItem, type StockInput } from "./stockProducts";
 
 export type SaleTable = { id: number; code: string; description: string; updatedAt: string; pricesAt: string | null };
 
@@ -83,12 +83,15 @@ export async function fetchStoreStock(
   };
 }
 
-/** Nome do local em caixa alta (o QUIOSQUE, de onde sai a venda, aparece como "LOJA"); mesma grafia no ERP soma junto. */
+/**
+ * Nome do local em caixa alta; o QUIOSQUE (de onde sai a venda) aparece como "PONTO DE VENDA" — "loja" na WeDash
+ * é a filial. Mesma grafia no ERP soma junto.
+ */
 function locationsUpper(raw: Record<string, number | string>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(raw)) {
     const upper = k.trim().toUpperCase();
-    const nome = upper === "QUIOSQUE" ? "LOJA" : upper || "ESTOQUE";
+    const nome = upper === "QUIOSQUE" ? STOCK_SALES_LOCATION : upper || "ESTOQUE";
     out[nome] = (out[nome] ?? 0) + (Number(v) || 0);
   }
   return out;
@@ -141,7 +144,8 @@ export function fetchStockCatalog(): Promise<Map<string, StockCatalogItem>> {
     for (const r of rows) {
       const code = String(r.product_code).trim();
       const category = r.type_id == null ? "" : (typeName.get(Number(r.type_id)) ?? "").trim();
-      out.set(code, { code, name: labelCase(r.description), category: category.toUpperCase() === "INDEFINIDO" ? "" : labelCase(category) });
+      const categoria = category.toUpperCase();
+      out.set(code, { code, name: (r.description ?? "").trim().toUpperCase(), category: categoria === "INDEFINIDO" ? "" : categoria });
     }
     return out;
   })();
@@ -155,10 +159,9 @@ export function fetchStockCatalog(): Promise<Map<string, StockCatalogItem>> {
 const STOCK_SYNC_ERRORS: Record<string, string> = {
   credential_missing: "Não foi possível acessar o Millennium. Verifique os dados da integração.",
   credential_invalid: "Não foi possível acessar o Millennium. Verifique os dados da integração.",
-  integration_paused: "A conexão com o Millennium está desconectada. Verifique a integração para continuar.",
+  integration_paused: "A conexão com o Millennium está desconectada.",
   erp_busy: "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.",
-  no_cost_table: "Escolha a tabela de custo da loja em Configurações › Produtos e impostos.",
-  forbidden: "Você não tem permissão para atualizar o estoque.",
+  forbidden: "Você não tem permissão para buscar o estoque.",
 };
 
 /** Busca no Millennium agora (tabelas de venda, preços de tabelas, estoque das lojas). */
@@ -184,6 +187,6 @@ export async function syncStockNow(req: {
   if (body?.ok === true) return { ok: true, failed: body.failed ?? [] };
   return {
     ok: false,
-    message: STOCK_SYNC_ERRORS[body?.error ?? ""] ?? "Não foi possível buscar os dados no Millennium. Tente novamente.",
+    message: STOCK_SYNC_ERRORS[body?.error ?? ""] ?? "Não foi possível buscar o estoque no Millennium. Tente novamente.",
   };
 }

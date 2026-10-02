@@ -25,6 +25,7 @@
 | AD-020 | MVP worker gated by WeDash presence (heartbeat 5 min) | Solid path first; 24/7 later | 2026-09-21 | **superseded by AD-021** |
 | AD-021 | Millennium disconnect only via Settings > Integra��o ERP; WeDash logout keeps ERP session | Allows HISTORY while gestor offline; explicit release for ERP desktop use | 2026-09-22 |
 | AD-022 | SEED = previous calendar month ? today; LIGHT = today without filial; HISTORY monthly with filial sequential | Probe: multi-day without filial times out; dashboard needs MoM | 2026-09-22 |
+| AD-024 | Regras de negócio de Gestão (metas, desafios) calculadas no navegador em módulos puros `*View.ts` com testes, a partir dos agregados do Postgres; dado novo por pessoa vem de relatório que o sincronizador já busca (sem chamada nova ao ERP) | Regra muda sem migration; testável; respeita sessão única do Millennium | 2026-10-02 |
 | AD-023 | No white label: platform always shows WeDash; no slug / wedash.app/{slug} / {empresa}.wedash.app; access always via default WeDash URL | Company name kept only as account identification (profile, invites) | 2026-09-27 |
 
 ## Handoff

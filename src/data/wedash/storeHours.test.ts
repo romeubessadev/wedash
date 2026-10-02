@@ -3,6 +3,7 @@ import {
   defaultWeekHours,
   effectiveWeekHours,
   hhmmToHour,
+  hourAxisRange,
   openHourFloor,
   closeHourCeil,
   parseWeekHours,
@@ -53,5 +54,19 @@ describe("storeHours", () => {
     b[1] = { open: "08:00", close: "18:00" };
     expect(unionOpenWindow([a, b], 1)).toEqual({ abertura: 8, fechamento: 22 });
     expect(unionOpenWindow([a], 0).abertura).toBe(9); // domingo null → default
+  });
+
+  it("hourAxisRange: expediente configurado manda; venda fora estende; meta não", () => {
+    const loja = parseWeekHours({ 3: { open: "10:00", close: "22:00" } });
+    expect(hourAxisRange([loja], 3, [], [8, 23])).toMatchObject({ first: 10, last: 21 });
+    expect(hourAxisRange([loja], 3, [9, 12])).toMatchObject({ first: 9, last: 21 });
+    expect(hourAxisRange([loja], 3, [22])).toMatchObject({ first: 10, last: 22, win: { abertura: 10, fechamento: 22 } });
+  });
+
+  it("hourAxisRange sem horário: vendas ∪ meta; sem nada, 10h–22h", () => {
+    const sem = defaultWeekHours();
+    expect(hourAxisRange([sem], 3, [11, 15], [12])).toMatchObject({ first: 11, last: 15 });
+    expect(hourAxisRange([sem], 3, [], [9, 20])).toMatchObject({ first: 9, last: 20 });
+    expect(hourAxisRange([sem], 3, [])).toMatchObject({ first: 10, last: 21 });
   });
 });

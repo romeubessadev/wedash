@@ -472,7 +472,7 @@ export function excludeNonSalesPeople(rows: SalesSellerDayAgg[], people: NonSale
   });
 }
 
-async function fetchNonSalesPeople(client: SalesQueryClient, tenantId: string): Promise<NonSalesPeople> {
+export async function fetchNonSalesPeople(client: SalesQueryClient, tenantId: string): Promise<NonSalesPeople> {
   const out: NonSalesPeople = { employeeIds: new Set(), geradorIds: new Set(), storeNameKeys: new Set() };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (client.from("store_seller") as any)

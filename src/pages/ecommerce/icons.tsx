@@ -137,6 +137,13 @@ export const IconEdit = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const IconCopy = (p: SVGProps<SVGSVGElement>) => (
+  <Icon width={13} height={13} {...p}>
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </Icon>
+);
+
 export const IconTrash = (p: SVGProps<SVGSVGElement>) => (
   <Icon width={13} height={13} {...p}>
     <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />

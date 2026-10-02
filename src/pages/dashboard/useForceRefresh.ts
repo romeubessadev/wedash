@@ -25,7 +25,7 @@ export const SALES_SYNCED_EVENT = "wedash:sales-synced";
 /** Disparado quando o usuário clica em Atualizar — tela com dado pesado próprio (estoque) busca junto. */
 export const FORCE_REFRESH_CLICK_EVENT = "wedash:force-refresh-click";
 
-const DISCONNECTED_MSG = "A conexão com o Millennium está desconectada. Verifique a integração para continuar.";
+const DISCONNECTED_MSG = "O Millennium está desconectado. As vendas só podem ser atualizadas depois que a integração for conectada novamente.";
 
 export type ForceRefreshState = {
   canForce: boolean;
@@ -79,7 +79,7 @@ export function useForceRefresh({
     async (wait: Awaited<ReturnType<typeof waitForSyncJob>>, ids: string[]) => {
       clearPendingForce(session.tenantId);
       if (wait.status === "FAILED") {
-        setForceError("Não foi possível atualizar os dados. Tente novamente em alguns minutos.");
+        setForceError("Não foi possível atualizar as vendas. Tente novamente em alguns minutos.");
         console.warn("FORCE job failed:", wait.error);
       } else if (wait.status === "TIMEOUT") {
         setForceError("A atualização está demorando mais que o normal. Os dados podem aparecer em instantes.");
@@ -186,7 +186,7 @@ export function useForceRefresh({
         setForceAtMap(recordForceAt(session.tenantId, storeIds, at));
         setForceError(null);
       } else if (result.error === "forbidden") {
-        setForceError("Você não tem permissão para atualizar os dados.");
+        setForceError("Você não tem permissão para atualizar as vendas.");
       } else if (result.error === "integration_paused") {
         setForceError(DISCONNECTED_MSG);
       } else if (result.error === "credential_missing" || result.error === "credential_invalid") {

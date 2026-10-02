@@ -618,6 +618,20 @@ describe("runSyncJob", () => {
       expect(deps.enqueueMonthFillDay).not.toHaveBeenCalled();
     });
 
+    it("carga em período grava os itens por pessoa de cada dia", async () => {
+      const replaceSellerProductDayAggs = vi.fn().mockResolvedValue(undefined);
+      const result = await runSyncJob(monthJob(), monthDeps({ replaceSellerProductDayAggs }));
+      expect(result.ok).toBe(true);
+      const rows = replaceSellerProductDayAggs.mock.calls.flatMap((c) => c[0].rows);
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ day: "2026-08-31", productCode: "WP002", itemCount: 1 }),
+          expect.objectContaining({ day: "2026-08-30", productCode: "BSPPAR", itemCount: 2 }),
+        ]),
+      );
+      expect(rows).toHaveLength(2);
+    });
+
     it("grava no job cada dia concluído (barra de progresso da tela)", async () => {
       const markJobProgress = vi.fn().mockResolvedValue(undefined);
       const deps = monthDeps({ markJobProgress });
@@ -890,6 +904,80 @@ describe("runSyncJob", () => {
     expect(products.find((p: { productId: number }) => p.productId === 10)).toMatchObject({
       revenueCents: 14_000,
       itemCount: 3,
+    });
+  });
+
+  describe("itens por pessoa × produto (desafios)", () => {
+    const at = new Date("2026-09-19T13:00:00.000Z");
+    const listaRow = (op: number, nf: string, sellerName: string) => ({
+      storeId: "s1",
+      occurredAt: at,
+      operationCode: String(op),
+      revenueCents: 10_000,
+      itemQty: 2,
+      brand: "ALL" as const,
+      sellerName,
+      millenniumFilial: 1,
+      millenniumOpCode: op,
+      nf,
+      tipoOperacao: "S",
+    });
+    const item = (productCode: string, qty: number, revenueCents: number) => ({
+      couponKey: "11|A|S",
+      day: "2026-09-19",
+      productId: productCode === "WP002" ? 9 : 10,
+      productCode,
+      productName: productCode,
+      qty,
+      revenueCents,
+      sellerGeradorId: 66161,
+      sellerName: "GABRIELA SILVA",
+    });
+    const forceDeps = (overrides: Partial<SyncJobDeps> = {}) =>
+      makeDeps({
+        listStores: vi.fn().mockResolvedValue([stores[0]]),
+        fetchSalesLista: vi.fn().mockResolvedValue([listaRow(11, "A", "GABRIELA DE LIMA"), listaRow(12, "B", "")]),
+        fetchCouponReport: vi.fn().mockResolvedValue([item("WP002", 1, 6_000), item("BSPPAR", 2, 4_000)]),
+        fetchConsultaDetMov: vi.fn().mockResolvedValue([
+          { productId: 10, revenueCents: 10_000, qty: 2, descProduto: "BODY SPLASH - WEPINK" },
+        ]),
+        ...overrides,
+      });
+
+    it("FORCE grava os itens de cada pessoa do relatório de cupom; venda sem vendedor fica de fora", async () => {
+      const replaceSellerProductDayAggs = vi.fn().mockResolvedValue(undefined);
+      const result = await runSyncJob(baseJob({ kind: "FORCE" }), forceDeps({ replaceSellerProductDayAggs }));
+      expect(result.ok).toBe(true);
+      expect(replaceSellerProductDayAggs).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: "t1", storeId: "s1", from: "2026-09-19", to: "2026-09-19" }),
+      );
+      const rows = replaceSellerProductDayAggs.mock.calls.flatMap((c) => c[0].rows);
+      expect(rows).toEqual([
+        expect.objectContaining({ day: "2026-09-19", sellerGeradorId: 66161, productCode: "BSPPAR", itemCount: 2, revenueCents: 4_000 }),
+        expect.objectContaining({ day: "2026-09-19", sellerGeradorId: 66161, productCode: "WP002", itemCount: 1, revenueCents: 6_000 }),
+      ]);
+    });
+
+    it("falha ao gravar os itens por pessoa não derruba o job (top produtos segue gravado)", async () => {
+      const replaceSellerProductDayAggs = vi.fn().mockRejectedValue(new Error("relation does not exist"));
+      const replaceProductDayAggs = vi.fn().mockResolvedValue(undefined);
+      const insertSyncLogs = vi.fn().mockResolvedValue(undefined);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const result = await runSyncJob(
+        baseJob({ kind: "FORCE" }),
+        forceDeps({ replaceSellerProductDayAggs, replaceProductDayAggs, insertSyncLogs }),
+      );
+      warn.mockRestore();
+      expect(result.ok).toBe(true);
+      expect(replaceSellerProductDayAggs).toHaveBeenCalled();
+      expect(replaceProductDayAggs.mock.calls.flatMap((c) => c[0].rows).length).toBeGreaterThan(0);
+      const logs = insertSyncLogs.mock.calls.flatMap((c) => c[0] as Array<{ level: string; source: string }>);
+      expect(logs).toContainEqual(expect.objectContaining({ level: "WARN", source: "itens_pessoa" }));
+    });
+
+    it("sem a dependência (adaptador antigo) não grava e o job segue", async () => {
+      const result = await runSyncJob(baseJob({ kind: "FORCE" }), forceDeps());
+      expect(result.ok).toBe(true);
     });
   });
 

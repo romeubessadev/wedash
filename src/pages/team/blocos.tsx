@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, intervaloDias, num, rotuloDias } from "@/lib/format";
+import { brl, brlCent, brlK, intervaloDias, num } from "@/lib/format";
 import type { BlockState as BlockStateTipo } from "@/data/wedash/dashboard";
 import { BlockState } from "@/pages/dashboard/BlockState";
 import type { ChallengeView, TeamView, GoalCardView, NetworkGlobalGoal, SellerRow } from "@/data/wedash/teamViews";
@@ -186,7 +186,7 @@ function CelulaNivel({ l }: { l: LinhaRank }) {
   const pctRef = l.atingimentoProjetadoPct ?? l.atingimentoPct;
   return (
     <Badge variant={pctRef >= 100 ? "success" : "warning"}>
-      Nível {l.nivelAtual} · {l.degrauAtual}
+      N{l.nivelAtual} · {l.degrauAtual}
     </Badge>
   );
 }
@@ -194,7 +194,7 @@ function CelulaNivel({ l }: { l: LinhaRank }) {
 function CelulaProximo({ l }: { l: LinhaRank }) {
   if (l.semMeta) return <span className="text-t2">—</span>;
   if (!l.proximoDegrau) {
-    return <p className="text-[12.5px] font-bold text-ok">Máximo</p>;
+    return <p className="text-[12.5px] font-bold text-ok">Último nível</p>;
   }
   return (
     <div>
@@ -210,18 +210,18 @@ function CelulaPremiacao({ l }: { l: LinhaRank }) {
   if (valor <= 0 && l.comissaoPct <= 0) return <span className="text-t2">—</span>;
   return (
     <div className="text-right">
-      <p className="font-mono text-[12.5px] font-bold text-ok">{brl(valor)}</p>
+      <p className="font-mono text-[12.5px] font-bold text-ok">{brlCent(valor)}</p>
       {l.comissaoPct > 0 ? (
         <p className="text-[11px] text-t2">
           {num(l.comissaoPct, 1)}%
-          {l.bonusAlcancado > 0 ? ` · +${brl(l.bonusAlcancado)}` : ""}
+          {l.bonusAlcancado > 0 ? ` · +${brlCent(l.bonusAlcancado)} de bônus` : ""}
         </p>
       ) : null}
     </div>
   );
 }
 
-function CardMobileVendedora({ l, metaAtiva }: { l: LinhaRank; metaAtiva: boolean }) {
+function CardMobileVendedora({ l, metaAtiva, encerrada = false }: { l: LinhaRank; metaAtiva: boolean; encerrada?: boolean }) {
   return (
     <div className="rounded-xl border border-line bg-bg-inset p-3.5">
       <div className="mb-3 flex items-center gap-2.5">
@@ -248,10 +248,12 @@ function CardMobileVendedora({ l, metaAtiva }: { l: LinhaRank; metaAtiva: boolea
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Nível</p>
             <CelulaNivel l={l} />
           </div>
-          <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Faltam</p>
-            <CelulaProximo l={l} />
-          </div>
+          {!encerrada && (
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Falta</p>
+              <CelulaProximo l={l} />
+            </div>
+          )}
           <div className="col-span-2 text-right">
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Premiação</p>
             <CelulaPremiacao l={l} />
@@ -269,7 +271,19 @@ function CardMobileVendedora({ l, metaAtiva }: { l: LinhaRank; metaAtiva: boolea
   );
 }
 
-export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; metaAtiva: boolean }) {
+export function BlocoVendedoras({
+  lista,
+  metaAtiva,
+  encerrada = false,
+  grupo = false,
+}: {
+  lista: SellerRow[];
+  metaAtiva: boolean;
+  /** Meta encerrada: sem "Falta para o próximo nível". */
+  encerrada?: boolean;
+  /** Meta no modo Grupo: a meta e o % da linha são do grupo da pessoa. */
+  grupo?: boolean;
+}) {
   const ranked: LinhaRank[] = lista.map((l, i) => ({ ...l, posicao: i + 1 }));
 
   const colunas: DataTableColumn<LinhaRank>[] = [
@@ -299,7 +313,7 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; meta
       ? ([
           {
             key: "meta",
-            header: "Meta",
+            header: grupo ? "Meta do grupo" : "Meta individual",
             hideBelow: "md",
             sortable: true,
             sortValue: (l: LinhaRank) => (l.semMeta ? null : l.metaIndividualValor),
@@ -308,7 +322,7 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; meta
           },
           {
             key: "pctIndiv",
-            header: "% da meta individual",
+            header: grupo ? "% da meta do grupo" : "% da meta individual",
             sortable: true,
             sortValue: (l: LinhaRank) => (l.semMeta ? null : l.atingimentoPct),
             render: (l: LinhaRank) => <CelulaPctIndividual l={l} />,
@@ -330,20 +344,20 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; meta
             sortValue: (l: LinhaRank) => l.nivelAtual ?? 0,
             render: (l: LinhaRank) => <CelulaNivel l={l} />,
           },
-          {
+          ...(encerrada ? [] : [{
             key: "proximo",
-            header: "Faltam para o próximo nível",
+            header: "Falta para o próximo nível",
             hideBelow: "lg",
             sortable: true,
             sortValue: (l: LinhaRank) => l.proximoDegrau?.faltaValor ?? null,
             render: (l: LinhaRank) => <CelulaProximo l={l} />,
-          },
+          }]),
           {
             key: "premiacao",
             header: "Premiação",
             align: "right",
             sortable: true,
-            sortValue: (l: LinhaRank) => l.premiacaoAcumulada,
+            sortValue: (l: LinhaRank) => (l.semMeta ? null : l.premiacaoAcumulada + l.bonusAlcancado),
             render: (l: LinhaRank) => <CelulaPremiacao l={l} />,
           },
         ] as DataTableColumn<LinhaRank>[])
@@ -377,12 +391,12 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; meta
           data={ranked}
           rowKey={(l) => `${l.filialId}-${l.colaboradorId}`}
           paginate="pessoas"
-          emptyMessage="Ninguém da equipe é elegível nesta competência."
+          emptyMessage="Nenhuma pessoa da equipe participa desta meta."
         />
       </div>
       <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
         {ranked.map((l) => (
-          <CardMobileVendedora key={`${l.filialId}-${l.colaboradorId}`} l={l} metaAtiva={metaAtiva} />
+          <CardMobileVendedora key={`${l.filialId}-${l.colaboradorId}`} l={l} metaAtiva={metaAtiva} encerrada={encerrada} />
         ))}
       </div>
     </>
@@ -395,21 +409,33 @@ export function CardVendedoras({
   lista,
   metaAtiva,
   embedded = false,
+  title = "Escada de premiação",
+  help = "Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada pessoa da equipe.",
+  aside,
+  encerrada = false,
+  grupo = false,
 }: {
   estado: BlockStateTipo;
   lista: SellerRow[] | null;
   metaAtiva: boolean;
+  encerrada?: boolean;
+  /** Meta no modo Grupo (colunas "Meta do grupo" / "% da meta do grupo"). */
+  grupo?: boolean;
   /** Sem Card externo — bloco contínuo após a projeção (CardMeta). */
   embedded?: boolean;
+  title?: string;
+  help?: string;
+  /** Texto à direita do título (ex.: "8 pessoas"). */
+  aside?: ReactNode;
 }) {
   const tabela =
     lista && lista.length > 0 ? (
       <div className="max-h-[min(520px,70vh)] overflow-x-auto overflow-y-auto pr-1">
-        <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
+        <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} encerrada={encerrada} grupo={grupo} />
       </div>
     ) : (
       <div className={embedded ? "py-2" : "p-5"}>
-        <EmptyState icon="👤" title="Ninguém elegível" description="Ninguém da equipe é elegível nesta competência." />
+        <EmptyState icon="👤" title="Nenhuma pessoa na meta" description="Nenhuma pessoa da equipe participa desta meta." />
       </div>
     );
 
@@ -424,8 +450,9 @@ export function CardVendedoras({
   return (
     <Card padding="none">
       <div className="flex shrink-0 items-center gap-1.5 px-5 py-4">
-        <CardTitle>Escada de premiação</CardTitle>
-        <TipHelp label="Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada pessoa da equipe." />
+        <CardTitle>{title}</CardTitle>
+        <TipHelp label={help} />
+        {aside ? <span className="ml-auto text-xs text-t2">{aside}</span> : null}
       </div>
       <BlockState estado={estado}>{tabela}</BlockState>
     </Card>
@@ -436,7 +463,7 @@ export function CardVendedoras({
  * Projeção só depois de 50% do período da meta (inicio→fim).
  * Antes disso o ritmo ainda oscila demais para cravar fechamento.
  */
-function metaLiberouProjecao(inicio: string, fim: string, hojeIso: string = TODAY_ISO): boolean {
+export function metaLiberouProjecao(inicio: string, fim: string, hojeIso: string = TODAY_ISO): boolean {
   if (hojeIso < inicio) return false;
   if (hojeIso >= fim) return true;
   const total = intervaloDias(inicio, fim).length;
@@ -455,9 +482,12 @@ export function FaixaMetaGlobal({
   hideTitle = false,
   degraus = defaultTiers,
   hojeIso,
+  soBarra = false,
 }: {
   meta: NetworkGlobalGoal;
   embedded?: boolean;
+  /** Só a barra com os níveis (os números ficam no resumo, como no detalhe da meta). */
+  soBarra?: boolean;
   /** Quando o título da meta já está no CardMeta. */
   hideTitle?: boolean;
   /** Degraus desta meta (default = escada padrão). */
@@ -465,7 +495,7 @@ export function FaixaMetaGlobal({
   /** Dia de hoje (dados reais); sem ele usa o relógio da fixture. */
   hojeIso?: string;
 }) {
-  const mostraProjecao = metaLiberouProjecao(meta.inicio, meta.fim, hojeIso);
+  const mostraProjecao = !soBarra && metaLiberouProjecao(meta.inicio, meta.fim, hojeIso);
   const fecha = meta.projetadoPct >= 100;
   const escalaMax = Math.max(...degraus.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
@@ -475,6 +505,8 @@ export function FaixaMetaGlobal({
 
   const body = (
     <>
+      {!soBarra && (
+      <>
       <div className={cn("mb-4 flex flex-wrap items-start justify-between gap-2", hideTitle && "mb-3")}>
         {!hideTitle && (
           <div className="flex min-w-0 items-center gap-1.5">
@@ -482,7 +514,7 @@ export function FaixaMetaGlobal({
             <TipHelp
               label={
                 mostraProjecao
-                  ? "Projeta o nível de premiação esperado para o fechamento da competência."
+                  ? "Projeção de atingimento ao final da meta. Aparece depois de metade do período."
                   : "A projeção de fechamento aparece depois que 50% do período da meta já passou — assim o ritmo fica mais confiável."
               }
             />
@@ -490,11 +522,19 @@ export function FaixaMetaGlobal({
         )}
         <div className={cn("flex flex-wrap items-center gap-1.5", hideTitle ? "w-full justify-between sm:justify-end" : "justify-end")}>
           {mostraProjecao && (
-            <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
+            <Tooltip label="Projeção de atingimento ao final da meta. Aparece depois de metade do período.">
+              <span className="inline-flex cursor-help">
+                <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
+              </span>
+            </Tooltip>
           )}
           <Badge variant="neutral" className="gap-1">
             <IconRelogio />
-            {meta.diasRestantes > 0 ? rotuloDias(meta.diasRestantes) : "Encerrado"}
+            {meta.diasRestantes <= 0
+              ? "Encerrada"
+              : meta.diasRestantes === 1
+                ? "Último dia"
+                : `${meta.diasRestantes} dias restantes`}
           </Badge>
         </div>
       </div>
@@ -509,9 +549,11 @@ export function FaixaMetaGlobal({
       </div>
       {meta.foraDaEquipe ? (
         <p className="mt-1 text-[12px] text-t2">
-          Inclui <span className="font-mono">{brl(meta.foraDaEquipe)}</span> de vendas sem vendedora ou de gerência (fora do ranking).
+          Inclui <span className="font-mono">{brl(meta.foraDaEquipe)}</span> de vendas sem vendedor identificado ou realizadas pela gerência, fora do ranking.
         </p>
       ) : null}
+      </>
+      )}
 
       {/*
         Rótulos na mesma linha, alinhados à proporção da barra (mesmo % dos ticks).
@@ -531,7 +573,7 @@ export function FaixaMetaGlobal({
         const trackMinW = degraus.length > 1 ? Math.ceil((LABEL_MIN_PX + GAP_PX) / menorFrac) : 280;
 
         return (
-          <div className="mt-4 min-w-0 overflow-x-auto overscroll-x-contain touch-pan-x">
+          <div className={cn("min-w-0 overflow-x-auto overscroll-x-contain touch-pan-x", !soBarra && "mt-4")}>
             <div className="w-full" style={{ minWidth: trackMinW }}>
               <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
                 <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
@@ -569,7 +611,7 @@ export function FaixaMetaGlobal({
                         atingido ? "text-acc" : "text-t2",
                       )}
                       style={isLast ? undefined : { left: `${left}%` }}
-                      title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
+                      title={`N${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
                     >
                       N{i + 1} · {rotuloCurto}
                       <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
@@ -581,6 +623,11 @@ export function FaixaMetaGlobal({
           </div>
         );
       })()}
+      {soBarra && meta.foraDaEquipe ? (
+        <p className="mt-1 text-[12px] text-t2">
+          Inclui <span className="font-mono">{brl(meta.foraDaEquipe)}</span> de vendas sem vendedor identificado ou realizadas pela gerência, fora do ranking.
+        </p>
+      ) : null}
     </>
   );
 
@@ -723,6 +770,7 @@ export function CardMeta({
         estado={card.vendedoras.length > 0 ? "disponivel" : "sem_dados"}
         lista={card.vendedoras}
         metaAtiva={metaAtiva}
+        grupo={card.tipo === "grupo"}
       />
     </Card>
   );

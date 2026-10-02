@@ -4,6 +4,7 @@ import { buildStockProductsView, type StockCatalogItem, type StockInput } from "
 import { fetchStockCatalog, fetchStoreStock, syncStockNow } from "@/data/wedash/stockRepo";
 import type { Store } from "@/data/wedash/stores";
 import { FORCE_REFRESH_CLICK_EVENT } from "@/pages/dashboard/useForceRefresh";
+import { fetchErpConnection } from "@/pages/dashboard/ErpStatusNotice";
 import { useScopedStores } from "@/pages/operation/shared";
 
 const STOCK_MAX_AGE_MS = 30 * 60 * 1000;
@@ -63,21 +64,24 @@ export function useStockData() {
       if (stockIds.length === 0) return;
 
       syncRef.current = true;
-      setSyncing(true);
       try {
+        // Integração desligada / senha inválida: o aviso fixo da tela já explica — sem busca e sem toast.
+        const conexao = await fetchErpConnection(session.tenantId);
+        if (conexao === "disconnected" || conexao === "password") return;
+        setSyncing(true);
         const r = await syncStockNow({ stockStoreIds: stockIds });
         if (!r.ok) {
           show(r.message, "danger");
           return;
         }
-        if (r.failed.length > 0) show("Não foi possível atualizar todos os dados do estoque. Tente novamente mais tarde.", "warning");
+        if (r.failed.length > 0) show("Não foi possível buscar todo o estoque. Alguns valores podem estar desatualizados.", "warning");
         await reload();
       } finally {
         syncRef.current = false;
         setSyncing(false);
       }
     },
-    [reload, show],
+    [reload, show, session.tenantId],
   );
 
   useEffect(() => {
@@ -129,7 +133,7 @@ export function useStockData() {
     ? syncedTimes.reduce<string | null>((m, t) => (m == null || Date.parse(t!) < Date.parse(m) ? t : m), null)
     : null;
   const atualizadoTexto = syncing
-    ? "Atualizando estoque…"
+    ? "Buscando estoque…"
     : oldestSync
       ? `Estoque atualizado ${hora(oldestSync)}`
       : "Estoque ainda não atualizado";

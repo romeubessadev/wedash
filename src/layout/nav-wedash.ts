@@ -24,7 +24,7 @@ const ICONE = {
 /** Estoque · Pedido de compra (Gestor e Gerente). */
 const estoque: NavGroup = {
   label: "Estoque",
-  description: "Acompanhe o estoque e monte os pedidos de compra.",
+  description: "Acompanhe o estoque e prepare os pedidos de compra.",
   icon: ICONE.estoque,
   items: [
     { label: "Estoque", to: paths.stock.inventory },
@@ -35,7 +35,7 @@ const estoque: NavGroup = {
 /** Metas · Desafios · Grupos · Vendedores (Gestor e Gerente). */
 const gestao: NavGroup = {
   label: "Gestão",
-  description: "Gerencie metas, desafios, grupos e equipe.",
+  description: "Gerencie metas, desafios, grupos e vendedores.",
   icon: ICONE.gestao,
   items: [
     { label: "Metas", to: paths.goals },
@@ -45,12 +45,13 @@ const gestao: NavGroup = {
   ],
 };
 
-/** Franquia · Aluguel · Produtos e impostos (só Gestor). */
+/** Loja · Franquia · Aluguel · Produtos e impostos (só Gestor). */
 const operacao: NavGroup = {
   label: "Configurações",
   description: "Defina os parâmetros usados pela WeDash para calcular custos, margens e resultados.",
   icon: ICONE.config,
   items: [
+    { label: "Loja", to: paths.operation.store },
     { label: "Franquia", to: paths.operation.franchise },
     { label: "Aluguel", to: paths.operation.rent },
     { label: "Produtos e impostos", to: paths.operation.productsTaxes },

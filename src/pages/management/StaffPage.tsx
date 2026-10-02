@@ -21,7 +21,7 @@ export function StaffPage() {
     <StoreCardsPage
       section="Gestão"
       title="Vendedores"
-      subtitle="Vendedores de cada loja, sincronizados com o Millennium."
+      subtitle="Acompanhe os vendedores de cada loja e defina seus grupos."
       loading={loading}
       skeleton={(n) => <StoreCardsSkeleton count={n} team wide />}
       lojas={lojas}
@@ -41,6 +41,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const [shifts, setShifts] = useState<StoreShift[]>([]);
   const [shiftOf, setShiftOf] = useState<Record<string, string | null>>({});
   const [tab, setTab] = useState<"ativos" | "desligados">("ativos");
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +86,13 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   async function changeShift(sellerId: string, shiftId: string | null) {
     const antes = shiftOf[sellerId];
     setShiftOf((m) => ({ ...m, [sellerId]: shiftId }));
+    setSavingIds((s) => new Set(s).add(sellerId));
     const r = await setSellerShift(sellerId, shiftId);
+    setSavingIds((s) => {
+      const next = new Set(s);
+      next.delete(sellerId);
+      return next;
+    });
     if (r.ok) return;
     setShiftOf((m) => {
       const next = { ...m };
@@ -108,7 +115,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
             <Select
               className="h-9! min-w-[150px]"
               value={atual ?? ""}
-              disabled={shifts.length === 0}
+              disabled={shifts.length === 0 || savingIds.has(v.id)}
               onChange={(e) => void changeShift(v.id, e.target.value || null)}
               aria-label={`Grupo de ${v.name}`}
             >
@@ -124,7 +131,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shifts, shiftOf],
+    [shifts, shiftOf, savingIds],
   );
 
   const semEquipe = loaded && equipe.length === 0;
@@ -138,7 +145,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       title="Busca no Millennium os vendedores desta loja."
       icon={syncing ? undefined : <RefreshIcon />}
     >
-      {syncing ? "Atualizando…" : "Atualizar"}
+      {syncing ? "Atualizando…" : "Atualizar vendedores"}
     </Button>
   );
 
@@ -178,11 +185,13 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           framed={false}
           className="pt-4!"
           icon="👥"
-          title={semEquipe || tab === "ativos" ? "Nenhum vendedor ativo" : "Nenhum vendedor desligado"}
+          title={semEquipe ? "Nenhum vendedor sincronizado" : tab === "ativos" ? "Nenhum vendedor ativo" : "Nenhum vendedor desligado"}
           description={
-            semEquipe || tab === "ativos"
-              ? "Os vendedores vêm do Millennium. Use Atualizar para buscar os vendedores desta loja."
-              : "Vendedores desativados no Millennium aparecem aqui."
+            semEquipe
+              ? "Busque no Millennium os vendedores desta loja."
+              : tab === "ativos"
+                ? "Não há vendedores ativos nesta loja no momento."
+                : "Vendedores desativados no Millennium aparecem aqui."
           }
           action={semEquipe ? refreshButton("primary") : undefined}
         />
@@ -192,7 +201,7 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           columns={tab === "ativos" ? columns : SELLER_COLUMNS}
           data={rows}
           rowKey={(v) => v.id}
-          paginate="pessoas"
+          paginate="vendedores"
         />
       )}
     </Card>

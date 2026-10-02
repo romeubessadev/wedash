@@ -4,7 +4,7 @@ import { padTopo } from "@/lib/safeArea";
 import { Avatar, Dropdown, type DropdownItem } from "@/components/ui";
 import { isGestor } from "./nav-wedash";
 import { paths } from "@/router/paths";
-import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvider";
+import { accessLabel, useSession, useActiveSession } from "@/session/SessionProvider";
 import {
   stores as filiaisFixture,
   storesForSession,
@@ -14,7 +14,7 @@ import {
 import { StorePicker } from "@/pages/dashboard/StorePicker";
 import { useScope } from "@/pages/dashboard/useScope";
 import { TopbarRefresh } from "./TopbarRefresh";
-import { useSyncHistory } from "./useSyncHistory";
+import { useNotifications } from "./useNotifications";
 
 const ICON_PERFIL = "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8";
 const ICON_INTEGRACOES = "M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z";
@@ -31,11 +31,16 @@ function MenuIcon({ d }: { d: string }) {
   );
 }
 
-/** "19:32" hoje; "24/09 19:32" em outro dia. */
+const ICON_ALERTA = "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01";
+
+/** "Hoje" · "Ontem" · "24/09". */
 function quando(d: Date): string {
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  if (d.toDateString() === new Date().toDateString()) return hora;
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
+  const hoje = new Date();
+  if (d.toDateString() === hoje.toDateString()) return "Hoje";
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+  if (d.toDateString() === ontem.toDateString()) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; collapsed: boolean; onToggleCollapse: () => void; onOpenPalette: () => void }) {
@@ -44,19 +49,37 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
   const navigate = useNavigate();
   const location = useLocation();
   const { escopo, mudar } = useScope();
-  const historico = useSyncHistory(session.tenantId);
-  const notificacoes =
-    historico.items.length > 0
-      ? historico.items.map((n) => ({
-          label: n.text,
-          danger: !n.ok,
-          highlight: !n.read,
-          keepOpen: true,
-          onClick: () => historico.markRead(n.id),
-          icon: <span className={`h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-acc"}`} />,
-          trailing: <span className="shrink-0 text-[11.5px] font-normal tabular-nums text-t2">{quando(n.at)}</span>,
-        }))
-      : [{ label: "Nenhuma notificação", disabled: true }];
+  const avisos = useNotifications(session.tenantId, session.role, isGestor(session.role));
+  const notificacoes: DropdownItem[] = [
+    ...avisos.alerts.map(
+      (a): DropdownItem => ({
+        label: a.title,
+        description: a.body,
+        danger: true,
+        icon: (
+          <span className="mt-0.5 shrink-0">
+            <MenuIcon d={ICON_ALERTA} />
+          </span>
+        ),
+        onClick: () => navigate(paths.settings.erp),
+      }),
+    ),
+    ...avisos.items.map(
+      (n): DropdownItem => ({
+        label: n.title,
+        description: n.body ?? undefined,
+        highlight: !n.read,
+        keepOpen: !n.link,
+        onClick: () => {
+          avisos.markRead(n.id);
+          if (n.link) navigate(n.link);
+        },
+        icon: <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-acc"}`} />,
+        trailing: <span className="shrink-0 pt-0.5 text-[11.5px] font-normal tabular-nums text-t2">{quando(n.at)}</span>,
+      }),
+    ),
+  ];
+  if (notificacoes.length === 0) notificacoes.push({ label: "Nenhuma notificação", disabled: true });
 
   const [listaLojas, setListaLojas] = useState<Store[]>(() => {
     const hit = storesForSession(session.stores);
@@ -93,7 +116,8 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname.startsWith("/stock/") ||
     location.pathname.startsWith("/management/") ||
     location.pathname.startsWith("/operation/") ||
-    location.pathname.startsWith(paths.settings.root);
+    location.pathname.startsWith(paths.settings.root) ||
+    location.pathname === paths.profile;
 
   // Menu do avatar: Conta = Meu perfil · (Gestor) Integrações, Usuários, Logs · Sair.
   const conta: DropdownItem[] = isGestor(session.role)
@@ -106,13 +130,17 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
 
   return (
     <header className="pad-topo sticky top-0 z-30 flex flex-none items-center gap-2.5 border-b border-line bg-bg-1/80 px-3.5 pb-3 backdrop-blur-md sm:gap-3.5 sm:px-6" style={padTopo("0.75rem")}>
-      <button onClick={onOpenMobileNav} aria-label="Abrir menu" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:hidden">
+      <button onClick={onOpenMobileNav} aria-label="Abrir menu" title="Abrir menu" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:hidden">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
       </button>
 
-      <button onClick={onToggleCollapse} aria-label={collapsed ? "Expandir menu" : "Recolher menu"} className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:flex">
+      <button
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+        title={collapsed ? "Expandir menu" : "Recolher menu"}
+        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3 lg:flex">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
@@ -128,7 +156,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <span className="hidden truncate text-[12.5px] sm:inline">Buscar no WeDash...</span>
+          <span className="hidden truncate text-[12.5px] sm:inline">Buscar na WeDash…</span>
           <span className="ml-auto hidden shrink-0 rounded-md border border-line-2 px-1.5 py-0.5 text-[10px] font-bold text-t2 sm:inline">Ctrl K</span>
         </button>
       )}
@@ -147,11 +175,34 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              {historico.unread && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-bad" />}
+              {(avisos.unread || avisos.alerts.length > 0) && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-bad" />
+              )}
             </button>
           }
+          header={
+            <div className="flex items-center justify-between gap-4 whitespace-nowrap">
+              <span className="text-[13px] font-bold text-t0">Notificações</span>
+              {avisos.items.length > 0 && (
+                <span className="flex items-center gap-3 text-[12px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={avisos.markAllRead}
+                    disabled={!avisos.unread}
+                    className="text-acc hover:underline disabled:cursor-default disabled:text-t2 disabled:no-underline"
+                  >
+                    Marcar como lidas
+                  </button>
+                  <button type="button" onClick={avisos.clearAll} className="text-t2 hover:text-bad">
+                    Limpar
+                  </button>
+                </span>
+              )}
+            </div>
+          }
           items={notificacoes}
-          menuClassName="max-h-[196px] overflow-y-auto"
+          menuClassName="w-[300px]"
+          bodyClassName="max-h-[300px] overflow-y-auto"
         />
 
         <Dropdown
@@ -161,7 +212,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
               <Avatar name={session.name} src={session.avatarUrl} size="sm" />
               <span className="hidden text-left leading-tight md:block">
                 <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.name}</span>
-                <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · titular da conta" : ""}</span>
+                <span className="block text-[10.5px] text-t2">{accessLabel(session.role, session.isOwner)}</span>
               </span>
             </button>
           }

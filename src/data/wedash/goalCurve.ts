@@ -48,13 +48,15 @@ export function weekdayWeights(dayRevenue: Map<string, number>, week: StoreWeekH
 
 /** Meta de um dia a partir da meta do mês e dos pesos por dia da semana. */
 export function dailyGoal(monthlyGoal: number, iso: string, weights: number[]): number {
-  if (monthlyGoal <= 0) return 0;
-  const total = intervaloDias(inicioDoMes(iso), fimDoMes(iso)).reduce(
-    (s, d) => s + (weights[deIso(d).getDay()] ?? 0),
-    0,
-  );
+  return periodDailyGoal(monthlyGoal, inicioDoMes(iso), fimDoMes(iso), iso, weights);
+}
+
+/** Meta de um dia a partir da meta de um período (datas da meta) e dos pesos por dia da semana; 0 fora do período. */
+export function periodDailyGoal(target: number, from: string, to: string, iso: string, weights: number[]): number {
+  if (target <= 0 || iso < from || iso > to) return 0;
+  const total = intervaloDias(from, to).reduce((s, d) => s + (weights[deIso(d).getDay()] ?? 0), 0);
   if (total <= 0) return 0;
-  return (monthlyGoal * (weights[deIso(iso).getDay()] ?? 0)) / total;
+  return (target * (weights[deIso(iso).getDay()] ?? 0)) / total;
 }
 
 /**

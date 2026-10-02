@@ -1245,7 +1245,7 @@ function visaoLoja(escopo: Scope, periodo: ResolvedPeriod, periodoMeta: Resolved
     },
     kpiAtendimentos: {
       valor: num(atual.atendimentos),
-      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
+      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, "vendas") : undefined,
       sub: nDias > 1 ? `Média de ${num(atual.atendimentos / nDias, 0)}/dia` : undefined,
       serie: serieAtend.length > 1 ? serieAtend : undefined,
     },
@@ -1256,7 +1256,7 @@ function visaoLoja(escopo: Scope, periodo: ResolvedPeriod, periodoMeta: Resolved
     },
     kpiPA: {
       valor: num(pa, 2),
-      delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo, false) : undefined,
+      delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo, "pa") : undefined,
       serie: seriePA.length > 1 ? seriePA : undefined,
     },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
@@ -1418,7 +1418,7 @@ if (metaAtiva) {
     },
     kpiAtendimentos: {
       valor: num(atual.atendimentos),
-      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
+      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, "vendas") : undefined,
       sub: nDiasRede > 1 ? `Média de ${num(atual.atendimentos / nDiasRede, 0)}/dia` : undefined,
       serie: serieAtendRede.length > 1 ? serieAtendRede : undefined,
     },
@@ -1429,7 +1429,7 @@ if (metaAtiva) {
     },
     kpiPA: {
       valor: num(paRede, 2),
-      delta: temComparacao ? kpiDelta(paRede, paRedeAnt, vsRotulo, false) : undefined,
+      delta: temComparacao ? kpiDelta(paRede, paRedeAnt, vsRotulo, "pa") : undefined,
       serie: seriePARede.length > 1 ? seriePARede : undefined,
     },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },

@@ -150,6 +150,31 @@ export function unionConfiguredWindow(
   return configured.some((h) => openHourFloor(h[dow]) != null) ? w : null;
 }
 
+/**
+ * Eixo dos gráficos por hora (1 dia), igual em todas as telas: expediente configurado das lojas no dia
+ * (Configurações > Loja); venda fora do expediente estende o eixo. Nenhuma loja com horário → horas com
+ * venda ∪ `fallbackHours` (ex.: horas com meta); sem nada, 10h–22h. `first`/`last` inclusivos.
+ */
+export function hourAxisRange(
+  hoursList: StoreWeekHours[],
+  dow: Dow,
+  soldHours: number[],
+  fallbackHours: number[] = [],
+): { first: number; last: number; win: { abertura: number; fechamento: number } } {
+  const configured = unionConfiguredWindow(hoursList, dow);
+  const livres = [...soldHours, ...fallbackHours];
+  const win =
+    configured ??
+    (livres.length > 0
+      ? { abertura: Math.min(...livres), fechamento: Math.max(...livres) + 1 }
+      : { abertura: 10, fechamento: 22 });
+  return {
+    first: Math.min(win.abertura, ...soldHours),
+    last: Math.max(win.fechamento - 1, ...soldHours),
+    win,
+  };
+}
+
 export function unionOpenWindow(
   hoursList: StoreWeekHours[],
   dow: Dow,

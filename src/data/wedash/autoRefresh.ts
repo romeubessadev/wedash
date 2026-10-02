@@ -1,16 +1,33 @@
 /**
  * Atualização automática: regras puras (worker + front).
- * - Rodadas a cada 30 min o dia inteiro, todas as lojas (sem horário de funcionamento).
- * - Toda rodada ok fecha antes os dias pendentes (até o dia 1 do mês anterior) → a 1ª rodada
- *   depois da meia-noite fecha ontem (`store.last_closed_day`).
+ * - Rodadas a cada 30 min só nas lojas no expediente (Configurações > Loja: horário + fuso).
+ * - Última rodada do dia = fechamento + 30 min (notas processadas com atraso).
+ * - Loja sem horário configurado = sem atualização automática (só o botão Atualizar).
+ * - O dia fecha na madrugada (CLOSE); toda rodada ok fecha antes os dias pendentes
+ *   (até o dia 1 do mês anterior) se a madrugada não rodou.
  */
+import { hhmmToHour, parseWeekHours, weekHoursConfigured, type DayHours, type StoreWeekHours } from "./storeHours.ts";
 
 /** Intervalo fixo entre rodadas (sem opção na UI). */
 export const AUTO_REFRESH_MIN = 30;
+/** Minutos depois do fechamento da última rodada do dia. */
+export const CLOSE_GRACE_MIN = 30;
+/** Última rodada do dia que falhou tenta de novo a cada X min até a meia-noite. */
+export const FINAL_RETRY_MIN = 10;
 /** Dias pendentes fechados por rodada (o resto fica para as próximas / madrugada). */
 export const RECOVERY_DAYS_PER_ROUND = 3;
 /** Marca no `sync_job.error` da rodada pulada por sessão caída → a próxima pode fazer login. */
 export const AUTO_SESSION_MARK = "[auto-sessao]";
+
+/** `store.hours` → semana (dia null = fechado; nenhum dia aberto = não configurado). */
+export function parseStoreHours(raw: unknown): StoreWeekHours {
+  return parseWeekHours(raw);
+}
+
+/** Loja com horário configurado (pelo menos 1 dia aberto) = tem atualização automática. */
+export function autoRefreshConfigured(hours: StoreWeekHours): boolean {
+  return weekHoursConfigured(hours);
+}
 
 /** Dia (YYYY-MM-DD), dia da semana (0=dom) e minuto do dia no fuso. */
 export function localClock(date: Date, timeZone: string): { day: string; dow: number; minutes: number } {
@@ -31,6 +48,46 @@ export function localClock(date: Date, timeZone: string): { day: string; dow: nu
     dow: Math.max(0, dows.indexOf(get("weekday"))),
     minutes: (Number(get("hour")) % 24) * 60 + Number(get("minute")),
   };
+}
+
+/** Expediente do dia em minutos; fechamento ≤ abertura (ex.: 00:00) = até a meia-noite. */
+function dayWindow(day: DayHours): { openMin: number; closeMin: number } | null {
+  if (!day) return null;
+  const openMin = Math.round(hhmmToHour(day.open) * 60);
+  let closeMin = Math.round(hhmmToHour(day.close) * 60);
+  if (closeMin <= openMin) closeMin = 24 * 60;
+  return { openMin, closeMin };
+}
+
+/**
+ * Fase da loja agora:
+ * - `open`: dentro do expediente (rodadas no intervalo);
+ * - `wrapup`: fechou há menos de 30 min (espera a última rodada);
+ * - `finalDue`: fechou há 30 min ou mais (última rodada do dia, se ainda não houve);
+ * - `before`: ainda não abriu; `closed`: não abre hoje (ou horário não configurado).
+ */
+export type StorePhase = "open" | "wrapup" | "finalDue" | "before" | "closed";
+
+export function storePhase(hours: StoreWeekHours, now: Date, timeZone: string): StorePhase {
+  const clock = localClock(now, timeZone);
+  const w = dayWindow(hours[clock.dow as keyof StoreWeekHours] ?? null);
+  if (!w) return "closed";
+  if (clock.minutes < w.openMin) return "before";
+  if (clock.minutes < w.closeMin) return "open";
+  if (clock.minutes < w.closeMin + CLOSE_GRACE_MIN) return "wrapup";
+  return "finalDue";
+}
+
+/** Instante de hoje (fuso da loja) no minuto `minutes` do dia. */
+function todayAtMinute(now: Date, timeZone: string, minutes: number): Date {
+  const clock = localClock(now, timeZone);
+  return new Date(now.getTime() - now.getSeconds() * 1000 - now.getMilliseconds() + (minutes - clock.minutes) * 60_000);
+}
+
+/** Instante da última rodada do dia (fechamento + 30 min); null se a loja não abre hoje. */
+export function finalRoundAt(hours: StoreWeekHours, now: Date, timeZone: string): Date | null {
+  const w = dayWindow(hours[localClock(now, timeZone).dow as keyof StoreWeekHours] ?? null);
+  return w ? todayAtMinute(now, timeZone, w.closeMin + CLOSE_GRACE_MIN) : null;
 }
 
 export function addDays(isoDay: string, delta: number): string {
@@ -66,24 +123,66 @@ export function pendingDays(
   return out;
 }
 
+export type AutoStore = {
+  id: string;
+  timezone: string;
+  hours: StoreWeekHours;
+  /** Último Atualizar ok da loja (`store.last_sync_at`). */
+  lastSyncAt: Date | null;
+};
+
 /**
- * Rodada automática devida agora? Todas as lojas, `intervalMin` depois da última rodada automática
- * (Atualizar manual não conta). Rodada perdida (integração desconectada, worker parado) = última
- * rodada ficou para trás → roda assim que voltar.
+ * Rodada automática devida agora? Lojas no expediente, `intervalMin` depois da última rodada
+ * automática (Atualizar manual não conta; rodada perdida = roda assim que voltar). Loja que fechou
+ * há 30 min ou mais e ainda não teve Atualizar depois disso entra na última rodada do dia
+ * (nova tentativa a cada 10 min se falhar, até a meia-noite).
  */
 export function planAutoRound(args: {
-  storeIds: string[];
+  stores: AutoStore[];
   now: Date;
   intervalMin: number;
   lastAutoAt: Date | null;
 }): { storeIds: string[] } | null {
-  if (args.storeIds.length === 0) return null;
-  const sinceMin = args.lastAutoAt ? (args.now.getTime() - args.lastAutoAt.getTime()) / 60_000 : Infinity;
-  return sinceMin >= args.intervalMin ? { storeIds: args.storeIds } : null;
+  const { stores, now, intervalMin } = args;
+  const sinceMin = args.lastAutoAt ? (now.getTime() - args.lastAutoAt.getTime()) / 60_000 : Infinity;
+  const openIds: string[] = [];
+  const finalIds: string[] = [];
+  for (const s of stores) {
+    const phase = storePhase(s.hours, now, s.timezone);
+    if (phase === "open") openIds.push(s.id);
+    else if (phase === "finalDue") {
+      const final = finalRoundAt(s.hours, now, s.timezone);
+      if (final && (!s.lastSyncAt || s.lastSyncAt < final)) finalIds.push(s.id);
+    }
+  }
+  const openDue = openIds.length > 0 && sinceMin >= intervalMin;
+  const finalDue = finalIds.length > 0 && sinceMin >= FINAL_RETRY_MIN;
+  if (!openDue && !finalDue) return null;
+  return { storeIds: [...(openDue ? openIds : []), ...(finalDue ? finalIds : [])] };
 }
 
-/** Próxima rodada automática (tooltip do Atualizar): última rodada + intervalo; atrasada = agora. */
-export function nextAutoRefreshAt(args: { now: Date; intervalMin: number; lastAutoAt: Date | null }): Date {
-  const due = args.lastAutoAt ? new Date(args.lastAutoAt.getTime() + args.intervalMin * 60_000) : args.now;
-  return due < args.now ? args.now : due;
+/**
+ * Próxima rodada automática das lojas do escopo (tooltip do Atualizar). Loja aberta → última
+ * rodada automática + intervalo (ou a última do dia, se cair depois do fechamento); fechou há
+ * < 30 min → última rodada do dia. Nenhuma loja nesses casos = null.
+ */
+export function nextAutoRefreshAt(args: {
+  stores: Array<Pick<AutoStore, "hours" | "timezone">>;
+  now: Date;
+  intervalMin: number;
+  lastAutoAt: Date | null;
+}): Date | null {
+  const { stores, now } = args;
+  const due = args.lastAutoAt ? new Date(args.lastAutoAt.getTime() + args.intervalMin * 60_000) : now;
+  const next = due < now ? now : due;
+  const candidates: Date[] = [];
+  for (const s of stores) {
+    const phase = storePhase(s.hours, now, s.timezone);
+    const final = finalRoundAt(s.hours, now, s.timezone);
+    if (!final) continue;
+    const closeAt = new Date(final.getTime() - CLOSE_GRACE_MIN * 60_000);
+    if (phase === "open") candidates.push(next >= closeAt ? final : next);
+    else if (phase === "wrapup") candidates.push(final);
+  }
+  return candidates.length > 0 ? candidates.reduce((a, b) => (b < a ? b : a)) : null;
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Badge, Modal, ProgressBar, Skeleton, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart } from "@/components/charts";
+import { ProductNameCell } from "@/components/wedash/ProductNameCell";
 import {
   buildAbcClassDetail,
   buildCategoryDetail,
@@ -46,7 +47,7 @@ export const TipHelp = ({ label }: { label: string }) => (
 );
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
-export function BadgeVsAnterior({ delta }: { delta?: Delta }) {
+export function BadgeVsAnterior({ delta, metrica }: { delta?: Delta; metrica?: string }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -54,23 +55,8 @@ export function BadgeVsAnterior({ delta }: { delta?: Delta }) {
       {delta.value}
     </Badge>
   );
-  const tip = tipDelta(delta);
+  const tip = tipDelta(delta, metrica);
   return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
-}
-
-const CORES_RANK = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
-
-export function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
-  const iniciais = nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-  const cor = CORES_RANK[idx % CORES_RANK.length];
-  return (
-    <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold"
-      style={{ background: `color-mix(in srgb, ${cor} 15%, transparent)`, color: cor }}
-    >
-      {iniciais || "?"}
-    </span>
-  );
 }
 
 export const pctFmt = (v: number | null, casas = 1) => (v == null ? "—" : `${v.toFixed(casas).replace(".", ",")}%`);
@@ -335,13 +321,7 @@ function ProdutosDoGrupo({ produtos, onProduto }: { produtos: ProductDetailItem[
             >
               <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
               <td className="px-1 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <AvatarIniciais nome={p.nome} idx={idx} />
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                    {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
-                  </div>
-                </div>
+                <ProductNameCell nome={p.nome} idx={idx} sub={p.codigo} />
               </td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
@@ -400,7 +380,7 @@ function CategoriasDaClasse({
             <th className="px-1 pb-3 text-right font-bold">
               <span className="inline-flex items-center gap-1">
                 Participação
-                <TipHelp label="Fatia da categoria no faturamento de todas as categorias e, abaixo, o acumulado que define a classe (A até 80%, B até 95%)." />
+                <TipHelp label="Participação da categoria no faturamento de todas as categorias e, abaixo, o acumulado que define a classe (A até 80%, B até 95%)." />
               </span>
             </th>
           </tr>
@@ -421,10 +401,7 @@ function CategoriasDaClasse({
             >
               <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
               <td className="px-1 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <AvatarIniciais nome={c.nome} idx={idx} />
-                  <p className="truncate text-[13px] font-bold text-t0">{c.nome}</p>
-                </div>
+                <ProductNameCell nome={c.nome} idx={idx} />
               </td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(c.itens)}</td>
               <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(c.faturamento)}</td>
@@ -524,7 +501,7 @@ function ProductDetailModal({
               <MetricaDetalhe
                 label="Participação"
                 valor={pctFmt(detalhe.participacaoPct)}
-                tip={`Fatia ${artigo} no faturamento de todos os produtos do período.`}
+                tip={`Participação ${artigo} no faturamento de todos os produtos do período.`}
               />
               <MetricaDetalhe label="CMV" valor={moneyOrDash(detalhe.cmv)} />
               <MetricaDetalhe label="Lucro bruto" valor={moneyOrDash(detalhe.lucro)} destaque />
@@ -534,10 +511,7 @@ function ProductDetailModal({
               {cmp
                 ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}`
                 : `Sem vendas ${artigo} no período anterior para comparar.`}
-              {detalhe.cmv == null &&
-                (tipo === "produto"
-                  ? " CMV, lucro e margem ficam em “—” quando algum dia com venda não tem custo."
-                  : ` CMV, lucro e margem ficam em “—” quando algum produto ${artigo} está sem custo.`)}
+              {detalhe.cmv == null && " CMV, lucro e margem ficam indisponíveis quando faltam dados de custo no período."}
             </p>
           </div>
 

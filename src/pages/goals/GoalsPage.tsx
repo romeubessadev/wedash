@@ -1,22 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { AvatarGroup, Badge, Button, Card, DateRangePicker, Modal, ProgressBar, progressTextClass, useToast } from "@/components/ui";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { GoalCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { resolvePeriod } from "@/data/wedash/dashboard";
-import { buildGoalSummary, GOAL_STATUS_LABEL, goalTeamNames, type GoalStatus, type GoalSummary } from "@/data/wedash/goalView";
+import { buildGoalSummary, GOAL_STATUS_LABEL, goalTeamNames, prazoRestante, type GoalStatus, type GoalSummary } from "@/data/wedash/goalView";
 import { deleteGoal, fetchGoalTeam, fetchGoals, type GoalRecord, type GoalTeamMember } from "@/data/wedash/goalsRepo";
 import { fetchSalesDayAggs } from "@/data/wedash/salesRepo";
 import type { SalesDayAgg } from "@/data/wedash/salesTypes";
 import type { Store } from "@/data/wedash/stores";
-import { brlCent, dataCompleta, fimDoMes, num, paraIso, rotuloDias, deIso } from "@/lib/format";
+import { brlCent, dataCompleta, fimDoMes, num, paraIso, deIso } from "@/lib/format";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { applyPeriodDateChange, dateRangeFromPeriod, periodActivePresetId, periodDisplayLabel } from "@/pages/dashboard/periodPicker";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useScope } from "@/pages/dashboard/useScope";
 import { TargetIcon } from "@/pages/dashboards/icons";
+import { IconCopy, IconTrash } from "@/pages/ecommerce/icons";
 import { SectionHeader, useScopedStores } from "@/pages/operation/shared";
 import { Icon, icons } from "@/pages/users/Icons";
 import { paths } from "@/router/paths";
@@ -55,11 +57,15 @@ export default function GoalsPage() {
     return () => window.removeEventListener(SALES_SYNCED_EVENT, onSync);
   }, []);
 
+  const filtroKey = `${session.tenantId}|${storeKey}|${periodo.inicio}|${periodo.fim}`;
+  const loadedKey = useRef<string | null>(null);
+
   useEffect(() => {
     if (lojasLoading) return;
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // Venda nova (SALES_SYNCED_EVENT) recarrega sem skeleton; só filtro novo mostra o skeleton.
+      if (loadedKey.current !== filtroKey) setLoading(true);
       const goals = await fetchGoals({ tenantId: session.tenantId, storeIds, from: periodo.inicio, to: periodo.fim });
       let dayAggs: SalesDayAgg[] = [];
       let team: GoalTeamMember[] = [];
@@ -77,6 +83,7 @@ export default function GoalsPage() {
       }
       if (!cancelled) {
         setData({ goals, dayAggs, team });
+        loadedKey.current = filtroKey;
         setLoading(false);
       }
     })();
@@ -128,7 +135,7 @@ export default function GoalsPage() {
       <SectionHeader
         section="Gestão"
         title="Metas"
-        subtitle="Gerencie metas mensais, níveis de premiação e distribuição individual."
+        subtitle="Gerencie metas, distribuição da equipe e níveis de premiação."
         actions={
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             <DateRangePicker
@@ -153,7 +160,7 @@ export default function GoalsPage() {
             <EmptyBlock
               icon="🎯"
               title="Nenhuma meta no período"
-              description="Cadastre a meta da loja para acompanhar o atingimento e a premiação da equipe."
+              description="Cadastre uma meta para acompanhar o atingimento e a premiação da equipe."
               action={
                 <Button size="sm" onClick={() => navigate(paths.goalNew)}>
                   Criar meta
@@ -171,7 +178,7 @@ export default function GoalsPage() {
                 mostraLoja={lojas.length > 1}
                 equipe={equipe}
                 onDetail={() => navigate(paths.goalDetail(summary.goal.id))}
-                onEdit={() => navigate(paths.goalEdit(summary.goal.id))}
+                onCopy={() => navigate(paths.goalCopy(summary.goal.id))}
                 onDelete={() => setConfirmar(summary.goal)}
               />
             ))}
@@ -196,7 +203,7 @@ export default function GoalsPage() {
       >
         {confirmar && (
           <p className="text-[13px] leading-relaxed text-t1">
-            A meta <span className="font-bold text-t0">{confirmar.name}</span> ({dataCompleta(confirmar.startsOn)} a {dataCompleta(confirmar.endsOn)}) será
+            A meta <span className="font-bold text-t0">{confirmar.name}</span>, de {dataCompleta(confirmar.startsOn)} a {dataCompleta(confirmar.endsOn)}, será
             excluída. Essa ação não pode ser desfeita.
           </p>
         )}
@@ -211,7 +218,7 @@ function GoalCard({
   mostraLoja,
   equipe,
   onDetail,
-  onEdit,
+  onCopy,
   onDelete,
 }: {
   summary: GoalSummary;
@@ -219,81 +226,115 @@ function GoalCard({
   mostraLoja: boolean;
   equipe: string[];
   onDetail: () => void;
-  onEdit: () => void;
+  onCopy: () => void;
   onDelete: () => void;
 }) {
-  const { goal: g, status, realizado, pct, projetadoPct, diasRestantes, nivelAtual } = summary;
+  const { goal: g, status, realizado, pct, projetadoPct, diasRestantes, nivelAtual, nivelNumero } = summary;
   const periodo = `${dataCompleta(g.startsOn)} a ${dataCompleta(g.endsOn)}`;
+  const prazo = prazoRestante(diasRestantes);
   const rodape =
     status === "active"
-      ? [projetadoPct != null ? `Projeção: ${num(projetadoPct, 0)}%` : null, `${diasRestantes === 1 ? "falta" : "faltam"} ${rotuloDias(diasRestantes)}`]
-          .filter(Boolean)
-          .join(" · ")
+      ? projetadoPct != null
+        ? `Projeção: ${num(projetadoPct, 0)}% · ${prazo.toLowerCase()}`
+        : prazo
       : status === "upcoming"
         ? `Começa em ${dataCompleta(g.startsOn)}`
         : nivelAtual
-          ? `Fechou no nível ${nivelAtual}`
-          : "Fechou sem atingir nível";
+          ? `Nível final: N${nivelNumero} · ${nivelAtual}`
+          : "Nenhum nível atingido";
+
+  const acao = (fn: () => void) => (e: MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
 
   return (
-    <Card className="flex flex-col">
-      <div className="mb-3.5 flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-acc">
-          <TargetIcon size={20} />
-        </span>
-        <button type="button" onClick={onDetail} className="min-w-0 flex-1 text-left">
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={`Ver detalhe da meta ${g.name}`}
+      onClick={onDetail}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onDetail();
+        }
+      }}
+      className="flex cursor-pointer flex-col rounded-2xl border border-line bg-bg-2 p-5 shadow-[var(--shadow-vela)] transition-colors hover:border-line-2 focus-visible:border-acc focus-visible:outline-none"
+    >
+      <div className="mb-3.5 flex items-center gap-3.5">
+        <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[14px] bg-acc-soft text-acc">
+          <TargetIcon size={22} />
+        </div>
+        <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-bold text-t0">{g.name}</p>
-          <p className="mt-0.5 truncate text-xs text-t2">
+          <p className="mt-0.5 truncate text-[12.5px] text-t2">
             {periodo}
             {mostraLoja && loja ? ` · ${loja.fantasia}` : ""}
           </p>
-        </button>
-        <Badge variant={STATUS_VARIANT[status]} className="shrink-0 self-start">
-          {GOAL_STATUS_LABEL[status]}
-        </Badge>
-      </div>
-
-      <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Meta da loja</p>
-      <p className="mt-0.5 font-mono text-[17px] font-extrabold text-t0">{brlCent(g.target)}</p>
-
-      <div className="mt-3 flex items-baseline justify-between gap-2">
-        <p className="text-[12px] text-t1">
-          {status === "upcoming" ? (
-            "Ainda não começou"
-          ) : (
-            <>
-              <span className="font-mono font-bold text-t0">{brlCent(realizado)}</span> realizado
-            </>
-          )}
-        </p>
-        {status !== "upcoming" && <p className={`font-mono text-[14px] font-extrabold ${progressTextClass(pct)}`}>{num(pct, 1)}%</p>}
-      </div>
-      <div className="mt-1.5">
-        <ProgressBar value={status === "upcoming" ? 0 : pct} height={6} />
-      </div>
-      <p className="mt-1.5 text-[11.5px] text-t2">{rodape}</p>
-
-      <div className="mt-3.5 flex flex-wrap gap-1.5">
-        <Badge variant="neutral">{g.tierMode === "INDIVIDUAL" ? "Individual" : "Grupo"}</Badge>
-        <Badge variant="neutral">
-          {g.tiers.length} {g.tiers.length === 1 ? "nível" : "níveis"}
-        </Badge>
-        <Badge variant="neutral">{equipe.length} na equipe</Badge>
-      </div>
-
-      <div className="flex-1" />
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-line pt-3">
-        {equipe.length > 0 ? <AvatarGroup names={equipe} max={3} /> : <span className="text-xs text-t2">Sem equipe</span>}
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onDelete} aria-label="Excluir meta" icon={<Icon d={icons.trash} size={14} />} />
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            Editar
-          </Button>
-          <Button variant="outline" size="sm" onClick={onDetail}>
-            Ver detalhe
-          </Button>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 self-start">
+          <Tooltip label="Duplicar meta">
+            <button
+              type="button"
+              onClick={acao(onCopy)}
+              aria-label="Duplicar meta"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line text-t2 transition-colors hover:border-acc hover:text-acc"
+            >
+              <IconCopy width={12} height={12} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Excluir meta">
+            <button
+              type="button"
+              onClick={acao(onDelete)}
+              aria-label="Excluir meta"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line text-t2 transition-colors hover:border-bad hover:text-bad"
+            >
+              <IconTrash width={12} height={12} />
+            </button>
+          </Tooltip>
         </div>
       </div>
-    </Card>
+
+      <div className="flex items-baseline justify-between gap-2">
+        {status === "upcoming" ? (
+          <span className="font-mono text-[13px] font-extrabold text-t0">{brlCent(g.target)}</span>
+        ) : (
+          <span className="font-mono text-[13px] font-extrabold text-ok">{brlCent(realizado)}</span>
+        )}
+        <span className="text-right text-[11.5px] text-t2">
+          {status === "upcoming" ? (
+            "Meta da loja"
+          ) : (
+            <>
+              <span className={`font-mono font-bold ${progressTextClass(pct)}`}>{num(pct, 1)}%</span> de {brlCent(g.target)}
+            </>
+          )}
+        </span>
+      </div>
+      <div className="mt-2">
+        <ProgressBar value={status === "upcoming" ? 0 : pct} height={5} />
+      </div>
+      <p className="mt-2 text-[11.5px] text-t2">{rodape}</p>
+
+      <div className="flex-1" />
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap gap-1.5">
+          <Badge variant={STATUS_VARIANT[status]}>{GOAL_STATUS_LABEL[status]}</Badge>
+          <Badge variant="neutral">{g.tierMode === "INDIVIDUAL" ? "Individual" : "Grupo"}</Badge>
+          <Badge variant="neutral">
+            {g.tiers.length} {g.tiers.length === 1 ? "nível" : "níveis"}
+          </Badge>
+          <Badge variant="neutral">{equipe.length} na equipe</Badge>
+        </div>
+        {equipe.length > 0 && (
+          <div className="shrink-0">
+            <AvatarGroup names={equipe} max={3} />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

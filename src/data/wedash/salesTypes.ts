@@ -132,6 +132,22 @@ export type SalesProductDayAgg = {
   itemCount: number;
 };
 
+/** Itens por pessoa (gerador) × produto × dia — matches sales_seller_product_day_agg (desafios). */
+export type SalesSellerProductDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  sellerGeradorId: number;
+  /** Nome normalizado (liga pessoa sem cadastro). */
+  sellerKey: string;
+  sellerName: string;
+  /** COD_PRODUTO; sem código = `#{productId}`. */
+  productCode: string;
+  productId: number;
+  itemCount: number;
+  revenueCents: number;
+};
+
 /** Hourly bucket — matches sales_hour_agg (current local day). */
 export type SalesHourAgg = {
   tenantId: string;

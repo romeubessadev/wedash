@@ -29,24 +29,38 @@ export interface GoalGroup {
 export interface GoalTeamMember {
   storeId: string;
   employeeId: number;
+  /** Código de gerador no Millennium (liga os itens por pessoa dos desafios). */
+  geradorId?: number | null;
   name: string;
   /** Nomes normalizados já vistos (liga venda gravada só pelo nome). */
   nameKeys: string[];
   /** Ativo com cargo VENDEDOR = na equipe de vendas agora. */
   salesPerson: boolean;
+  /** Grupo da pessoa (Gestão > Vendedores). */
+  shiftId: string | null;
   shiftName: string | null;
 }
 
-type TierJson = { name?: string; minPct?: number; commissionPct?: number; bonusCents?: number };
+type TierJson = {
+  name?: string;
+  minPct?: number;
+  commissionPct?: number;
+  bonusCents?: number;
+  managerCommissionPct?: number;
+  managerBonusCents?: number;
+};
 
 function parseTiers(raw: unknown): Tier[] {
   if (!Array.isArray(raw)) return [];
   return (raw as TierJson[])
-    .map((t) => ({
+    .map((t): Tier => ({
       nome: String(t.name ?? "").trim(),
       atingimentoMinPct: Number(t.minPct ?? 0),
       comissaoPct: Number(t.commissionPct ?? 0),
       bonus: Number(t.bonusCents ?? 0) / 100,
+      ...(t.managerCommissionPct != null
+        ? { gerenciaPct: Number(t.managerCommissionPct), gerenciaBonus: Number(t.managerBonusCents ?? 0) / 100 }
+        : {}),
     }))
     .filter((t) => t.nome && Number.isFinite(t.atingimentoMinPct))
     .sort((a, b) => a.atingimentoMinPct - b.atingimentoMinPct);
@@ -127,6 +141,9 @@ export async function saveGoal(
       minPct: t.atingimentoMinPct,
       commissionPct: t.comissaoPct,
       bonusCents: Math.round(t.bonus * 100),
+      ...(t.gerenciaPct != null
+        ? { managerCommissionPct: t.gerenciaPct, managerBonusCents: Math.round((t.gerenciaBonus ?? 0) * 100) }
+        : {}),
     })),
     groups: g.groups.map((x) => ({ shiftId: x.shiftId, name: x.name, pct: x.pct })),
   };
@@ -207,7 +224,9 @@ export async function fetchGoalTeam(tenantId: string, storeIds: string[]): Promi
   if (!sb) return [];
   const { data, error } = await sb
     .from("store_seller")
-    .select("store_id, millennium_employee_id, name, name_keys, active, erp_role, store_shift(name)")
+    .select(
+      "store_id, millennium_employee_id, millennium_gerador_id, name, name_keys, active, erp_role, shift_id, store_shift(name)",
+    )
     .eq("tenant_id", tenantId)
     .in("store_id", storeIds)
     .limit(2000);
@@ -218,10 +237,12 @@ export async function fetchGoalTeam(tenantId: string, storeIds: string[]): Promi
   type Row = {
     store_id: string;
     millennium_employee_id: number;
+    millennium_gerador_id: number | null;
     name: string;
     name_keys: string[] | null;
     active: boolean;
     erp_role: string | null;
+    shift_id: string | null;
     store_shift: { name: string } | { name: string }[] | null;
   };
   return ((data ?? []) as unknown as Row[]).map((r) => {
@@ -229,9 +250,11 @@ export async function fetchGoalTeam(tenantId: string, storeIds: string[]): Promi
     return {
       storeId: r.store_id,
       employeeId: r.millennium_employee_id,
+      geradorId: r.millennium_gerador_id == null ? null : Number(r.millennium_gerador_id),
       name: collaboratorName(r.name),
       nameKeys: r.name_keys ?? [],
       salesPerson: r.active && (r.erp_role == null || r.erp_role === SELLER_ROLE),
+      shiftId: r.shift_id,
       shiftName: shift?.name ? shiftName(shift.name) : null,
     };
   });

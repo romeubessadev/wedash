@@ -14,8 +14,8 @@ import {
   type ProductsKpi,
 } from "@/data/wedash/dashboard";
 import { fetchSalesCoverage } from "@/data/wedash/salesRepo";
+import { ProductNameCell } from "@/components/wedash/ProductNameCell";
 import {
-  AvatarIniciais,
   BadgeVsAnterior,
   TipHelp,
   fetchProductsAggInput,
@@ -29,7 +29,8 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
-import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { StoreHoursNotice } from "@/pages/dashboard/StoreHoursNotice";
+import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
@@ -82,7 +83,7 @@ const KPI_COLORS = [
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
 ];
 
-type SortKey = "nome" | "faturamento" | "itens" | "lucro" | "margemPct" | "variacaoPct";
+type SortKey = "nome" | "faturamento" | "itens" | "cmv" | "lucro" | "margemPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "lucro" | "margem";
 
 const CORES_ABC: Record<AbcClass, string> = {
@@ -204,7 +205,13 @@ export default function ProductsPage() {
   // Mesma regra do Top produtos: a métrica escolhe as 5 linhas; a direção só reordena.
   const topLinhas = useMemo(() => {
     const metrica = (l: ProductLineRow) =>
-      topLinhaSort === "itens" ? l.itens : topLinhaSort === "margem" ? (l.margemPct ?? -Infinity) : l.faturamento;
+      topLinhaSort === "itens"
+        ? l.itens
+        : topLinhaSort === "lucro"
+          ? (l.lucro ?? -Infinity)
+          : topLinhaSort === "margem"
+            ? (l.margemPct ?? -Infinity)
+            : l.faturamento;
     const top5 = [...view.linhas].sort((a, b) => metrica(b) - metrica(a) || b.faturamento - a.faturamento).slice(0, 5);
     if (topLinhaSort === "nome") {
       const dir = topLinhaDir === "asc" ? 1 : -1;
@@ -243,12 +250,14 @@ export default function ProductsPage() {
     const faturamento = linhasTabela.reduce((s, p) => s + p.faturamento, 0);
     const itens = linhasTabela.reduce((s, p) => s + p.itens, 0);
     const completo = linhasTabela.length > 0 && linhasTabela.every((p) => p.cmv != null);
+    const cmv = completo ? linhasTabela.reduce((s, p) => s + (p.cmv ?? 0), 0) : null;
     const lucro = completo ? linhasTabela.reduce((s, p) => s + (p.lucro ?? 0), 0) : null;
     const fatCmp = linhasTabela.reduce((s, p) => s + p.faturamentoCmp, 0);
     const fatAnt = linhasTabela.reduce((s, p) => s + p.faturamentoAnt, 0);
     return {
       faturamento,
       itens,
+      cmv,
       lucro,
       variacaoPct: fatCmp > 0 && fatAnt > 0 ? ((fatCmp - fatAnt) / fatAnt) * 100 : null,
       margemPct: lucro != null && faturamento > 0 ? (lucro / faturamento) * 100 : null,
@@ -278,9 +287,9 @@ export default function ProductsPage() {
 
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
-  const tipVariacaoTotal = `Faturamento somado dos produtos do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}. Cada produto pesa pelo quanto vende.`;
+  const tipVariacaoTotal = `Faturamento total dos produtos do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em")}`;
   const tipCmvProduto = view.temCustoProduto
-    ? "Mostra o faturamento, CMV, lucro bruto e margem de cada produto no período.\n\nQuando aparecer “—”, não há custo suficiente para calcular o indicador corretamente."
+    ? "Acompanhe faturamento, CMV, lucro bruto e margem de cada produto no período.\n\nQuando aparecer “—”, faltam dados de custo para calcular o indicador corretamente."
     : "O CMV por produto não está disponível para este período.";
 
   return (
@@ -289,7 +298,7 @@ export default function ProductsPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
-        subtitle="Acompanhe desempenho, margem e composição do mix de produtos."
+        subtitle="Acompanhe vendas, margem e desempenho dos produtos."
         actions={
           <div className="flex flex-col items-start gap-2 sm:items-end">
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
@@ -304,13 +313,14 @@ export default function ProductsPage() {
                 Exportar
               </Button>
             </div>
-            <LastUpdated />
           </div>
         }
       />
 
+      <ErpStatusNotice />
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      <StoreHoursNotice />
       {!loading && (
         <ProductsWithoutCostNotice
           produtos={view.produtosSemCusto}
@@ -340,7 +350,7 @@ export default function ProductsPage() {
                 <p className="mt-1.5 font-mono text-2xl font-extrabold text-t0">{brlCent(totalCategorias)}</p>
               )}
             </div>
-            {view.categorias.length > 0 && <BadgeVsAnterior delta={view.deltaCategorias} />}
+            {view.categorias.length > 0 && <BadgeVsAnterior delta={view.deltaCategorias} metrica="Faturamento das categorias" />}
           </div>
           {view.categorias.length === 0 ? (
             <EmptyBlock />
@@ -429,13 +439,14 @@ export default function ProductsPage() {
             <EmptyBlock />
           ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+            <table className="w-full min-w-[600px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <ThSort label="Linha" active={topLinhaSort === "nome"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("nome")} align="left" className="px-1 pb-3" />
                   <ThSort label="Itens vendidos" active={topLinhaSort === "itens"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("itens")} className="px-1 pb-3" />
                   <ThSort label="Faturamento" active={topLinhaSort === "faturamento"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Lucro bruto" active={topLinhaSort === "lucro"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("lucro")} className="px-1 pb-3" />
                   <ThSort label="Margem" active={topLinhaSort === "margem"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("margem")} className="px-1 pb-3" />
                 </tr>
               </thead>
@@ -455,20 +466,21 @@ export default function ProductsPage() {
                   >
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <AvatarIniciais nome={l.nome} idx={idx} />
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
+                      <ProductNameCell
+                        nome={l.nome}
+                        idx={idx}
+                        sub={
                           <Tooltip label={l.tipos.join(" · ")}>
                             <p className="truncate text-[11px] text-t2">
                               {l.produtos} produto{l.produtos === 1 ? "" : "s"} · {l.tipos.length} tipo{l.tipos.length === 1 ? "" : "s"}
                             </p>
                           </Tooltip>
-                        </div>
-                      </div>
+                        }
+                      />
                     </td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(l.itens)}</td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(l.faturamento)}</td>
+                    <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", corLucro(l.lucro))}>{moneyOrDash(l.lucro)}</td>
                     <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", l.margemPct == null ? "text-t2" : "text-ok")}>
                       {pctFmt(l.margemPct)}
                     </td>
@@ -477,11 +489,6 @@ export default function ProductsPage() {
               </tbody>
             </table>
           </div>
-          )}
-          {topLinhas.length > 0 && view.semLinhaFaturamento > 0 && (
-            <p className="mt-3 text-[11.5px] text-t2">
-              Fora das linhas: {brlCent(view.semLinhaFaturamento)} em skincare, cabelo, maquiagem, suplementos e kits.
-            </p>
           )}
         </Card>
 
@@ -521,13 +528,7 @@ export default function ProductsPage() {
                   >
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <AvatarIniciais nome={p.nome} idx={idx} />
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                          {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
-                        </div>
-                      </div>
+                      <ProductNameCell nome={p.nome} idx={idx} sub={p.codigo} />
                     </td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
@@ -555,7 +556,7 @@ export default function ProductsPage() {
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <input
               type="search"
-              placeholder="Buscar..."
+              placeholder="Buscar por produto ou código…"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className={cn(filtroInputClass, "sm:w-56")}
@@ -581,13 +582,14 @@ export default function ProductsPage() {
           )
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
+            <table className="w-full min-w-[820px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
                   <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} className="px-1 pb-3" />
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="CMV" active={sortKey === "cmv"} dir={sortDir} onClick={() => toggleSort("cmv")} className="px-1 pb-3" />
                   <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} className="px-1 pb-3" />
                   <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} className="px-1 pb-3" />
                   <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} className="px-1 pb-3" />
@@ -611,16 +613,11 @@ export default function ProductsPage() {
                     >
                       <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                       <td className="px-1 py-3">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <AvatarIniciais nome={p.nome} idx={idx} />
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                            {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
-                          </div>
-                        </div>
+                        <ProductNameCell nome={p.nome} idx={idx} sub={p.codigo} />
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                      <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.cmv == null ? "text-t2" : "text-t0")}>{moneyOrDash(p.cmv)}</td>
                       <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", corLucro(p.lucro))}>{moneyOrDash(p.lucro)}</td>
                       <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
                         {pctFmt(p.margemPct)}
@@ -648,6 +645,9 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{num(totalTabela.itens)}</td>
                   <td className="px-1 py-3 text-right font-mono text-[13px] font-extrabold text-t0">{brlCent(totalTabela.faturamento)}</td>
+                  <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", totalTabela.cmv == null ? "text-t2" : "text-t0")}>
+                    {moneyOrDash(totalTabela.cmv)}
+                  </td>
                   <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-extrabold", corLucro(totalTabela.lucro))}>
                     {moneyOrDash(totalTabela.lucro)}
                   </td>

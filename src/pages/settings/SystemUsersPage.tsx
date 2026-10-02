@@ -15,12 +15,13 @@ import {
   Input,
   Modal,
   Segmented,
+  Tooltip,
   useToast,
 } from "@/components/ui";
 import { UsersTableSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { Icon, icons } from "@/pages/users/Icons";
-import { roleLabel } from "@/session/session";
+import { accessLabel, roleLabel } from "@/session/session";
 import {
   fetchSystemUsers,
   inviteSystemUser,
@@ -39,8 +40,15 @@ const ROLE_OPTIONS: { value: SystemRole; label: string }[] = [
 const ROLE_HINT: Record<SystemRole, string> = {
   OWNER:
     "Acessa todas as áreas das lojas selecionadas, inclusive Financeiro, e pode gerenciar usuários e integrações. Indicado para sócios e administrativo.",
-  MANAGER: "Acessa Dashboard, exceto Financeiro, Gestão e os horários das lojas selecionadas.",
+  MANAGER:
+    "Acessa o Dashboard das lojas selecionadas, exceto Financeiro, além de Gestão e dos horários de funcionamento.",
 };
+
+/** A Edge devolve o mesmo código para o Gestor principal e para o próprio acesso; a tela sabe qual dos dois é. */
+function errorMessage(r: { message: string; code?: string }, user: SystemUser | null): string {
+  if (r.code === "protected_member" && user?.isSelf) return "Seu próprio acesso não pode ser alterado aqui.";
+  return r.message;
+}
 
 function fmtAgo(iso: string | null): string {
   if (!iso) return "Nunca";
@@ -58,7 +66,7 @@ function storesLabel(ids: string[], stores: SystemUserStore[]): { text: string; 
   if (ids.length === 0) return { text: "Todas as lojas" };
   const names = ids.map((id) => stores.find((s) => s.id === id)?.name ?? "Loja removida");
   if (names.length <= 2) return { text: names.join(", ") };
-  return { text: `${names.length} lojas`, title: names.join(", ") };
+  return { text: `${names.length} lojas`, title: names.join(" · ") };
 }
 
 /** Convite ainda não aceito não tem nome: mostra o e-mail. */
@@ -107,7 +115,7 @@ export function SystemUsersPage() {
     setBusy(false);
     setConfirming(null);
     if (!r.ok) {
-      show(r.message, "danger");
+      show(errorMessage(r, user), "danger");
       return;
     }
     const done = {
@@ -140,12 +148,28 @@ export function SystemUsersPage() {
   };
   const roleColumn: DataTableColumn<SystemUser> = {
     key: "role",
-    header: "Papel",
+    header: "Tipo de acesso",
+    render: (u) =>
+      u.isOwner ? (
+        <Tooltip label="Criou a conta da empresa e não pode ter o acesso alterado aqui.">
+          <Badge variant="accent" className="cursor-help">
+            {accessLabel(u.role, true)}
+          </Badge>
+        </Tooltip>
+      ) : (
+        <Badge variant={u.role === "OWNER" ? "accent" : "info"}>{roleLabel[u.role]}</Badge>
+      ),
+  };
+  const emailColumn: DataTableColumn<SystemUser> = {
+    key: "email",
+    header: "E-mail",
+    sortable: true,
+    sortValue: (u) => u.email.toLowerCase(),
     render: (u) => (
-      <Badge variant={u.role === "OWNER" ? "accent" : "info"}>
-        {roleLabel[u.role]}
-        {u.isOwner ? " principal" : ""}
-      </Badge>
+      <div className="flex min-w-0 items-center gap-3">
+        <Avatar name={u.email} size="sm" />
+        <span className="truncate text-[13px] font-bold text-t0">{u.email}</span>
+      </div>
     ),
   };
   const storesColumn: DataTableColumn<SystemUser> = {
@@ -196,12 +220,12 @@ export function SystemUsersPage() {
   ];
 
   const inviteColumns: DataTableColumn<SystemUser>[] = [
-    nameColumn,
+    emailColumn,
     roleColumn,
     storesColumn,
     {
       key: "sent",
-      header: "Enviado",
+      header: "Enviado em",
       hideBelow: "sm",
       render: (u) => <span className="text-xs text-t2">{fmtAgo(u.invitedAt)}</span>,
     },
@@ -232,7 +256,7 @@ export function SystemUsersPage() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <CardTitle>Usuários</CardTitle>
-          <CardSubtitle>Gestores e gerentes com acesso à WeDash.</CardSubtitle>
+          <CardSubtitle>Acessos ativos, suspensos e convites pendentes.</CardSubtitle>
         </div>
         <Button icon={<Icon d={icons.plus} size={14} />} onClick={() => setEditing({ mode: "invite" })}>
           Convidar usuário
@@ -281,7 +305,7 @@ export function SystemUsersPage() {
                   framed={false}
                   icon="✉️"
                   title="Nenhum convite pendente"
-                  description="Os convites enviados aparecem aqui até a pessoa criar a senha."
+                  description="Os convites aparecem aqui até a pessoa criar o acesso."
                   action={inviteButton}
                 />
               }
@@ -315,7 +339,13 @@ export function SystemUsersPage() {
               Voltar
             </Button>
             <Button variant="danger" disabled={busy} onClick={() => confirming && void run(confirming.action, confirming.user)}>
-              {busy ? "Aguarde…" : confirming?.action === "revoke" ? "Cancelar convite" : "Suspender acesso"}
+              {confirming?.action === "revoke"
+                ? busy
+                  ? "Cancelando…"
+                  : "Cancelar convite"
+                : busy
+                  ? "Suspendendo…"
+                  : "Suspender acesso"}
             </Button>
           </>
         }
@@ -323,7 +353,7 @@ export function SystemUsersPage() {
         <p className="text-sm leading-relaxed text-t1">
           {confirming?.action === "revoke"
             ? `O link enviado para ${confirming.user.email} deixará de funcionar.`
-            : `${confirming ? displayName(confirming.user) : ""} não poderá mais entrar na WeDash. O acesso pode ser reativado depois.`}
+            : `${confirming ? displayName(confirming.user) : ""} não poderá mais entrar na WeDash. O acesso poderá ser reativado depois.`}
         </p>
       </Modal>
     </Card>
@@ -361,6 +391,7 @@ function UserModal({
   onDone: (message: string, toInvites: boolean) => void | Promise<void>;
 }) {
   const user = editing.mode === "edit" ? editing.user : null;
+  const isInvite = user?.status === "PENDING";
   const [email, setEmail] = useState(user?.email ?? "");
   const [role, setRole] = useState<SystemRole>(user?.role ?? "MANAGER");
   const [allStores, setAllStores] = useState(user ? user.storeIds.length === 0 : false);
@@ -400,24 +431,33 @@ function UserModal({
       : await inviteSystemUser({ email: email.trim(), role, storeIds });
     setSaving(false);
     if (!r.ok) {
-      setError(r.message);
+      setError(errorMessage(r, user));
       return;
     }
-    await onDone(user ? "Acesso atualizado." : `Convite enviado para ${email.trim().toLowerCase()}.`, !user);
+    await onDone(
+      !user
+        ? `Convite enviado para ${email.trim().toLowerCase()}.`
+        : isInvite
+          ? "Convite atualizado."
+          : "Acesso atualizado.",
+      !user,
+    );
   }
 
   return (
     <Modal
       open
       onClose={() => !saving && onClose()}
-      title={user ? `Editar acesso · ${displayName(user)}` : "Convidar usuário"}
+      title={
+        !user ? "Convidar usuário" : isInvite ? `Editar convite · ${user.email}` : `Editar acesso · ${displayName(user)}`
+      }
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
           <Button onClick={() => void submit()} disabled={!valid || saving}>
-            {saving ? "Aguarde…" : user ? "Salvar alterações" : "Enviar convite"}
+            {user ? (saving ? "Salvando…" : "Salvar alterações") : saving ? "Enviando…" : "Enviar convite"}
           </Button>
         </>
       }
@@ -432,7 +472,7 @@ function UserModal({
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" autoFocus />
           </FormField>
         )}
-        <FormField label="Papel" hint={ROLE_HINT[role]}>
+        <FormField label="Tipo de acesso" required hint={ROLE_HINT[role]}>
           <Segmented options={ROLE_OPTIONS} value={role} onChange={(v) => v && setRole(v)} />
         </FormField>
         <FormField label="Lojas" required hint={!allStores && picked.size === 0 ? "Escolha ao menos uma loja." : undefined}>
@@ -442,7 +482,7 @@ function UserModal({
               label={
                 <span className="min-w-0">
                   <span className="block font-semibold">Todas as lojas</span>
-                  <span className="block text-[11.5px] text-t2">Inclui também as lojas adicionadas no futuro.</span>
+                  <span className="block text-[11.5px] text-t2">Inclui automaticamente as lojas adicionadas no futuro.</span>
                 </span>
               }
               checked={allStores}

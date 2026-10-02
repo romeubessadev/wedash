@@ -1,5 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildStoreView, buildOverviewView, buildFinanceView, buildProductsView, buildTeamDashboardView, TEAM_SEM_TURNO, monthlyEvolutionMonths, previousPeriod, resolvePeriod, revenueCurve, seriesAxisForPeriod, type ComparisonView, type Period, type Scope, type TrackStatus } from "./dashboard";
+import { buildStoreView, buildOverviewView, buildFinanceView, buildProductsView, buildTeamDashboardView, TEAM_SEM_TURNO, kpiDelta, monthlyEvolutionMonths, previousPeriod, resolvePeriod, revenueCurve, seriesAxisForPeriod, type ComparisonView, type Period, type Scope, type TrackStatus } from "./dashboard";
+import { tipDelta } from "@/lib/format";
+
+describe("tooltip do badge com unidade", () => {
+  it("quantidade nunca aparece solta", () => {
+    expect(tipDelta(kpiDelta(1500, 1234, "o mês passado", "itens")!)).toBe("Em relação ao mês passado: 1.234 itens.");
+    expect(tipDelta(kpiDelta(900, 840, "a semana passada", "vendas")!)).toBe("Em relação à semana passada: 840 vendas.");
+    expect(kpiDelta(1.8, 1.57, "o mês passado", "pa")!.anterior).toBe("1,57 itens por venda");
+    expect(kpiDelta(120, 100, "o mês passado")!.anterior).toBe("R$\u00a0100,00");
+  });
+
+  it("prefixo da métrica", () => {
+    expect(tipDelta(kpiDelta(120, 100, "o mês passado")!, "Faturamento das categorias")).toBe(
+      "Faturamento das categorias em relação ao mês passado: R$\u00a0100,00.",
+    );
+  });
+});
 import { goalOfStore } from "./goals";
 import { EMPTY_STORE_COSTS, stores, storeById } from "./stores";
 import { TODAY_ISO } from "./clock";
@@ -991,25 +1007,40 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
       },
     );
     expect(v.eixoSerie).toBe("hora");
-    // Abre às 10h com R$ 0 (âncora); rótulos = "acumulado até".
+    // Abre às 10h com R$ 0 (âncora); rótulo = início da hora ("12h" = 12:00–12:59).
     expect(v.evolucao[0]).toMatchObject({ label: "10h", realizado: 0, ancora: true });
-    expect(v.evolucao.find((e) => e.label === "13h")?.realizado).toBe(60);
-    expect(v.evolucao.find((e) => e.label === "22h")?.realizado).toBe(60);
-    // Venda após o fechamento (22:xx) continua aparecendo → vai até 23h.
-    expect(v.evolucao[v.evolucao.length - 1]).toMatchObject({ label: "23h", realizado: 100 });
+    const pontos = v.evolucao.filter((e) => !e.ancora);
+    expect(pontos[0]?.label).toBe("10h");
+    expect(pontos.find((e) => e.label === "12h")?.realizado).toBe(60);
+    expect(pontos.find((e) => e.label === "21h")?.realizado).toBe(60);
+    // Venda após o fechamento (22:xx) continua aparecendo → vai até 22h.
+    expect(pontos[pontos.length - 1]).toMatchObject({ label: "22h", realizado: 100 });
   });
 
   it("Faturamento x meta: meta do dia (não do mês) e curva pela hora histórica", () => {
     const day = "2026-09-21";
     const sale = { tenantId: "t1", storeId: "f1", day, brand: "ALL" as const, revenueCents: 50_00, salesCount: 1, itemCount: 1 };
+    const goal = {
+      id: "g1",
+      storeId: "f1",
+      name: "Meta de setembro",
+      startsOn: "2026-09-01",
+      endsOn: "2026-09-30",
+      target: 170_000,
+      tierMode: "INDIVIDUAL" as const,
+      tiers: [],
+      groups: [],
+    };
     const base = {
       dayAggs: [sale],
       hourAggs: [{ ...sale, hour: 15 }],
+      goals: [goal],
     };
     const escopo = { filialIds: ["f1"], periodo: { tipo: "personalizado" as const, inicio: day, fim: day }, divisao: null };
     const linear = buildOverviewView(escopo, base);
+    expect(linear.metaDescricao).toBe("Meta de setembro · 01/09 a 30/09");
     const metaDia = linear.evolucao[linear.evolucao.length - 1]!.meta;
-    // Meta mensal f1 set/26 = 170 mil → um dia fica bem abaixo de 1/20 do mês.
+    // Meta f1 set/26 = 170 mil → um dia fica bem abaixo de 1/20 do mês.
     expect(metaDia).toBeGreaterThan(0);
     expect(metaDia).toBeLessThan(170_000 / 20);
 
@@ -1019,8 +1050,102 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
       goalHistoryHourAggs: ["2026-09-14", "2026-09-07"].map((d) => ({ ...sale, day: d, hour: 15 })),
     });
     const at = (label: string) => curva.evolucao.find((e) => e.label === label)?.meta ?? -1;
-    expect(at("15h")).toBe(0);
-    expect(at("16h")).toBeCloseTo(metaDia);
+    expect(at("14h")).toBe(0);
+    expect(at("15h")).toBeCloseTo(metaDia);
+  });
+
+  it("Faturamento x meta por hora: eixo cobre as horas com meta, não só as horas com venda", () => {
+    const day = "2026-09-21";
+    const sale = { tenantId: "t1", storeId: "f1", day, brand: "ALL" as const, revenueCents: 50_00, salesCount: 1, itemCount: 1 };
+    const v = buildOverviewView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: day, fim: day }, divisao: null },
+      {
+        dayAggs: [sale],
+        hourAggs: [{ ...sale, hour: 15 }],
+        goals: [
+          {
+            id: "g1",
+            storeId: "f1",
+            name: "Meta de setembro",
+            startsOn: "2026-09-01",
+            endsOn: "2026-09-30",
+            target: 170_000,
+            tierMode: "INDIVIDUAL",
+            tiers: [],
+            groups: [],
+          },
+        ],
+      },
+    );
+    // Venda só às 15h, mas a meta se espalha pelo expediente (10h–22h) → eixo do dia inteiro.
+    const labels = v.evolucao.filter((e) => !e.ancora).map((e) => e.label);
+    expect(labels[0]).toBe("10h");
+    expect(labels[labels.length - 1]).toBe("21h");
+  });
+
+  describe("Atingimento da meta = meta inteira, vendido do início da meta até hoje", () => {
+    const meta = (id: string, storeId: string, startsOn: string, endsOn: string, target: number) => ({
+      id,
+      storeId,
+      name: `Meta ${id}`,
+      startsOn,
+      endsOn,
+      target,
+      tierMode: "INDIVIDUAL" as const,
+      tiers: [],
+      groups: [],
+    });
+    const venda = (storeId: string, day: string, reais: number) => ({
+      tenantId: "t1",
+      storeId,
+      day,
+      brand: "ALL" as const,
+      revenueCents: reais * 100,
+      salesCount: 1,
+      itemCount: 1,
+    });
+
+    const setembro = meta("set", "f1", "2026-09-01", "2026-09-30", 170_000);
+
+    it("filtro de 1 dia mostra a meta do mês inteiro com o vendido desde o dia 1", () => {
+      const dia = "2026-09-21";
+      const v = buildOverviewView(
+        { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: dia, fim: dia }, divisao: null },
+        {
+          dayAggs: [venda("f1", dia, 500)],
+          goals: [setembro],
+          goalDayAggs: [venda("f1", "2026-09-02", 1_000), venda("f1", dia, 500)],
+        },
+      );
+      expect(v.gauges[0]).toMatchObject({ alvo: 170_000, realizado: 1_500 });
+      expect(v.metaDescricao).toBe("Meta set · 01/09 a 30/09");
+    });
+
+    it("período de 2 meses soma as metas inteiras dos dois meses", () => {
+      const v = buildOverviewView(
+        { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-20", fim: "2026-09-10" }, divisao: null },
+        {
+          dayAggs: [],
+          goals: [meta("ago", "f1", "2026-08-01", "2026-08-31", 100_000), setembro],
+          goalDayAggs: [venda("f1", "2026-08-05", 1_000), venda("f1", "2026-09-15", 2_000)],
+        },
+      );
+      expect(v.gauges[0]).toMatchObject({ alvo: 270_000, realizado: 3_000 });
+      expect(v.metaDescricao).toBe("2 metas consideradas");
+    });
+
+    it("Todas as lojas: soma só as lojas com meta e avisa quantas têm", () => {
+      const v = buildOverviewView(
+        { filialIds: [], periodo: { tipo: "personalizado", inicio: "2026-09-01", fim: "2026-09-30" }, divisao: null },
+        {
+          dayAggs: [venda("f1", "2026-09-10", 2_000), venda("f2", "2026-09-10", 5_000)],
+          goals: [setembro],
+          goalDayAggs: [venda("f1", "2026-09-10", 2_000)],
+        },
+      );
+      expect(v.gauges[0]).toMatchObject({ alvo: 170_000, realizado: 2_000 });
+      expect(v.metaDescricao).toMatch(/^1 de \d+ lojas com meta$/);
+    });
   });
 
   it("Faturamento x meta (1 dia passado): sem venda pós-fechamento termina no fechamento", () => {
@@ -1037,7 +1162,7 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
       },
     );
     expect(v.evolucao[0]?.label).toBe("10h");
-    expect(v.evolucao[v.evolucao.length - 1]).toMatchObject({ label: "22h", realizado: 50 });
+    expect(v.evolucao[v.evolucao.length - 1]).toMatchObject({ label: "21h", realizado: 50 });
   });
 });
 
@@ -1226,6 +1351,20 @@ describe("buildFinanceView com agregados reais", () => {
     expect(v.deltaResultado).toBeDefined();
     // Período de 2 dias (eixo por dia) → sem Evolução mensal.
     expect(v.evolucaoMensal).toEqual([]);
+  });
+
+  it("1 dia: eixo por hora = expediente da loja (10h–21h), igual ao Faturamento x meta", () => {
+    const d = "2026-09-21";
+    const hr = (hour: number, rev: number) => ({ ...day(d, rev, 0), hour, salesCount: 1, itemCount: 1 });
+    const v = buildFinanceView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: d, fim: d }, divisao: null },
+      { dayAggs: [day(d, 100, 40)], hourAggs: [hr(12, 60), hr(15, 40)] },
+    );
+    const labels = v.custoLucroMargem.map((p) => p.mes);
+    expect(labels[0]).toBe("10h");
+    expect(labels[labels.length - 1]).toBe("21h");
+    expect(v.custoLucroMargem.find((p) => p.mes === "12h")?.faturamento).toBe(60);
+    expect(v.custoLucroMargem.some((p) => p.futuro)).toBe(false);
   });
 
   it("Evolução mensal com vários meses: meses do período, recortados nas pontas", () => {

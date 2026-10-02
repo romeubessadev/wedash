@@ -43,6 +43,8 @@ export const paths = {
   goalNew: "/goals/new",
   goalDetail: (id: string) => `/goals/${id}`,
   goalEdit: (id: string) => `/goals/${id}/edit`,
+  /** Nova meta preenchida com a configuração de outra. */
+  goalCopy: (id: string) => `/goals/new?copy=${encodeURIComponent(id)}`,
   /** Estoque: saldo por local + pedido de compra. `saleTables` e `products` = URLs antigas (redirecionam). */
   stock: {
     inventory: "/stock/inventory",
@@ -53,12 +55,18 @@ export const paths = {
   /** Gestão: operação e equipe (Metas fica em `goals`). */
   management: {
     challenges: "/management/challenges",
+    challengeNew: "/management/challenges/new",
+    challengeDetail: (id: string) => `/management/challenges/${id}`,
+    challengeEdit: (id: string) => `/management/challenges/${id}/edit`,
+    /** Novo desafio preenchido com a configuração de outro. */
+    challengeCopy: (id: string) => `/management/challenges/new?copy=${encodeURIComponent(id)}`,
     shifts: "/management/shifts",
     staff: "/management/staff",
   },
   /** Configurações: parâmetros de custo por loja usados no Financeiro. */
   operation: {
     costs: "/operation/costs",
+    store: "/operation/store",
     franchise: "/operation/franchise",
     rent: "/operation/rent",
     productsTaxes: "/operation/products-and-taxes",

@@ -15,7 +15,10 @@ import { calendarTodayIso } from "@/data/wedash/clock";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { DetalheSkeleton, MetricaDetalhe, pctFmt } from "@/pages/dashboard/ProductDetail";
-import { brlCent, num, tipRelacao } from "@/lib/format";
+import { brlCent, dataCurta, num, tipRelacao } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import { GOAL_STATUS_LABEL, type SellerGoalLevel } from "@/data/wedash/goalView";
+import { GoalLevelSummary } from "@/components/wedash/GoalLevelsBar";
 
 /** Tudo o que a tela Equipe lê — também usado pelo detalhe aberto da Visão geral. */
 export async function fetchTeamAggInput(tenantId: string, escopo: Scope): Promise<TeamAggInput> {
@@ -36,17 +39,20 @@ type Selecao = { key: string; nome: string };
  * Detalhe de uma pessoa da equipe.
  * Com `data` usa os dados da tela; sem `data` busca os dados da Equipe só ao abrir.
  * `turno` = filtro de turno da tela (participação relativa ao turno, igual à tabela).
+ * `niveisMeta` = nível de meta por pessoa (mesma chave da tabela / Destaques) → seção Meta.
  */
 export function useTeamMemberDetail({
   escopo,
   data,
   tenantId,
   turno,
+  niveisMeta,
 }: {
   escopo: Scope;
   data?: TeamAggInput;
   tenantId?: string;
   turno?: string | null;
+  niveisMeta?: Map<string, SellerGoalLevel>;
 }): { abrir: (key: string, nome: string) => void; modal: ReactNode } {
   const [sel, setSel] = useState<Selecao | null>(null);
   const abrir = useCallback((key: string, nome: string) => setSel({ key, nome }), []);
@@ -77,6 +83,7 @@ export function useTeamMemberDetail({
       loading={sel != null && !fonte}
       titulo={sel?.nome}
       detalhe={detalhe}
+      meta={sel ? niveisMeta?.get(sel.key) : undefined}
       turnoFiltro={turno ?? null}
       periodo={resolvePeriod(escopo.periodo, calendarTodayIso()).rotulo}
       onClose={() => setSel(null)}
@@ -120,11 +127,90 @@ function useLazyTeamData(escopo: Scope, tenantId: string | undefined, enabled: b
   return data;
 }
 
+function InfoMeta({ label, mono, className, children }: { label: string; mono?: boolean; className?: string; children: ReactNode }) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <p className="text-[11px] font-semibold text-t2">{label}</p>
+      <p className={cn("mt-0.5 text-[13px] font-bold text-t0", mono && "font-mono tabular-nums")}>{children}</p>
+    </div>
+  );
+}
+
+/** Meta da pessoa: do início da meta até hoje (não segue o filtro de período do modal). */
+function SecaoMeta({ meta }: { meta: SellerGoalLevel }) {
+  const grupo = meta.modo === "grupo";
+  const nivelAtual = meta.nivelNumero != null ? meta.marcos[meta.nivelNumero - 1] : undefined;
+  const total = meta.premiacao + meta.bonus;
+  const situacao =
+    meta.status === "active"
+      ? meta.diasRestantes === 1
+        ? "último dia"
+        : `faltam ${meta.diasRestantes} dias`
+      : GOAL_STATUS_LABEL[meta.status].toLowerCase();
+  const tipPremiacao = [
+    nivelAtual
+      ? grupo
+        ? `${num(nivelAtual.comissaoPct, 1)}% sobre as vendas do grupo, dividido igualmente entre as pessoas.`
+        : `${num(nivelAtual.comissaoPct, 1)}% sobre tudo o que a pessoa vendeu na meta.`
+      : "Ainda abaixo do 1º nível.",
+    meta.bonus > 0 ? `Inclui ${brlCent(meta.bonus)} de bônus dos níveis alcançados.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <section>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <h4 className="text-[13px] font-bold text-t0">Meta</h4>
+        <span className="text-[11.5px] font-semibold text-t2">
+          {meta.metaNome} · {dataCurta(meta.inicio)} a {dataCurta(meta.fim)} · {situacao}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <MetricaDetalhe label={grupo ? "Meta do grupo" : "Meta individual"} valor={brlCent(meta.metaValor)} />
+        <MetricaDetalhe
+          label={grupo ? "Vendas do grupo" : "Vendas na meta"}
+          valor={brlCent(meta.realizado)}
+          tip="Do início da meta até hoje. Não segue o período escolhido na tela."
+        />
+        <MetricaDetalhe label="Premiação até agora" valor={brlCent(total)} destaque={total > 0} tip={tipPremiacao} />
+      </div>
+      <div className="mt-2.5 rounded-xl border border-line bg-bg-inset p-3">
+        <GoalLevelSummary pct={meta.atingimentoPct} nivel={meta.nivel} nivelNumero={meta.nivelNumero} marcos={meta.marcos} rolagem />
+        <div className="mt-3 border-t border-line pt-3">
+          {meta.proximo ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+              <InfoMeta label="Próximo nível" className="col-span-2 sm:col-span-1">
+                N{meta.proximo.numero} · {meta.proximo.nome}
+              </InfoMeta>
+              <InfoMeta label="Falta para o próximo nível" mono>
+                {brlCent(meta.proximo.falta)}
+              </InfoMeta>
+              <InfoMeta label="Ao chegar">
+                {num(meta.proximo.comissaoPct, 1)}% de premiação
+                {meta.proximo.bonus > 0 && <span className="block text-[12px] font-semibold text-t2">+ {brlCent(meta.proximo.bonus)} de bônus</span>}
+              </InfoMeta>
+            </div>
+          ) : (
+            <p className="text-[12.5px] font-semibold text-ok">Chegou ao último nível da meta.</p>
+          )}
+          {grupo && meta.grupo && (
+            <p className="mt-2.5 text-[11.5px] text-t2">
+              Meta por grupo: o grupo <span className="font-semibold text-t1">{meta.grupo}</span> sobe de nível junto, pela soma das vendas.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function TeamMemberDetailModal({
   open,
   loading,
   titulo,
   detalhe,
+  meta,
   turnoFiltro,
   periodo,
   onClose,
@@ -133,6 +219,7 @@ function TeamMemberDetailModal({
   loading: boolean;
   titulo?: string;
   detalhe: TeamMemberDetail | null;
+  meta?: SellerGoalLevel;
   turnoFiltro: string | null;
   periodo: string;
   onClose: () => void;
@@ -172,16 +259,18 @@ function TeamMemberDetailModal({
               <MetricaDetalhe
                 label="Participação"
                 valor={pctFmt(detalhe.participacaoPct)}
-                tip={`Fatia da pessoa no faturamento ${base} no período.`}
+                tip={`Participação da pessoa no faturamento ${base} no período.`}
               />
             </div>
             <p className="mt-2.5 text-[11.5px] text-t2">
               {cmp
                 ? `Variação ${tipRelacao(cmp.vs).replace(/^Em/, "em")}`
                 : "Sem vendas no período anterior para comparar."}
-              {detalhe.pa == null && " P.A. e itens ficam em “—” quando algum dia com venda não tem os itens gravados."}
+              {detalhe.pa == null && " P.A. e itens vendidos ficam indisponíveis quando faltam dados de itens no período."}
             </p>
           </div>
+
+          {meta && <SecaoMeta meta={meta} />}
 
           {detalhe.serie && (
             <section>

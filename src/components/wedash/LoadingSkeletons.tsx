@@ -387,32 +387,11 @@ export function ProductsSkeleton() {
   );
 }
 
-/** Página de tabela sem card (padrão Data Tables): tabela com borda + rodapé "Mostrando…" / paginação. */
+/** Estoque: card Produtos no formato do Desempenho por produto. */
 export function StockProductsSkeleton() {
-  const cols = 5;
-  const grid = { gridTemplateColumns: `1.6fr repeat(${cols - 1}, 1fr)` };
   return (
     <Busy>
-      <div className="overflow-x-auto rounded-[var(--radius-vela-lg)] border border-line bg-bg-2">
-        <div style={{ minWidth: cols * 110 }}>
-          <div className="grid gap-4 border-b border-line px-4 py-3" style={grid}>
-            {Array.from({ length: cols }, (_, c) => (
-              <Skeleton key={c} className={cn("h-2.5 w-16", c > 0 && "justify-self-end")} />
-            ))}
-          </div>
-          {Array.from({ length: 10 }, (_, r) => (
-            <div key={r} className="grid items-center gap-4 border-b border-line px-4 py-3.5 last:border-b-0" style={grid}>
-              {Array.from({ length: cols }, (_, c) => (
-                <Skeleton key={c} className={cn("h-3.5", c === 0 ? "w-3/5" : "w-3/4 justify-self-end")} />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <Skeleton className="h-3 w-40" />
-        <Skeleton className="h-8 w-48 rounded-[var(--radius-vela-sm)]" />
-      </div>
+      <TopTableSkeleton titleW="w-24" rows={10} variacao />
     </Busy>
   );
 }
@@ -537,78 +516,194 @@ export function GoalCardsSkeleton({ count = 3 }: { count?: number }) {
   return (
     <Busy className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: count }, (_, i) => (
-        <Card key={i}>
-          <div className="mb-4 flex items-center gap-3">
-            <Skeleton className="h-11 w-11 shrink-0 rounded-[12px]" />
+        <div key={i} className="rounded-2xl border border-line bg-bg-2 p-5 shadow-[var(--shadow-vela)]">
+          <div className="mb-3.5 flex items-center gap-3.5">
+            <Skeleton className="h-[50px] w-[50px] shrink-0 rounded-[14px]" />
             <div className="min-w-0 flex-1">
               <Skeleton className="h-4 w-3/5" />
               <Skeleton className="mt-2 h-3 w-2/5" />
             </div>
-            <Skeleton className="h-6 w-24 shrink-0 self-start rounded-full" />
+            <div className="flex shrink-0 gap-1.5 self-start">
+              <Skeleton className="h-7 w-7 rounded-lg" />
+              <Skeleton className="h-7 w-7 rounded-lg" />
+            </div>
           </div>
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="mt-2 h-5 w-32" />
-          <div className="mt-3 flex items-center justify-between">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-4 w-12" />
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3 w-24" />
           </div>
-          <Skeleton className="mt-2 h-2 w-full rounded-full" />
-          <div className="mt-3.5 flex gap-1.5">
-            <Pill className="w-20" />
-            <Pill className="w-16" />
-            <Pill className="w-20" />
-          </div>
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+          <Skeleton className="mt-2 h-[5px] w-full rounded-full" />
+          <Skeleton className="mt-2 h-3 w-36" />
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex gap-1.5">
+              <Pill className="w-24" />
+              <Pill className="w-16" />
+              <Pill className="w-16" />
+            </div>
             <div className="flex -space-x-2">
               {Array.from({ length: 3 }, (_, j) => (
                 <Skeleton key={j} className="h-8 w-8 rounded-full border-2 border-bg-2" />
               ))}
             </div>
-            <div className="flex gap-2">
-              <Skeleton className="h-8 w-16 rounded-[10px]" />
-              <Skeleton className="h-8 w-24 rounded-[10px]" />
-            </div>
           </div>
-        </Card>
+        </div>
       ))}
     </Busy>
   );
 }
 
-/** Detalhe da meta: card da meta (título + badges + faixa + tabela da escada). */
+/** Detalhe da meta: resumo (ícone + nome + números) · níveis com a barra de progresso · equipe. */
 export function GoalDetailSkeleton() {
   return (
     <Busy>
-      <Card padding="lg">
-        <Title className="w-48" />
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <Pill className="w-20" />
-          <Pill className="w-28" />
-          <Pill className="w-24" />
-          <Pill className="w-16" />
+      <Card padding="lg" className="mb-5">
+        <div className="flex items-start gap-4">
+          <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
+          <div className="flex-1">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="mt-2.5 h-3.5 w-64" />
+          </div>
         </div>
-        <div className="mt-6 flex items-end justify-between">
-          <Skeleton className="h-6 w-56" />
-          <Skeleton className="h-7 w-20" />
-        </div>
-        <Skeleton className="mt-4 h-3 w-full rounded-full" />
-        <div className="mt-2 flex justify-between">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-3 w-20" />
-          ))}
-        </div>
-        <div className="mt-6 flex flex-col gap-3">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-              <Skeleton className="h-3.5 w-40" />
-              <Skeleton className="ml-auto h-3.5 w-24" />
-              <Skeleton className="hidden h-3.5 w-16 md:block" />
-              <Skeleton className="hidden h-6 w-24 rounded-full md:block" />
+        <div className="mt-5 grid grid-cols-2 gap-3.5 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i}>
+              <Skeleton className="h-2.5 w-20" />
+              <Skeleton className="mt-2 h-4 w-24" />
             </div>
           ))}
         </div>
       </Card>
+      <div className="flex flex-col gap-4">
+        <Card>
+          <Title className="w-40" />
+          <Skeleton className="mt-4 h-3 w-full rounded-full" />
+          <div className="mt-2 flex justify-between">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-3 w-20" />
+            ))}
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3">
+                <Skeleton className="h-[26px] w-[26px] shrink-0 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="h-3.5 w-28" />
+                  <Skeleton className="mt-1.5 h-3 w-56" />
+                </div>
+                <Skeleton className="h-4 w-12" />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <Title className="w-32" />
+          <div className="mt-4 flex flex-col gap-3">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="ml-auto h-3.5 w-24" />
+                <Skeleton className="hidden h-3.5 w-16 md:block" />
+                <Skeleton className="hidden h-6 w-24 rounded-full md:block" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </Busy>
+  );
+}
+
+/** Desafios: card da listagem (ícone + nome/período + botões · líder · prêmio · prazo · chips). */
+export function ChallengeCardsSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <Busy className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="rounded-2xl border border-line bg-bg-2 p-5 shadow-[var(--shadow-vela)]">
+          <div className="mb-3.5 flex items-center gap-3.5">
+            <Skeleton className="h-[50px] w-[50px] shrink-0 rounded-[14px]" />
+            <div className="min-w-0 flex-1">
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="mt-2 h-3 w-2/5" />
+            </div>
+            <div className="flex shrink-0 gap-1.5 self-start">
+              <Skeleton className="h-7 w-7 rounded-lg" />
+              <Skeleton className="h-7 w-7 rounded-lg" />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-3.5 w-36" />
+            <Skeleton className="h-3.5 w-20" />
+          </div>
+          <Skeleton className="mt-2 h-3 w-28" />
+          <div className="mt-4 flex gap-1.5">
+            <Pill className="w-24" />
+            <Pill className="w-20" />
+            <Pill className="w-16" />
+          </div>
+        </div>
+      ))}
+    </Busy>
+  );
+}
+
+/** Detalhe do desafio: resumo (ícone + nome + números) · tabela de participantes. */
+export function ChallengeDetailSkeleton() {
+  return (
+    <Busy>
+      <Card padding="lg" className="mb-5">
+        <div className="flex items-start gap-4">
+          <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
+          <div className="flex-1">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="mt-2.5 h-3.5 w-64" />
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3.5 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i}>
+              <Skeleton className="h-2.5 w-20" />
+              <Skeleton className="mt-2 h-4 w-24" />
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <Title className="w-32" />
+        <div className="mt-4 flex flex-col gap-3">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-5 shrink-0" />
+              <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="ml-auto h-3.5 w-20" />
+              <Skeleton className="hidden h-3.5 w-14 md:block" />
+              <Skeleton className="hidden h-6 w-28 rounded-full md:block" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </Busy>
+  );
+}
+
+/** Editor do desafio: cards Informações gerais · Métrica · Modo e prêmios. */
+export function ChallengeEditorSkeleton() {
+  return (
+    <Busy className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+      {[4, 3, 5].map((campos, i) => (
+        <Card key={i}>
+          <Title className="w-36" />
+          <div className="mt-4 flex flex-col gap-4">
+            {Array.from({ length: campos }, (_, j) => (
+              <div key={j}>
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="mt-2 h-10 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
     </Busy>
   );
 }
@@ -668,19 +763,28 @@ export function StoreDetailSkeleton() {
     <Busy className="flex max-w-[720px] flex-col gap-5">
       <Card>
         <CardHead />
-        <FieldSkeleton />
-        <Skeleton className="mt-4 mb-2 h-3 w-16" />
-        {Array.from({ length: 7 }, (_, i) => (
-          <div key={i} className="flex min-h-[44px] items-center gap-3 py-1">
-            <Skeleton className="h-3.5 w-9 shrink-0 sm:w-24" />
-            <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
-            <span className="hidden w-12 sm:block" />
-            <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
-            <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
-          </div>
-        ))}
+        <ScheduleSkeleton />
       </Card>
     </Busy>
+  );
+}
+
+/** Fuso horário + 7 linhas de horário (Funcionamento da loja). */
+function ScheduleSkeleton() {
+  return (
+    <>
+      <FieldSkeleton />
+      <Skeleton className="mt-4 mb-2 h-3 w-16" />
+      {Array.from({ length: 7 }, (_, i) => (
+        <div key={i} className="flex min-h-[44px] items-center gap-3 py-1">
+          <Skeleton className="h-3.5 w-9 shrink-0 sm:w-24" />
+          <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
+          <span className="hidden w-12 sm:block" />
+          <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
+          <Skeleton className="h-9 w-24 rounded-[var(--radius-vela-sm)]" />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -741,13 +845,22 @@ export function StoreCardsSkeleton({
   rows = 0,
   shifts = false,
   team = false,
+  schedule = false,
+  sections = 0,
+  intro = false,
   wide = false,
 }: {
+  /** Linha de texto de apoio antes dos campos. */
+  intro?: boolean;
   count?: number;
   fields?: number;
   rows?: number;
   shifts?: boolean;
   team?: boolean;
+  /** Funcionamento: fuso + horário por dia. */
+  schedule?: boolean;
+  /** Texto de apoio + N seções (título, apoio e 2 campos), ex.: Franquia por marca. */
+  sections?: number;
   wide?: boolean;
 }) {
   return (
@@ -765,6 +878,25 @@ export function StoreCardsSkeleton({
           <Card key={c}>
             <StoreHeadSkeleton />
             {shifts && <ShiftRowsSkeleton />}
+            {schedule && <ScheduleSkeleton />}
+            {sections > 0 && (
+              <div className="flex flex-col gap-4">
+                <Skeleton className="h-3 w-full max-w-[520px]" />
+                {Array.from({ length: sections }, (_, s) => (
+                  <div key={s} className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-20" />
+                      <Skeleton className="h-3 w-72 max-w-full" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <FieldSkeleton />
+                      <FieldSkeleton />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {intro && <Skeleton className="mb-4 h-3 w-full max-w-[520px]" />}
             {fields > 0 && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {Array.from({ length: fields }, (_, i) => (

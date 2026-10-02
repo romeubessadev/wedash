@@ -4,10 +4,10 @@ import { CampoSenha, CamposNome, ForcaSenha, nomePessoaValido, type NomePessoa }
 import { SAVE_ERROR_MSG } from "@/pages/operation/shared";
 import { PlusIcon } from "@/pages/utility/icons";
 import { AVATAR_TIPOS } from "@/lib/avatar";
-import { senhaValida } from "@/lib/password";
+import { SENHA_REGRA_TEXTO, senhaValida } from "@/lib/password";
 import { titleName } from "@/lib/format";
-import { changeMyPassword, fetchMyNames, saveMyProfile } from "@/session/authApi";
-import { roleLabel, useActiveSession, useSession } from "@/session/SessionProvider";
+import { changeMyPassword, fetchMyNames, saveMyProfile, saveThemePreference } from "@/session/authApi";
+import { accessLabel, useActiveSession, useSession } from "@/session/SessionProvider";
 import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -81,7 +81,7 @@ function ProfileSummaryCard({ salvo }: { salvo: NomePessoa }) {
       </div>
       <h2 className="mb-0.5 truncate text-lg font-extrabold text-t0">{session.name}</h2>
       <p className="mb-3.5 truncate text-[13px] text-t2">{session.email}</p>
-      <Badge variant="accent">{roleLabel[session.role]}</Badge>
+      <Badge variant="accent">{accessLabel(session.role, session.isOwner)}</Badge>
       {session.avatarUrl && (
         <div className="mt-3.5">
           <button type="button" onClick={() => void gravarFoto(null)} disabled={enviando} className="text-[12.5px] font-semibold text-t2 hover:text-bad">
@@ -125,13 +125,13 @@ function PersonalDataCard({ salvo, onSaved }: { salvo: NomePessoa; onSaved: (n: 
       <form onSubmit={salvar} noValidate>
         <div className="flex flex-col gap-4">
           <CamposNome valor={nome} onChange={(p) => setNome((n) => ({ ...n, ...p }))} />
-          <FormField label="E-mail">
+          <FormField label="E-mail" hint="O e-mail é usado para entrar na WeDash e não pode ser alterado aqui.">
             <Input value={session.email} readOnly disabled />
           </FormField>
         </div>
         <div className="mt-4.5 flex justify-end gap-2.5">
           <Button variant="outline" type="button" onClick={() => setNome(salvo)} disabled={!dirty || saving}>
-            Resetar
+            Desfazer alterações
           </Button>
           <Button type="submit" disabled={!dirty || saving}>
             {saving ? "Salvando…" : "Salvar alterações"}
@@ -176,17 +176,15 @@ function PasswordCard() {
         {/* Escondido: gerenciador de senhas associa a senha nova a este login. */}
         <input type="email" name="username" autoComplete="username" value={session.email} readOnly tabIndex={-1} aria-hidden className="sr-only" />
         <CampoSenha label="Senha atual" value={atual} onChange={setAtual} placeholder="Digite sua senha atual" autoComplete="current-password" />
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <CampoSenha label="Nova senha" value={nova} onChange={setNova} placeholder="Digite a nova senha" autoComplete="new-password" />
-          <CampoSenha
-            label="Confirme a nova senha"
-            value={confirma}
-            onChange={setConfirma}
-            placeholder="Digite novamente"
-            autoComplete="new-password"
-            erro={erroConfirma}
-          />
-        </div>
+        <CampoSenha label="Nova senha" value={nova} onChange={setNova} placeholder={SENHA_REGRA_TEXTO} autoComplete="new-password" />
+        <CampoSenha
+          label="Confirme a nova senha"
+          value={confirma}
+          onChange={setConfirma}
+          placeholder="Digite novamente"
+          autoComplete="new-password"
+          erro={erroConfirma}
+        />
         <ForcaSenha senha={nova} />
         <Button type="submit" className="self-start" disabled={!pode}>
           {saving ? "Alterando…" : "Alterar senha"}
@@ -201,10 +199,18 @@ function ThemeCard() {
   return (
     <Card>
       <div className="mb-4">
-        <CardTitle>Tema</CardTitle>
-        <CardSubtitle>Vale só para este aparelho. Automático segue o tema do aparelho.</CardSubtitle>
+        <CardTitle>Aparência</CardTitle>
+        <CardSubtitle>Escolha como a WeDash aparece para você em todos os aparelhos. No modo Automático, seguimos a configuração do sistema de cada aparelho.</CardSubtitle>
       </div>
-      <Segmented options={THEME_OPTIONS} value={preference} onChange={(v) => v && setPreference(v)} />
+      <Segmented
+        options={THEME_OPTIONS}
+        value={preference}
+        onChange={(v) => {
+          if (!v) return;
+          setPreference(v);
+          void saveThemePreference(v);
+        }}
+      />
     </Card>
   );
 }

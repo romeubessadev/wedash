@@ -45,6 +45,7 @@ export function useCostFields(loja: Store, fields: CostField[]) {
 
   return {
     txt,
+    saved,
     dirty,
     setField: (key: string, v: string) => setTxt((p) => ({ ...p, [key]: v })),
     reset: () => setTxt(saved),
@@ -57,17 +58,24 @@ export function useCostFields(loja: Store, fields: CostField[]) {
   };
 }
 
-export const INVALID_COSTS_MSG = "Confira os valores. Use percentuais entre 0 e 100 e valores em R$ sem sinal negativo.";
+export const INVALID_COSTS_MSG = "Confira os valores. Use percentuais entre 0 e 100 e não informe valores negativos.";
+
+/** Bloco de campos com título e texto de apoio próprios (ex.: uma marca). */
+export type CostFieldSection = { title: string; hint?: string; keys: string[] };
 
 /** Card da loja com campos de custo e Resetar/Salvar próprios. */
 export function CostFieldsCard({
   loja,
   fields,
+  intro,
+  sections,
   footer,
   onSaved,
 }: {
   loja: Store;
   fields: CostField[];
+  intro?: ReactNode;
+  sections?: CostFieldSection[];
   footer?: ReactNode;
   onSaved: () => void;
 }) {
@@ -87,6 +95,21 @@ export function CostFieldsCard({
     show("Alterações salvas.", "success");
   }
 
+  const grid = (list: CostField[]) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {list.map((f) => (
+        <NumberField
+          key={f.key}
+          label={f.label}
+          hint={f.hint}
+          unit={f.unit}
+          value={form.txt[f.key] ?? ""}
+          onChange={(v) => form.setField(f.key, v)}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <Card>
       <StoreCardHeader loja={loja} />
@@ -97,18 +120,20 @@ export function CostFieldsCard({
           void save();
         }}
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {fields.map((f) => (
-            <NumberField
-              key={f.key}
-              label={f.label}
-              hint={f.hint}
-              unit={f.unit}
-              value={form.txt[f.key] ?? ""}
-              onChange={(v) => form.setField(f.key, v)}
-            />
-          ))}
-        </div>
+        {intro && <p className="text-[12.5px] text-t2">{intro}</p>}
+        {sections ? (
+          sections.map((s) => (
+            <div key={s.title} className="flex flex-col gap-3">
+              <div>
+                <p className="text-[14px] font-bold text-t0">{s.title}</p>
+                {s.hint && <p className="mt-0.5 text-[12.5px] text-t2">{s.hint}</p>}
+              </div>
+              {grid(fields.filter((f) => s.keys.includes(f.key)))}
+            </div>
+          ))
+        ) : (
+          grid(fields)
+        )}
         {footer}
         <FormActions dirty={form.dirty} saving={saving} onReset={form.reset} />
       </form>

@@ -10,6 +10,10 @@ export interface Tier {
    * Regra de produto: R$ 50 por nível (1→50, 2→100, 3→150, 4→200).
    */
   bonus: number;
+  /** Premiação da gerência (% sobre o faturamento total da loja) ao a loja chegar neste nível; ausente = sem premiação da gerência. */
+  gerenciaPct?: number;
+  /** Bônus da gerência (R$) ao a loja chegar neste nível; soma com os níveis anteriores. */
+  gerenciaBonus?: number;
 }
 
 export type GoalType = "individual" | "grupo";

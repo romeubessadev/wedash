@@ -42,6 +42,7 @@ import {
   groupCouponLines,
   priceTableDayAggsFromCouponLines,
   productDayAggsFromCouponLines,
+  sellerProductDayAggsFromCouponLines,
   type CouponReportLine,
   type CouponSeller,
   type PriceTableDayAgg,
@@ -51,6 +52,7 @@ import type {
   SalesProductDayAgg,
   SalesProductCostDayAgg,
   SalesSellerDayAgg,
+  SalesSellerProductDayAgg,
 } from "../../../src/data/wedash/salesTypes.ts";
 import { onboardingHistoryUntil, SYNC_OFF_NOTE, syncOnboardingOff } from "./syncConfig.ts";
 import { formatElapsed, nowMs, StepTimings } from "./syncTiming.ts";
@@ -1015,6 +1017,11 @@ async function saveCouponProducts(
     dayOf: (key) => dayByCoupon.get(key) ?? null,
   });
   const tableRows = priceTableDayAggsFromCouponLines(byCoupon, (key) => dayByCoupon.get(key) ?? null);
+  const sellerRows = sellerProductDayAggsFromCouponLines(byCoupon, {
+    tenantId: args.tenantId,
+    storeId: args.store.id,
+    dayOf: (key) => dayByCoupon.get(key) ?? null,
+  });
   for (const w of args.coupon.okWindows) {
     await deps.replaceProductDayAggs({
       tenantId: args.tenantId,
@@ -1029,6 +1036,13 @@ async function saveCouponProducts(
       from: w.from,
       to: w.to,
       rows: tableRows.filter((r) => r.day >= w.from && r.day <= w.to),
+    });
+    await saveSellerProductDayAggs(deps, {
+      tenantId: args.tenantId,
+      store: args.store,
+      from: w.from,
+      to: w.to,
+      rows: sellerRows.filter((r) => r.day >= w.from && r.day <= w.to),
     });
   }
   detail(
@@ -1084,6 +1098,17 @@ async function syncCouponProductsForDays(
       to: day,
       rows: priceTableDayAggsFromCouponLines(byCoupon, () => day),
     });
+    await saveSellerProductDayAggs(deps, {
+      tenantId: args.tenantId,
+      store: args.store,
+      from: day,
+      to: day,
+      rows: sellerProductDayAggsFromCouponLines(byCoupon, {
+        tenantId: args.tenantId,
+        storeId: args.store.id,
+        dayOf: () => day,
+      }),
+    });
   }
 }
 
@@ -1097,6 +1122,27 @@ async function savePriceTableDayAggs(
     await deps.replacePriceTableDayAggs({ tenantId: args.tenantId, storeId: args.store.id, from: args.from, to: args.to, rows: args.rows });
   } catch (e) {
     console.warn(`  [${args.store.code}] tabela de preço das vendas: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+/** Itens por pessoa × produto (desafios). Soft-fail: o top produtos do dia já foi gravado. */
+async function saveSellerProductDayAggs(
+  deps: SyncJobDeps,
+  args: { tenantId: string; store: SyncStore; from: string; to: string; rows: SalesSellerProductDayAgg[] },
+): Promise<void> {
+  if (!deps.replaceSellerProductDayAggs) return;
+  try {
+    await deps.replaceSellerProductDayAggs({
+      tenantId: args.tenantId,
+      storeId: args.store.id,
+      from: args.from,
+      to: args.to,
+      rows: args.rows,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e);
+    console.warn(`  ⚠ [${args.store.code}] itens por pessoa não gravaram: ${msg}`);
+    syncLog("WARN", "itens_pessoa", `Itens por pessoa não gravaram: ${msg}`, { store: args.store });
   }
 }
 
@@ -1378,6 +1424,14 @@ export type SyncJobDeps = {
     from: string;
     to: string;
     rows: PriceTableDayAgg[];
+  }) => Promise<void>;
+  /** Substitui os itens por pessoa × produto no intervalo [from,to] da loja (relatório de cupom; desafios). */
+  replaceSellerProductDayAggs?: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+    rows: SalesSellerProductDayAgg[];
   }) => Promise<void>;
   /** Substitui o CMV por produto (RELATORIOMARGEM) nos dias informados da loja. */
   replaceProductCostDayAggs: (args: {
@@ -2662,8 +2716,8 @@ async function runRefreshJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSyncRe
     }
   }
 
-  // Hoje só fecha com pedido explícito (job antigo na fila); o normal é a 1ª rodada depois da meia-noite
-  // fechar ontem como dia pendente, acima.
+  // Hoje só fecha com pedido explícito (job antigo na fila); o normal é a madrugada (CLOSE) fechar ontem —
+  // se ela não rodou, a 1ª rodada do dia fecha ontem como dia pendente, acima.
   const closeRequested = new Set(job.payload.closeStoreIds ?? []);
   const fullStoreIds = stores.filter((s) => closeRequested.has(s.id)).map((s) => s.id);
   const res = await runSyncJob(

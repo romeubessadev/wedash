@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { fetchSyncWatermark } from "@/data/wedash/salesRepo";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "./useForceRefresh";
 
-/** Horário da última busca das vendas de hoje (Atualizar manual/automático, carga do onboarding). */
-export function lastUpdatedLabel(at: Date, now: Date = new Date()): string {
+/** Horário da última busca das vendas de hoje (Atualizar manual/automático, carga do onboarding), em linhas. */
+export function lastUpdatedLines(at: Date, now: Date = new Date()): string[] {
   const hora = at.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  const dia = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  if (at.toDateString() === now.toDateString()) return `Vendas de hoje atualizadas às ${hora}`;
-  return `Vendas de hoje ainda não atualizadas · última atualização em ${dia(at)} às ${hora}`;
+  const dia = at.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  if (at.toDateString() === now.toDateString()) return [`Vendas de hoje atualizadas às ${hora}`];
+  return ["Vendas de hoje ainda não atualizadas", `Última atualização em ${dia} às ${hora}`];
 }
 
-const TIP_LAST_UPDATED =
-  "Horário da última busca das vendas de hoje no Millennium. O fechamento de dias anteriores, feito de madrugada, não altera este horário.";
+/** Mesma informação numa linha só (cabeçalho do PDF). */
+export function lastUpdatedLabel(at: Date, now: Date = new Date()): string {
+  return lastUpdatedLines(at, now).join(" · ");
+}
 
-/** Linha abaixo dos filtros das telas: quando os dados do ERP foram atualizados pela última vez (sem sync ainda = nada). */
-export function LastUpdated({ plain = false }: { plain?: boolean }) {
+/** Cabeçalho do PDF: quando as vendas de hoje foram buscadas pela última vez (sem sync ainda = nada). Na tela fica no tooltip do Atualizar. */
+export function LastUpdated() {
   const session = useActiveSession();
   const [at, setAt] = useState<Date | null>(null);
 
@@ -36,10 +37,5 @@ export function LastUpdated({ plain = false }: { plain?: boolean }) {
   }, [load]);
 
   if (!at) return null;
-  if (plain) return <span>{lastUpdatedLabel(at)}</span>;
-  return (
-    <Tooltip label={TIP_LAST_UPDATED}>
-      <span className="cursor-help text-[11.5px] text-t2">{lastUpdatedLabel(at)}</span>
-    </Tooltip>
-  );
+  return <span>{lastUpdatedLabel(at)}</span>;
 }

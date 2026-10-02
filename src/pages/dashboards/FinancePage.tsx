@@ -31,7 +31,8 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
-import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { StoreHoursNotice } from "@/pages/dashboard/StoreHoursNotice";
+import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
@@ -259,7 +260,7 @@ export default function FinancePage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Acompanhe receita, custos, margens e resultado da operação."
+        subtitle="Acompanhe faturamento, custos, margens e resultado da operação."
         actions={
           <div className="flex flex-col items-start gap-2 sm:items-end">
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
@@ -274,13 +275,14 @@ export default function FinancePage() {
                 Exportar
               </Button>
             </div>
-            <LastUpdated />
           </div>
         }
       />
 
+      <ErpStatusNotice />
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      <StoreHoursNotice />
       {!loading && (
         <ProductsWithoutCostNotice
           produtos={view.produtosSemCusto}
@@ -355,7 +357,7 @@ export default function FinancePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <CardTitle>CMV, lucro e margem</CardTitle>
-                      <TipHelp label="Veja como o faturamento se distribui entre custo dos produtos, lucro bruto e margem." />
+                      <TipHelp label="Compare a evolução do CMV e do lucro bruto e acompanhe a margem do período." />
                     </div>
                     <div className="shrink-0">
                       <BadgeVsAnterior delta={deltaLucro} />
@@ -390,9 +392,10 @@ export default function FinancePage() {
                 <EmptyBlock />
               ) : (
                 <AreaLineChart
-                  data={serie.map((m) => m.lucro)}
-                  compareData={serie.map((m) => m.custo)}
+                  data={serie.map((m) => (m.futuro ? null : m.lucro))}
+                  compareData={serie.map((m) => (m.futuro ? null : m.custo))}
                   labels={serie.map((m) => m.mes)}
+                  tooltipLabels={serie.map((m) => m.faixa)}
                   color="var(--ok)"
                   compareColor="var(--bad)"
                   formatValue={brlCent}
@@ -454,9 +457,10 @@ export default function FinancePage() {
                 <EmptyBlock />
               ) : (
                 <AreaLineChart
-                  data={serie.map((m) => m.lucro)}
-                  compareData={serie.map((m) => m.resultado)}
+                  data={serie.map((m) => (m.futuro ? null : m.lucro))}
+                  compareData={serie.map((m) => (m.futuro ? null : m.resultado))}
                   labels={serie.map((m) => m.mes)}
+                  tooltipLabels={serie.map((m) => m.faixa)}
                   color="var(--ok)"
                   compareColor="var(--acc)"
                   formatValue={brlCent}

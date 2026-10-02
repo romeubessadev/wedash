@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Avatar, Button, Pagination } from "@/components/ui";
+import { Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import type { StockProductRow } from "@/data/wedash/stockProducts";
+import { STOCK_SALES_LOCATION, type StockProductRow } from "@/data/wedash/stockProducts";
 import { brlCent, num } from "@/lib/format";
 
 export const TipHelp = ({ label }: { label: string }) => (
@@ -22,11 +22,11 @@ export function localQty(r: StockProductRow, nome: string): number {
   return r.lojas.reduce((s, l) => s + (l.locais.find((x) => x.nome === nome)?.qtd ?? 0), 0);
 }
 
-/** Locais de estoque com saldo em algum produto, na ordem da hierarquia: Estoque, os demais em ordem alfabética, Loja. */
+/** Locais de estoque com saldo em algum produto, na ordem da hierarquia: Estoque, os demais em ordem alfabética, Ponto de venda. */
 export function stockLocations(rows: StockProductRow[]): string[] {
   const nomes = new Set<string>();
   for (const r of rows) for (const l of r.lojas) for (const x of l.locais) nomes.add(x.nome);
-  const ordem = (n: string) => (n === "ESTOQUE" ? 0 : n === "LOJA" ? 2 : 1);
+  const ordem = (n: string) => (n === "ESTOQUE" ? 0 : n === STOCK_SALES_LOCATION ? 2 : 1);
   return [...nomes].sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b, "pt-BR"));
 }
 
@@ -46,23 +46,6 @@ export function TableFooter({ shown, total, page, totalPages, onPage }: { shown:
         Mostrando {shown} de {num(total)} produtos
       </span>
       {totalPages > 1 && <Pagination page={page} totalPages={totalPages} onChange={onPage} />}
-    </div>
-  );
-}
-
-/** Nome do produto + código · categoria, primeira coluna das tabelas. */
-export function ProductCell({ r, extra }: { r: StockProductRow; extra?: ReactNode }) {
-  return (
-    <div className="flex min-w-0 max-w-[320px] items-center gap-2.5">
-      <Avatar name={r.nome} size="sm" />
-      <div className="min-w-0">
-        <p className="truncate text-[13.5px] font-bold text-t0">{r.nome}</p>
-        <p className="truncate text-[11.5px] text-t2">
-          {r.codigo}
-          {r.categoria && ` · ${r.categoria}`}
-        </p>
-        {extra}
-      </div>
     </div>
   );
 }

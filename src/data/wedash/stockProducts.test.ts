@@ -125,13 +125,13 @@ describe("buildStockProductsView", () => {
         { storeId: "b", code: "P1", qty: -1 },
         { storeId: "a", code: "P2", qty: 3, locations: { ESTOQUE: 5, QUIOSQUE: -2 } },
         { storeId: "a", code: "P3", qty: 2 },
-        { storeId: "a", code: "P5", qty: 10, locations: { Estoque: 4, Loja: 6 } },
+        { storeId: "a", code: "P5", qty: 10, locations: { Estoque: 4, "PONTO DE VENDA": 6 } },
         { storeId: "b", code: "P6", qty: 3, locations: { Estoque: 3 } },
-        { storeId: "a", code: "P7", qty: -10, locations: { Estoque: 10, Loja: -20 } },
-        { storeId: "a", code: "P8", qty: 2, locations: { Shop010: 5, Loja: -3 } },
+        { storeId: "a", code: "P7", qty: -10, locations: { Estoque: 10, "PONTO DE VENDA": -20 } },
+        { storeId: "a", code: "P8", qty: 2, locations: { Shop010: 5, "PONTO DE VENDA": -3 } },
         { storeId: "a", code: "P9", qty: 4, locations: { Estoque: 6, Shop010: -2 } },
-        { storeId: "a", code: "P10", qty: 1, locations: { Loja: 3, Shop010: -2 } },
-        { storeId: "a", code: "P11", qty: 2, locations: { Estoque: -1, Loja: 3 } },
+        { storeId: "a", code: "P10", qty: 1, locations: { "PONTO DE VENDA": 3, Shop010: -2 } },
+        { storeId: "a", code: "P11", qty: 2, locations: { Estoque: -1, "PONTO DE VENDA": 3 } },
       ],
       costPrices: new Map(),
       salePrices: new Map(),
@@ -172,14 +172,14 @@ describe("stockTransfers", () => {
       stockTransfers([
         { nome: "Estoque", qtd: 8 },
         { nome: "Shop010", qtd: -3 },
-        { nome: "Loja", qtd: -10 },
+        { nome: "PONTO DE VENDA", qtd: -10 },
       ]),
     ).toEqual([
       { de: "Estoque", para: "Shop010", qtd: 3 },
-      { de: "Estoque", para: "Loja", qtd: 5 },
+      { de: "Estoque", para: "PONTO DE VENDA", qtd: 5 },
     ]);
-    expect(stockTransfers([{ nome: "Loja", qtd: 3 }, { nome: "Shop010", qtd: -2 }])).toEqual([]);
-    expect(stockTransfers([{ nome: "Estoque", qtd: -1 }, { nome: "Loja", qtd: 3 }])).toEqual([]);
+    expect(stockTransfers([{ nome: "PONTO DE VENDA", qtd: 3 }, { nome: "Shop010", qtd: -2 }])).toEqual([]);
+    expect(stockTransfers([{ nome: "Estoque", qtd: -1 }, { nome: "PONTO DE VENDA", qtd: 3 }])).toEqual([]);
   });
 });
 

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Card, FormField, Segmented, useToast } from "@/components/ui";
+import { Card, Segmented, useToast } from "@/components/ui";
 import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { updateStoreCosts, type PointType, type Store } from "@/data/wedash/stores";
 import { INVALID_COSTS_MSG, useCostFields, type CostField } from "./costFields";
-import { FormActions, NumberField, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, useScopedStores } from "./shared";
+import { FormActions, NumberField, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPage, parseNum, useScopedStores } from "./shared";
 
 const RENT_MIN: CostField = {
   key: "rentMin",
@@ -31,22 +31,28 @@ const POINT_OPTIONS: { value: PointType; label: string }[] = [
   { value: "RUA", label: "Loja de rua" },
 ];
 
-const POINT_HINT: Record<PointType, string> = {
-  SHOPPING:
-    "No shopping, a WeDash considera o aluguel e, quando o percentual sobre o faturamento for maior, acrescenta a diferença como aluguel extra. Exemplo: aluguel de R$ 10.000 e percentual de 10% sobre R$ 120.000 em faturamento = R$ 2.000 de aluguel extra.",
-  RUA: "Na loja de rua, a WeDash considera somente o valor mensal do aluguel.",
+const INTRO =
+  "Esses valores entram nos custos da operação e são considerados no cálculo do resultado operacional no Financeiro. Campos vazios são considerados 0.";
+
+const POINT_HINT: Record<PointType, string[]> = {
+  SHOPPING: [
+    "No shopping, vale o maior valor entre o aluguel mensal e o aluguel percentual. Quando o percentual for maior, apenas o valor excedente é acrescentado aos custos da operação.",
+    "Exemplo: aluguel mensal de R$ 10.000,00 e 10% sobre R$ 120.000,00 de faturamento = R$ 12.000,00 de aluguel, sendo R$ 2.000,00 de aluguel percentual excedente.",
+    "No mês em andamento, a comparação considera o aluguel mensal proporcional aos dias já passados.",
+  ],
+  RUA: ["Na loja de rua, a WeDash considera somente o aluguel mensal."],
 };
 
-/** Configurações > Aluguel — aluguel mensal e, em shopping, percentual do faturamento (paga-se o que passar do aluguel). */
+/** Configurações > Aluguel — aluguel mensal e, em shopping, percentual do faturamento (conta só o que passar do aluguel). */
 export function RentPage() {
   const { lojas, loading, refresh } = useScopedStores();
   return (
     <StoreCardsPage
       section="Configurações"
       title="Aluguel"
-      subtitle="Configure o aluguel da loja e, para lojas em shopping, o percentual sobre o faturamento."
+      subtitle="Configure o aluguel mensal e, para lojas em shopping, o percentual sobre o faturamento."
       loading={loading}
-      skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} intro fields={2} />}
       lojas={lojas}
     >
       {(loja) => <RentCard loja={loja} onSaved={refresh} />}
@@ -62,6 +68,8 @@ function RentCard({ loja, onSaved }: { loja: Store; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const rua = point === "RUA";
   const fields = rua ? [RENT_MIN] : RENT_FIELDS;
+  const pctSalvo = parseNum(form.saved[RENT_PCT.key] ?? "");
+  const removePct = rua && pctSalvo != null && pctSalvo > 0;
 
   async function save() {
     const merged = form.merged();
@@ -87,9 +95,21 @@ function RentCard({ loja, onSaved }: { loja: Store; onSaved: () => void }) {
           void save();
         }}
       >
-        <FormField label="Tipo de loja" hint={POINT_HINT[point]}>
+        <p className="text-[12.5px] text-t2">{INTRO}</p>
+        <div>
+          <p className="mb-1.5 text-[12.5px] font-bold text-t0">Tipo de loja</p>
           <Segmented options={POINT_OPTIONS} value={point} onChange={(v) => v && setPoint(v)} />
-        </FormField>
+          {removePct && (
+            <p className="mt-1.5 text-[12px] font-semibold text-warn">O aluguel percentual será removido ao salvar as alterações.</p>
+          )}
+          <div className="mt-1.5 flex flex-col gap-1">
+            {POINT_HINT[point].map((t) => (
+              <p key={t} className="text-[11.5px] text-t2">
+                {t}
+              </p>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.map((f) => (
             <NumberField

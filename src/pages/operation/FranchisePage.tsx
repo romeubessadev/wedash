@@ -1,17 +1,37 @@
 import { StoreCardsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import type { Store } from "@/data/wedash/stores";
-import { CostFieldsCard, pctField, type CostField } from "./costFields";
+import { CostFieldsCard, pctField, type CostField, type CostFieldSection } from "./costFields";
 import { StoreCardsPage, useScopedStores } from "./shared";
+
+const INTRO =
+  "Esses percentuais entram nos custos da operação e são considerados no cálculo do resultado operacional no Financeiro. Campos vazios são considerados 0%.";
 
 /** WPINK só aparece para loja que vende a marca. */
 function franchiseFields(loja: Store): CostField[] {
-  const wepink = "Percentual sobre o faturamento WEPINK.";
-  const wpink = "Percentual sobre o faturamento WPINK.";
   return [
-    pctField("royaltiesWepinkPct", "Royalties WEPINK", wepink),
-    pctField("marketingWepinkPct", "Taxa de marketing WEPINK", wepink),
+    pctField("royaltiesWepinkPct", "Royalties WEPINK"),
+    pctField("marketingWepinkPct", "Taxa de marketing WEPINK"),
     ...(loja.temWpink
-      ? [pctField("royaltiesWpinkPct", "Royalties WPINK", wpink), pctField("marketingWpinkPct", "Taxa de marketing WPINK", wpink)]
+      ? [pctField("royaltiesWpinkPct", "Royalties WPINK"), pctField("marketingWpinkPct", "Taxa de marketing WPINK")]
+      : []),
+  ];
+}
+
+function franchiseSections(loja: Store): CostFieldSection[] {
+  return [
+    {
+      title: "WEPINK",
+      hint: "Royalties e taxa de marketing são calculados sobre o faturamento WEPINK.",
+      keys: ["royaltiesWepinkPct", "marketingWepinkPct"],
+    },
+    ...(loja.temWpink
+      ? [
+          {
+            title: "WPINK",
+            hint: "Royalties e taxa de marketing são calculados sobre o faturamento WPINK.",
+            keys: ["royaltiesWpinkPct", "marketingWpinkPct"],
+          },
+        ]
       : []),
   ];
 }
@@ -25,10 +45,18 @@ export function FranchisePage() {
       title="Franquia"
       subtitle="Configure royalties e taxa de marketing pagos à franqueadora."
       loading={loading}
-      skeleton={(n) => <StoreCardsSkeleton count={n} fields={2} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} sections={1} />}
       lojas={lojas}
     >
-      {(loja) => <CostFieldsCard loja={loja} fields={franchiseFields(loja)} onSaved={refresh} />}
+      {(loja) => (
+        <CostFieldsCard
+          loja={loja}
+          fields={franchiseFields(loja)}
+          intro={INTRO}
+          sections={franchiseSections(loja)}
+          onSaved={refresh}
+        />
+      )}
     </StoreCardsPage>
   );
 }

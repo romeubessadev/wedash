@@ -56,3 +56,13 @@ export const roleLabel: Record<Role, string> = {
   MANAGER: "Gerente",
   SELLER: "Equipe de vendas",
 };
+
+/** Tipo de acesso exibido para a pessoa — quem criou a conta da empresa é o "Gestor principal". */
+/** Lojas da sessão vêm do banco sem ordem garantida: chave estável para comparar. */
+export function storesKey(stores: string[]): string {
+  return [...stores].sort().join(",");
+}
+
+export function accessLabel(role: Role, isOwner?: boolean): string {
+  return isOwner ? `${roleLabel[role]} principal` : roleLabel[role];
+}

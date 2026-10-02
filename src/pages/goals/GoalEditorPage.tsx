@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Avatar,
@@ -24,6 +24,7 @@ import {
   type GoalGroup,
   type GoalTeamMember,
 } from "@/data/wedash/goalsRepo";
+import { copyGoalName, nextGoalPeriod } from "@/data/wedash/goalView";
 import { fetchStoreShifts, storesForSession } from "@/data/wedash/stores";
 import { brlCent, deIso, paraIso } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -47,18 +48,21 @@ type GroupRow = {
   /** Ordem da última edição manual; 0 = % ajustado automaticamente. */
   editedAt: number;
 };
-/** Nível da comissão progressiva: meta = % da meta a atingir; premiação = % sobre as vendas; bônus = R$ fixo por atingir. */
+/** Nível da premiação progressiva: meta = % da meta a atingir; premiação = % sobre as vendas; bônus = R$ fixo por atingir. */
 type TierRow = {
   key: number;
   name: string;
   meta: string;
   commission: string;
   bonus: string;
+  /** Premiação da gerência (% sobre o faturamento total da loja). */
+  mgrCommission: string;
+  mgrBonus: string;
 };
 /** Individual = cada pessoa sobre a própria meta (meta do grupo ÷ pessoas); Grupo = o grupo todo sobre a meta do grupo. */
 type PrizeMode = "INDIVIDUAL" | "GROUP";
 
-type TierErrors = { meta?: string; commission?: string };
+type TierErrors = { meta?: string; commission?: string; mgrCommission?: string };
 type FormErrors = {
   name?: string;
   startsOn?: string;
@@ -83,24 +87,25 @@ function validateGoal(f: {
   groups: GroupRow[] | null;
   tiersOn: boolean;
   tiers: TierRow[];
+  managerOn: boolean;
 }): FormErrors {
   const e: FormErrors = {};
   if (!f.name.trim()) e.name = REQUIRED;
   if (!f.startsOn) e.startsOn = REQUIRED;
   if (!f.endsOn) e.endsOn = REQUIRED;
   else if (f.startsOn && f.endsOn < f.startsOn)
-    e.endsOn = "A data fim precisa ser depois da data início.";
+    e.endsOn = "A data de fim precisa ser depois da data de início.";
   if (!f.storeId) e.storeId = REQUIRED;
-  if (f.target == null) e.target = "Informe a meta global.";
+  if (f.target == null) e.target = "Informe a meta da loja.";
 
   if (f.groupsOn && f.storeId) {
-    if (f.groups == null) e.groups = "Aguarde os grupos da loja carregarem.";
+    if (f.groups == null) e.groups = "Os grupos da loja ainda estão carregando.";
     else if (f.groups.length === 0)
-      e.groups = "Crie os grupos da loja ou desligue Grupos de distribuição.";
+      e.groups = "Crie os grupos da loja ou desative a Distribuição por grupos.";
     else {
       const total = f.groups.reduce((s, g) => s + (groupPct(g) ?? 0), 0);
       if (Math.abs(total - 100) >= 0.005)
-        e.groups = `A soma dos grupos precisa fechar 100% (está em ${numText(Math.round(total * 10) / 10)}%).`;
+        e.groups = `A soma dos grupos precisa totalizar 100%. Atualmente está em ${numText(Math.round(total * 10) / 10)}%.`;
     }
   }
 
@@ -112,9 +117,10 @@ function validateGoal(f: {
       const meta = positive(t.meta);
       if (meta == null) te.meta = REQUIRED;
       else if (anterior != null && meta <= anterior)
-        te.meta = `Precisa ser maior que o nível anterior (${numText(anterior)}%).`;
+        te.meta = `A meta deste nível precisa ser maior que a do nível anterior (${numText(anterior)}%).`;
       if (positive(t.commission) == null) te.commission = REQUIRED;
-      if (te.meta || te.commission) tiers[t.key] = te;
+      if (f.managerOn && positive(t.mgrCommission) == null) te.mgrCommission = REQUIRED;
+      if (te.meta || te.commission || te.mgrCommission) tiers[t.key] = te;
       if (meta != null) anterior = meta;
     }
     if (Object.keys(tiers).length > 0) e.tiers = tiers;
@@ -132,14 +138,51 @@ function positive(txt: string): number | null {
 function tierResults(
   tiers: TierRow[],
   base: number | null,
-): { atingir: number | null; comissao: number | null; bonus: number | null }[] {
+): {
+  atingir: number | null;
+  comissao: number | null;
+  bonus: number | null;
+  /** Bônus somados até este nível (bateu o 2º = bônus do 1º + do 2º). */
+  bonusTotal: number;
+}[] {
+  let acumulado = 0;
   return tiers.map((t) => {
     const m = positive(t.meta);
     const atingir = m != null && base ? (base * m) / 100 : null;
     const c = positive(t.commission);
     const comissao = c != null && atingir != null ? (atingir * c) / 100 : null;
-    return { atingir, comissao, bonus: positive(t.bonus) };
+    const bonus = positive(t.bonus);
+    acumulado += bonus ?? 0;
+    return { atingir, comissao, bonus, bonusTotal: acumulado };
   });
+}
+
+/** Premiação da gerência no nível `i`: % sobre o valor que a loja precisa atingir + bônus somados até o nível. */
+function managerResult(
+  tiers: TierRow[],
+  i: number,
+  atingir: number | null,
+): { comissao: number | null; bonus: number | null; bonusTotal: number } {
+  const c = positive(tiers[i]!.mgrCommission);
+  const bonusTotal = tiers
+    .slice(0, i + 1)
+    .reduce((s, t) => s + (positive(t.mgrBonus) ?? 0), 0);
+  return {
+    comissao: c != null && atingir != null ? (atingir * c) / 100 : null,
+    bonus: positive(tiers[i]!.mgrBonus),
+    bonusTotal,
+  };
+}
+
+/** "bônus de R$ X" + "total de R$ Y" (bônus dos níveis anteriores somados) como itens do `InfoLine`. */
+function bonusItems(bonus: number | null, total: number, porPessoa = false): ReactNode[] {
+  if (total <= 0) return [];
+  const sufixo = porPessoa ? " por pessoa" : "";
+  const valor = (v: number) => <span className="font-mono font-semibold text-ok">{brlCent(v)}</span>;
+  const items: ReactNode[] = [];
+  if (bonus != null) items.push(<>bônus de {valor(bonus)}{sufixo}</>);
+  if (total > (bonus ?? 0)) items.push(<>total de {valor(total)}{sufixo}</>);
+  return items;
 }
 
 let groupEditSeq = 1;
@@ -196,6 +239,8 @@ const newTier = (index: number, meta = "", commission = ""): TierRow => ({
   meta,
   commission,
   bonus: "",
+  mgrCommission: "",
+  mgrBonus: "",
 });
 
 const DEFAULT_TIERS = () => [
@@ -205,9 +250,12 @@ const DEFAULT_TIERS = () => [
   newTier(3, "180", "3"),
 ];
 
-/** Gestão > Metas > criar / editar — informações gerais à esquerda; grupos, comissão progressiva e simulação em 3 cards. */
+/** Gestão > Metas > criar / editar — informações gerais à esquerda; grupos, premiação progressiva e simulação em 3 cards. */
 export default function GoalEditorPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  /** Duplicar: nova meta com a configuração desta (loja, modo, níveis, gerência e grupos); datas e nome do período seguinte, meta da loja em branco. */
+  const copyId = id ? null : searchParams.get("copy");
   const navigate = useNavigate();
   const session = useActiveSession();
   const toast = useToast();
@@ -222,6 +270,13 @@ export default function GoalEditorPage() {
   const [storeId, setStoreId] = useState(
     () => escopo.filialIds[0] ?? (lojas.length === 1 ? lojas[0]!.id : ""),
   );
+  const lojaFiltro = escopo.filialIds[0];
+  useEffect(() => {
+    if (!id && lojaFiltro) setStoreId(lojaFiltro);
+  }, [id, lojaFiltro]);
+  /** Loja já definida (StorePicker numa loja, usuário de 1 loja ou edição): sem combo, a loja vai abaixo do título. */
+  const lojaFixa = Boolean(id) || Boolean(lojaFiltro) || lojas.length === 1;
+  const lojaAtual = lojas.find((l) => l.id === storeId);
   const [name, setName] = useState("");
   const [startsOn, setStartsOn] = useState<Date | null>(null);
   const [endsOn, setEndsOn] = useState<Date | null>(null);
@@ -230,24 +285,40 @@ export default function GoalEditorPage() {
   const [tiersOn, setTiersOn] = useState(false);
   const [groups, setGroups] = useState<GroupRow[] | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>(DEFAULT_TIERS);
+  const [managerOn, setManagerOn] = useState(false);
   const [prizeMode, setPrizeMode] = useState<PrizeMode>("INDIVIDUAL");
   /** % gravado de cada grupo (edição); aplicado quando os grupos da loja carregam. */
   const savedGroups = useRef<GoalGroup[]>([]);
   const applySavedGroups = (rows: GroupRow[]): GroupRow[] =>
     rows.map((r) => {
-      const s = savedGroups.current.find((x) => x.shiftId === r.key);
+      const nome = r.name.trim().toLocaleUpperCase("pt-BR");
+      const s =
+        savedGroups.current.find((x) => x.shiftId === r.key) ??
+        savedGroups.current.find((x) => x.name.trim().toLocaleUpperCase("pt-BR") === nome);
       return s ? { ...r, pct: numText(s.pct), editedAt: groupEditSeq++ } : r;
     });
+  const [copiedFrom, setCopiedFrom] = useState<{ name: string; target: number } | null>(null);
+  const sourceId = id ?? copyId;
   useEffect(() => {
-    if (!id) return;
+    if (!sourceId) return;
     let cancelled = false;
-    void fetchGoal(session.tenantId, id).then((g) => {
+    void fetchGoal(session.tenantId, sourceId).then((g) => {
       if (cancelled || !g) return;
-      setStoreId(g.storeId);
-      setName(g.name);
-      setStartsOn(deIso(g.startsOn));
-      setEndsOn(deIso(g.endsOn));
-      setTarget(numText(g.target, "R$"));
+      if (copyId) {
+        const periodo = nextGoalPeriod(g.startsOn, g.endsOn);
+        setStoreId(lojaFiltro ?? g.storeId);
+        setName(copyGoalName(g.name, periodo.startsOn));
+        setStartsOn(deIso(periodo.startsOn));
+        setEndsOn(deIso(periodo.endsOn));
+        setTarget("");
+        setCopiedFrom({ name: g.name, target: g.target });
+      } else {
+        setStoreId(g.storeId);
+        setName(g.name);
+        setStartsOn(deIso(g.startsOn));
+        setEndsOn(deIso(g.endsOn));
+        setTarget(numText(g.target, "R$"));
+      }
       setPrizeMode(g.tierMode);
       if (g.tiers.length > 0) {
         setTiersOn(true);
@@ -256,8 +327,11 @@ export default function GoalEditorPage() {
             ...newTier(i, numText(t.atingimentoMinPct), numText(t.comissaoPct)),
             name: t.nome,
             bonus: t.bonus > 0 ? numText(t.bonus, "R$") : "",
+            mgrCommission: t.gerenciaPct != null && t.gerenciaPct > 0 ? numText(t.gerenciaPct) : "",
+            mgrBonus: t.gerenciaBonus != null && t.gerenciaBonus > 0 ? numText(t.gerenciaBonus, "R$") : "",
           })),
         );
+        setManagerOn(g.tiers.some((t) => t.gerenciaPct != null));
       }
       savedGroups.current = g.groups;
       if (g.groups.length > 0) {
@@ -268,7 +342,8 @@ export default function GoalEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, session.tenantId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a loja do filtro só vale no momento em que a cópia abre
+  }, [sourceId, copyId, session.tenantId]);
 
   const [team, setTeam] = useState<GoalTeamMember[] | null>(null);
   useEffect(() => {
@@ -318,6 +393,7 @@ export default function GoalEditorPage() {
     groups,
     tiersOn,
     tiers,
+    managerOn,
   };
   const errors: FormErrors = tried ? validateGoal(campos) : {};
   const overlapMsg = "Já existe uma meta desta loja nesse período.";
@@ -343,6 +419,9 @@ export default function GoalEditorPage() {
             atingimentoMinPct: positive(t.meta)!,
             comissaoPct: positive(t.commission)!,
             bonus: positive(t.bonus) ?? 0,
+            ...(managerOn
+              ? { gerenciaPct: positive(t.mgrCommission)!, gerenciaBonus: positive(t.mgrBonus) ?? 0 }
+              : {}),
           }))
         : [],
       groups:
@@ -385,9 +464,28 @@ export default function GoalEditorPage() {
           ]}
         />
       </div>
-      <h1 className="mb-5 text-[22px] font-extrabold tracking-tight text-t0">
-        {titulo}
-      </h1>
+      <div className="mb-5">
+        <h1 className="text-[22px] font-extrabold tracking-tight text-t0">
+          {titulo}
+        </h1>
+        {((lojaFixa && lojaAtual) || copiedFrom) && (
+          <p className="mt-1 text-[13px] text-t2">
+            {lojaFixa && lojaAtual && (
+              <>
+                Loja:{" "}
+                <span className="font-semibold text-t1">{lojaAtual.fantasia}</span>
+                {" · "}Filial {lojaAtual.codFilial}
+              </>
+            )}
+            {lojaFixa && lojaAtual && copiedFrom && " · "}
+            {copiedFrom && (
+              <>
+                Cópia de <span className="font-semibold text-t1">{copiedFrom.name}</span>
+              </>
+            )}
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -405,7 +503,7 @@ export default function GoalEditorPage() {
             </FormField>
             <div className="grid grid-cols-2 gap-3">
               <FormField
-                label="Data início"
+                label="Data de início"
                 required
                 error={dateError(errors.startsOn)}
               >
@@ -416,11 +514,11 @@ export default function GoalEditorPage() {
                     if (endsOn && endsOn < d) setEndsOn(null);
                   }}
                   invalid={Boolean(dateError(errors.startsOn))}
-                  aria-label="Data início"
+                  aria-label="Data de início"
                 />
               </FormField>
               <FormField
-                label="Data fim"
+                label="Data de fim"
                 required
                 error={overlap ? undefined : errors.endsOn}
               >
@@ -429,29 +527,31 @@ export default function GoalEditorPage() {
                   onChange={setEndsOn}
                   minDate={startsOn}
                   invalid={Boolean(dateError(errors.endsOn))}
-                  aria-label="Data fim"
+                  aria-label="Data de fim"
                 />
               </FormField>
             </div>
-            <FormField label="Loja" required error={errors.storeId}>
-              <Select
-                value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
-                className={cn(
-                  !storeId && "text-t2",
-                  errors.storeId && "border-bad!",
-                )}
-              >
-                {!storeId && <option value="">Selecione a loja</option>}
-                {lojas.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.fantasia} · Filial {l.codFilial}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
+            {!lojaFixa && (
+              <FormField label="Loja" required error={errors.storeId}>
+                <Select
+                  value={storeId}
+                  onChange={(e) => setStoreId(e.target.value)}
+                  className={cn(
+                    !storeId && "text-t2",
+                    errors.storeId && "border-bad!",
+                  )}
+                >
+                  {!storeId && <option value="">Selecione a loja</option>}
+                  {lojas.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.fantasia} · Filial {l.codFilial}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
             <FormField
-              label="Meta global da equipe"
+              label="Meta da loja"
               required
               error={errors.target}
             >
@@ -460,9 +560,19 @@ export default function GoalEditorPage() {
                 onChange={setTarget}
                 unit="R$"
                 invalid={Boolean(errors.target)}
-                aria-label="Meta global da equipe"
+                autoFocus={Boolean(copyId)}
+                aria-label="Meta da loja"
               />
-              <GlobalSplit target={targetValue} teamSize={teamSize} />
+              {copiedFrom && (
+                <p className="mt-1.5 text-[12px] text-t2">
+                  Meta anterior: <span className="font-mono font-semibold text-t1">{brlCent(copiedFrom.target)}</span>
+                </p>
+              )}
+              <GlobalSplit
+                target={targetValue}
+                teamSize={teamSize}
+                porPessoa={prizeMode === "INDIVIDUAL" && !(groupsOn && groups && groups.length > 0)}
+              />
             </FormField>
             <FormField label="Modo de premiação" required>
               <Segmented<PrizeMode>
@@ -475,20 +585,19 @@ export default function GoalEditorPage() {
               />
               <p className="mt-1.5 text-[11.5px] text-t2">
                 {prizeMode === "INDIVIDUAL"
-                  ? "Cada pessoa sobe de nível e ganha a premiação sobre o que ela vender. O bônus também é individual."
-                  : "O grupo sobe de nível junto, pela soma das vendas. A premiação é dividida igualmente entre as pessoas do grupo e o bônus vale para cada uma."}
+                  ? "Cada pessoa sobe de nível pela própria meta e recebe a premiação sobre as próprias vendas. O bônus também é individual."
+                  : "O grupo sobe de nível pela soma das vendas. A premiação é dividida igualmente entre as pessoas do grupo, e o bônus vale para cada pessoa."}
               </p>
             </FormField>
           </div>
         </Card>
 
         <SideCard
-          title="Grupos de distribuição"
+          title="Distribuição por grupos"
           active={groupsOn}
           onToggle={setGroupsOn}
           emptyIcon="👥"
-          emptyTitle="Divisão por grupos"
-          emptyText="Divide a meta global entre os grupos da loja (ex.: Manhã 60%, Tarde 40%)."
+          emptyText="Distribua a meta da loja entre os grupos, como Manhã 60% e Tarde 40%."
         >
           <GroupsEditor
             storeId={storeId}
@@ -496,17 +605,17 @@ export default function GoalEditorPage() {
             setGroups={setGroups}
             team={team}
             target={targetValue}
+            mode={prizeMode}
             onCreate={() => navigate(paths.management.shifts)}
             error={errors.groups}
           />
         </SideCard>
         <SideCard
-          title="Comissão progressiva"
+          title="Níveis de premiação"
           active={tiersOn}
           onToggle={setTiersOn}
           emptyIcon="📈"
-          emptyTitle="Comissão por faixas"
-          emptyText="Níveis de atingimento (ex.: 100%, 120%, 150%) com comissões crescentes. Quanto mais vender, maior a comissão."
+          emptyText="Crie níveis de atingimento com premiações crescentes, como 100%, 120% e 150% da meta."
           action={
             <Button
               variant="secondary"
@@ -523,21 +632,31 @@ export default function GoalEditorPage() {
             setTiers={setTiers}
             target={targetValue}
             errors={errors.tiers}
+            mode={prizeMode}
+            hasGroups={Boolean(groupsOn && groups && groups.length > 0)}
+            managerOn={managerOn}
+            setManagerOn={setManagerOn}
           />
         </SideCard>
         <SideCard
           title="Simulação"
-          active={groupsOn && tiersOn}
+          active={tiersOn && (groupsOn || prizeMode === "GROUP")}
           emptyIcon="🧮"
-          emptyTitle="Simulação da meta"
-          emptyText="Ative Grupos e Comissão Progressiva para ver a simulação combinada."
+          emptyTitle="Simulação indisponível"
+          emptyText={
+            tiersOn
+              ? "Configure a distribuição da meta para visualizar a simulação."
+              : "Ative os Níveis de premiação para visualizar a simulação."
+          }
         >
           <Simulation
-            groups={groups ?? []}
+            storeId={storeId}
+            groups={groups}
             team={team}
             tiers={tiers}
             target={targetValue}
             mode={prizeMode}
+            equipeToda={!groupsOn && prizeMode === "GROUP"}
           />
         </SideCard>
       </div>
@@ -554,13 +673,18 @@ export default function GoalEditorPage() {
   );
 }
 
-/** Meta global ÷ equipe de vendas ativa da loja. */
+/**
+ * Meta global ÷ equipe de vendas ativa da loja. Só no modo Individual sem grupos de distribuição —
+ * com grupos a meta de cada um vem do % do grupo; no modo Grupo a meta não é dividida por pessoa.
+ */
 function GlobalSplit({
   target,
   teamSize,
+  porPessoa,
 }: {
   target: number | null;
   teamSize: number | null;
+  porPessoa: boolean;
 }) {
   if (target == null || teamSize == null) return null;
   if (teamSize === 0) {
@@ -570,10 +694,10 @@ function GlobalSplit({
       </p>
     );
   }
+  if (!porPessoa) return null;
   return (
     <p className="mt-1.5 text-[12px] font-semibold text-acc">
-      → Cada pessoa: {brlCent(target / teamSize)} ({teamSize}{" "}
-      {teamSize === 1 ? "pessoa" : "pessoas"} na equipe)
+      Meta individual: {brlCent(target / teamSize)} · {teamSize} {teamSize === 1 ? "pessoa" : "pessoas"} na equipe
     </p>
   );
 }
@@ -593,7 +717,7 @@ function SideCard({
   /** Liga/desliga o recurso pela chave no cabeçalho. */
   onToggle?: (v: boolean) => void;
   emptyIcon: string;
-  emptyTitle: string;
+  emptyTitle?: string;
   emptyText: string;
   /** Botão no canto do cabeçalho (só com o recurso ativo). */
   action?: ReactNode;
@@ -650,6 +774,7 @@ function GroupsEditor({
   setGroups,
   team,
   target,
+  mode,
   onCreate,
   error,
 }: {
@@ -658,6 +783,7 @@ function GroupsEditor({
   setGroups: (fn: (g: GroupRow[] | null) => GroupRow[] | null) => void;
   team: GoalTeamMember[] | null;
   target: number | null;
+  mode: PrizeMode;
   onCreate: () => void;
   error?: string;
 }) {
@@ -685,7 +811,7 @@ function GroupsEditor({
         <EmptyBlock
           icon="👥"
           title="Nenhum grupo cadastrado"
-          description="Crie os grupos da loja para dividir a meta entre eles."
+          description="Crie os grupos da loja para distribuir a meta entre eles."
           action={
             <Button
               size="sm"
@@ -716,8 +842,8 @@ function GroupsEditor({
   return (
     <div className="flex flex-1 flex-col gap-3">
       <p className="text-[11.5px] text-t2">
-        Informe o % da meta global de um grupo e o restante é distribuído
-        automaticamente entre os demais. A soma precisa fechar 100%.
+        Informe o percentual de um grupo. O restante é distribuído
+        automaticamente entre os demais. A soma precisa totalizar 100%.
       </p>
       {groups.map((g) => (
         <div key={g.key} className="flex items-center gap-2">
@@ -747,36 +873,36 @@ function GroupsEditor({
             )}
           >
             {passou
-              ? `Total ${totalTxt} · passa de 100% da meta global. Ajuste os valores.`
+              ? `Total ${totalTxt} · excede a meta da loja em ${numText(Math.round((total - 100) * 10) / 10)}%.`
               : fechou
-                ? "Total 100% · meta global toda distribuída."
-                : `Total ${totalTxt} · faltam ${numText(Math.round((100 - total) * 10) / 10)}% da meta global.`}
+                ? "Total 100% · distribuição completa."
+                : `Total ${totalTxt} · faltam ${numText(Math.round((100 - total) * 10) / 10)}% para distribuir.`}
           </p>
         )
       )}
 
-      <GroupsSimulation groups={groups} team={team} target={target} />
+      <GroupsSimulation groups={groups} team={team} target={target} mode={mode} />
     </div>
   );
 }
 
-/** Meta de cada grupo e as pessoas dele (o grupo de cada pessoa é definido em Gestão > Colaboradores). */
+/** Meta de cada grupo e as pessoas dele (o grupo de cada pessoa é definido em Gestão > Vendedores). */
 function GroupsSimulation({
   groups,
   team,
   target,
+  mode,
 }: {
   groups: GroupRow[];
   team: GoalTeamMember[] | null;
   target: number | null;
+  mode: PrizeMode;
 }) {
-  const nomes = new Set(groups.map((g) => g.name));
+  const ids = new Set(groups.map((g) => g.key));
   const pessoas = [...(team ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, "pt-BR"),
   );
-  const semGrupo = pessoas.filter(
-    (p) => !p.shiftName || !nomes.has(p.shiftName),
-  );
+  const semGrupo = pessoas.filter((p) => !p.shiftId || !ids.has(p.shiftId));
   const pessoaRow = (p: GoalTeamMember, meta: string | null) => (
     <div
       key={`${p.storeId}:${p.employeeId}`}
@@ -805,9 +931,9 @@ function GroupsSimulation({
           {groups.map((g) => {
             const meta = groupTarget(g, target);
             const pct = groupPct(g);
-            const membros = pessoas.filter((p) => p.shiftName === g.name);
+            const membros = pessoas.filter((p) => p.shiftId === g.key);
             const cada =
-              meta != null && membros.length > 0
+              mode === "INDIVIDUAL" && meta != null && membros.length > 0
                 ? brlCent(meta / membros.length)
                 : null;
             return (
@@ -839,12 +965,12 @@ function GroupsSimulation({
           {semGrupo.length > 0 && (
             <div className="py-2.5 last:pb-0">
               <p className="mb-1 text-[12.5px] font-bold text-warn">
-                Sem grupo
+                Sem grupo definido
               </p>
               {semGrupo.map((p) => pessoaRow(p, null))}
               <p className="mt-1 text-[11.5px] text-warn">
-                {semGrupo.length === 1 ? "Fica" : "Ficam"} fora da divisão por
-                grupos. Defina o grupo em Gestão &gt; Colaboradores.
+                {semGrupo.length === 1 ? "Fica" : "Ficam"} fora da distribuição
+                por grupos. Defina o grupo em Gestão &gt; Vendedores.
               </p>
             </div>
           )}
@@ -871,7 +997,7 @@ function InfoLine({
       )}
     >
       {visiveis.map((it, i) => (
-        <span key={i}>
+        <span key={i} className="max-sm:first-letter:uppercase lg:first-letter:uppercase">
           {i > 0 && <span className="hidden sm:inline lg:hidden">{" · "}</span>}
           {it}
         </span>
@@ -924,27 +1050,55 @@ function TiersEditor({
   setTiers,
   target,
   errors,
+  mode,
+  hasGroups,
+  managerOn,
+  setManagerOn,
 }: {
   tiers: TierRow[];
   setTiers: (fn: (t: TierRow[]) => TierRow[]) => void;
   target: number | null;
   errors?: Record<number, TierErrors>;
+  mode: PrizeMode;
+  hasGroups: boolean;
+  managerOn: boolean;
+  setManagerOn: (v: boolean) => void;
 }) {
   const update = (key: number, patch: Partial<TierRow>) =>
     setTiers((ts) => ts.map((t) => (t.key === key ? { ...t, ...patch } : t)));
   const resultados = tierResults(tiers, target);
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[11.5px] text-t2">
-        <span className="font-semibold text-t1">Meta:</span> quanto da meta é
-        preciso atingir para chegar ao nível (ex.: 120% = vender 20% acima da
-        meta). <span className="font-semibold text-t1">Premiação:</span> % pago
-        sobre as vendas quando o nível é alcançado.{" "}
-        <span className="font-semibold text-t1">Bônus:</span> valor fixo em R$
-        pago a mais por atingir o nível (opcional).
-      </p>
+      <div className="flex flex-col gap-1 text-[11.5px] text-t2">
+        <p>
+          <span className="font-semibold text-t1">Meta:</span> percentual
+          necessário para alcançar o nível. Ex.: 120% = vender 20% acima da
+          meta.
+        </p>
+        <p>
+          <span className="font-semibold text-t1">Premiação:</span> percentual
+          pago sobre as vendas quando o nível é alcançado.
+        </p>
+        <p>
+          <span className="font-semibold text-t1">Bônus:</span> valor fixo
+          adicional pago ao atingir o nível.
+        </p>
+        <p className="font-semibold text-t1">
+          Os bônus dos níveis alcançados são acumulados.
+        </p>
+      </div>
+      <div className="flex items-start justify-between gap-3 rounded-[var(--radius-vela-md)] bg-bg-inset px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[12.5px] font-bold text-t0">Premiação da gerência</p>
+          <p className="mt-0.5 text-[11.5px] text-t2">
+            A gerência também sobe de nível pelo faturamento total da loja e recebe a premiação correspondente.
+          </p>
+        </div>
+        <Switch checked={managerOn} onChange={setManagerOn} />
+      </div>
       {tiers.map((t, i) => {
         const r = resultados[i]!;
+        const mgr = managerOn ? managerResult(tiers, i, r.atingir) : null;
         return (
           <div
             key={t.key}
@@ -994,26 +1148,54 @@ function TiersEditor({
                     A partir de{" "}
                     <span className="font-mono text-t1">
                       {brlCent(r.atingir)}
-                    </span>
+                    </span>{" "}
+                    na meta da loja
                   </>,
-                  r.comissao != null && (
+                  positive(t.commission) != null && (
                     <>
-                      💰 mín.{" "}
-                      <span className="font-mono font-semibold text-ok">
-                        {brlCent(r.comissao)}
+                      premiação de{" "}
+                      <span className="font-semibold text-ok">
+                        {numText(positive(t.commission)!)}%
                       </span>
                     </>
                   ),
-                  r.bonus != null && (
-                    <>
-                      🎁{" "}
-                      <span className="font-mono font-semibold text-ok">
-                        +{brlCent(r.bonus)}
-                      </span>
-                    </>
-                  ),
+                  ...bonusItems(r.bonus, r.bonusTotal),
                 ]}
               />
+            )}
+            {managerOn && (
+              <div className="flex flex-col gap-2.5 border-t border-line pt-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Gerência</p>
+                <TierField
+                  label="Premiação"
+                  unit="%"
+                  value={t.mgrCommission}
+                  onChange={(mgrCommission) => update(t.key, { mgrCommission })}
+                  required
+                  error={errors?.[t.key]?.mgrCommission}
+                />
+                <TierField
+                  label="Bônus"
+                  unit="R$"
+                  value={t.mgrBonus}
+                  onChange={(mgrBonus) => update(t.key, { mgrBonus })}
+                />
+                {mgr && (positive(t.mgrCommission) != null || mgr.bonusTotal > 0) && (
+                  <InfoLine
+                    items={[
+                      positive(t.mgrCommission) != null && (
+                        <>
+                          premiação de{" "}
+                          <span className="font-semibold text-ok">
+                            {numText(positive(t.mgrCommission)!)}%
+                          </span>
+                        </>
+                      ),
+                      ...bonusItems(mgr.bonus, mgr.bonusTotal),
+                    ]}
+                  />
+                )}
+              </div>
             )}
           </div>
         );
@@ -1021,11 +1203,39 @@ function TiersEditor({
 
       {target != null && (
         <Alert variant="warning">
-          Os valores acima são baseados na{" "}
-          <span className="font-semibold">meta global</span>. Na prática, cada
-          vendedor terá esses % aplicados sobre a sua{" "}
-          <span className="font-semibold">meta individual</span>. A premiação
-          vale sobre tudo o que for vendido, sem teto.
+          {mode === "INDIVIDUAL" ? (
+            <>
+              Os percentuais dos níveis são aplicados à{" "}
+              <span className="font-semibold">meta individual</span> de cada
+              pessoa. A premiação é calculada sobre as próprias vendas, sem
+              teto.{" "}
+              {hasGroups
+                ? "Meta individual = meta do grupo ÷ pessoas do grupo."
+                : "Meta individual = meta da loja ÷ pessoas da equipe."}
+            </>
+          ) : hasGroups ? (
+            <>
+              Os percentuais são aplicados à{" "}
+              <span className="font-semibold">meta de cada grupo</span>. O
+              grupo sobe de nível pela soma das vendas, a premiação é dividida
+              igualmente entre as pessoas e o bônus vale para cada uma.
+            </>
+          ) : (
+            <>
+              Os percentuais são aplicados à{" "}
+              <span className="font-semibold">meta da loja</span>. A equipe
+              sobe de nível pela soma das vendas, a premiação é dividida
+              igualmente entre as pessoas e o bônus vale para cada uma.
+            </>
+          )}
+          {managerOn && (
+            <>
+              {" "}A <span className="font-semibold">gerência</span> usa os
+              mesmos percentuais sobre a meta da loja e considera o
+              faturamento total da loja, incluindo vendas sem vendedor
+              identificado ou realizadas pela gerência.
+            </>
+          )}
         </Alert>
       )}
     </div>
@@ -1033,23 +1243,42 @@ function TiersEditor({
 }
 
 function Simulation({
-  groups,
+  storeId,
+  groups: groupsAll,
   team,
   tiers,
   target,
   mode,
+  equipeToda,
 }: {
-  groups: GroupRow[];
+  storeId: string;
+  /** null = grupos da loja ainda carregando. */
+  groups: GroupRow[] | null;
   team: GoalTeamMember[] | null;
   tiers: TierRow[];
   target: number | null;
   mode: PrizeMode;
+  /** Modo Grupo sem grupos de distribuição: a equipe toda é um grupo só, com a meta global. */
+  equipeToda: boolean;
 }) {
   const individual = mode === "INDIVIDUAL";
-  const grupos = groups
+  const grupos = equipeToda
+    ? target != null
+      ? [
+          {
+            key: "equipe-toda",
+            name: "Equipe toda",
+            pct: null,
+            metaGrupo: target,
+            pessoas: team?.length ?? 0,
+            base: target,
+          },
+        ]
+      : []
+    : (groupsAll ?? [])
     .map((g) => {
       const metaGrupo = groupTarget(g, target);
-      const pessoas = team?.filter((m) => m.shiftName === g.name).length ?? 0;
+      const pessoas = team?.filter((m) => m.shiftId === g.key).length ?? 0;
       const base =
         metaGrupo == null
           ? null
@@ -1070,25 +1299,25 @@ function Simulation({
     .filter((g) => g.metaGrupo != null);
   const temNivel = tiers.some((t) => positive(t.meta) != null);
 
+  if (!storeId) {
+    return (
+      <EmptyBlock
+        icon="🏬"
+        title="Selecione a loja"
+        description="A simulação usa a equipe e os grupos da loja escolhida em Informações gerais."
+      />
+    );
+  }
   if (!target) {
     return (
       <EmptyBlock
-        icon="💡"
-        title="Falta a meta global"
-        description="Informe a meta global da equipe para simular os valores de cada grupo."
+        icon="🧮"
+        title="Falta a meta da loja"
+        description="Informe a meta da loja para simular os valores."
       />
     );
   }
-  if (grupos.length === 0 || !temNivel) {
-    return (
-      <EmptyBlock
-        icon="💡"
-        title="Faltam dados"
-        description="Preencha o % de pelo menos um grupo e a meta de um nível."
-      />
-    );
-  }
-  if (team == null) {
+  if (team == null || (!equipeToda && groupsAll == null)) {
     return (
       <div className="flex flex-col gap-3">
         {[0, 1].map((i) => (
@@ -1097,12 +1326,36 @@ function Simulation({
       </div>
     );
   }
+  if (!equipeToda && groupsAll!.length === 0) {
+    return (
+      <EmptyBlock
+        icon="🧮"
+        title="Nenhum grupo cadastrado"
+        description="Crie os grupos da loja para visualizar a simulação."
+      />
+    );
+  }
+  if (grupos.length === 0 || !temNivel) {
+    return (
+      <EmptyBlock
+        icon="🧮"
+        title="Faltam dados"
+        description={
+          equipeToda
+            ? "Informe a meta de pelo menos um nível."
+            : "Informe o percentual de pelo menos um grupo e a meta de pelo menos um nível."
+        }
+      />
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[11.5px] text-t2">
         {individual
-          ? "Premiação de cada pessoa, sobre a meta individual (meta do grupo ÷ pessoas do grupo)."
-          : "Premiação do grupo todo, sobre a meta do grupo, dividida igualmente entre as pessoas."}
+          ? "Premiação de cada pessoa calculada sobre a própria meta individual."
+          : equipeToda
+            ? "Premiação da equipe calculada sobre a meta da loja e dividida igualmente entre as pessoas."
+            : "Premiação do grupo calculada sobre a meta do grupo e dividida igualmente entre as pessoas."}
       </p>
       {grupos.map((g) => {
         const resultados = g.base != null ? tierResults(tiers, g.base) : [];
@@ -1113,7 +1366,7 @@ function Simulation({
           >
             <p className="truncate text-[13.5px] font-bold text-acc">
               {g.name}
-              {g.pct != null && ` (${numText(Math.round(g.pct * 10) / 10)}%)`}
+              {g.pct != null && ` · ${numText(Math.round(g.pct * 10) / 10)}%`}
             </p>
             <p className="mb-2.5 mt-0.5 text-[11.5px] text-t2">
               {individual ? "Meta individual" : "Meta do grupo"}:{" "}
@@ -1123,9 +1376,11 @@ function Simulation({
               {" · "}
               {g.pessoas} {g.pessoas === 1 ? "pessoa" : "pessoas"}
             </p>
-            {g.base == null ? (
+            {g.base == null || g.pessoas === 0 ? (
               <p className="text-[11.5px] text-warn">
-                Nenhuma pessoa neste grupo.
+                {equipeToda
+                  ? "Nenhuma pessoa na equipe de vendas desta loja."
+                  : "Nenhuma pessoa neste grupo."}
               </p>
             ) : (
               <div className="flex flex-col gap-1">
@@ -1144,7 +1399,7 @@ function Simulation({
                           {t.name.trim() || `Nível ${i + 1}`}
                         </span>
                         {pct != null && (
-                          <span className="text-t2"> ({numText(pct)}%)</span>
+                          <span className="text-t2"> · {numText(pct)}%</span>
                         )}
                       </p>
                       <InfoLine
@@ -1156,30 +1411,23 @@ function Simulation({
                               {brlCent(r.atingir)}
                             </span>
                           </>,
-                          taxa != null && r.comissao != null && (
+                          taxa != null && (
                             <>
-                              💰{" "}
+                              premiação de{" "}
                               <span className="font-semibold text-ok">
                                 {numText(taxa)}% das vendas
-                              </span>{" "}
-                              · mín.{" "}
-                              <span className="font-mono font-semibold text-ok">
-                                {brlCent(r.comissao)}
                               </span>
-                              {!individual && g.pessoas > 1 && (
-                                <> ({brlCent(r.comissao / g.pessoas)} cada)</>
-                              )}
                             </>
                           ),
-                          r.bonus != null && (
+                          taxa != null && r.comissao != null && (individual || g.pessoas > 0) && (
                             <>
-                              🎁{" "}
                               <span className="font-mono font-semibold text-ok">
-                                +{brlCent(r.bonus)}
-                              </span>
-                              {!individual && " cada"}
+                                {brlCent(individual ? r.comissao : r.comissao / g.pessoas)}
+                              </span>{" "}
+                              por pessoa
                             </>
                           ),
+                          ...bonusItems(r.bonus, r.bonusTotal, true),
                         ]}
                       />
                     </div>

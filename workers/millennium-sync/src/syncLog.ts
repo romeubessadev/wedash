@@ -21,6 +21,7 @@ export type SyncLogSource =
   | "top_produtos"
   | "cupom"
   | "custo_produto"
+  | "itens_pessoa"
   | "mapa_produtos"
   | "gerador"
   | "eventos"

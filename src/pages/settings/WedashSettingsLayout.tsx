@@ -15,7 +15,7 @@ const TABS = [
 const META: Record<string, { title: string; subtitle: string }> = {
   [paths.profile]: {
     title: "Meu perfil",
-    subtitle: "Gerencie seus dados, sua senha e o tema do app.",
+    subtitle: "Gerencie seus dados, sua senha e a aparência da WeDash.",
   },
   [paths.settings.stores]: {
     title: "Lojas",
@@ -23,11 +23,11 @@ const META: Record<string, { title: string; subtitle: string }> = {
   },
   [paths.settings.erp]: {
     title: "Integrações",
-    subtitle: "Gerencie a conexão da WeDash com o Millennium.",
+    subtitle: "Gerencie as conexões da WeDash com seus sistemas.",
   },
   [paths.settings.users]: {
     title: "Usuários",
-    subtitle: "Gerencie os gestores e gerentes que acessam a WeDash.",
+    subtitle: "Controle quem acessa a WeDash e quais lojas cada usuário pode visualizar.",
   },
   [paths.settings.logs]: {
     title: "Logs",

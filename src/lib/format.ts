@@ -155,6 +155,11 @@ export function horaCurta(h: number): string {
   return `${h}h`;
 }
 
+/** Faixa de 1 hora para tooltip: "21h às 22h"; hora em andamento = "14h até agora". */
+export function faixaHora(h: number, emAndamento = false): string {
+  return emAndamento ? `${h}h até agora` : `${h}h às ${h + 1}h`;
+}
+
 /** Adiciona dias a um ISO. */
 export function somarDias(iso: string, dias: number): string {
   const d = deIso(iso);
@@ -194,10 +199,14 @@ export function tipRelacao(vs: string): string {
 }
 
 /** Tooltip do badge de delta com o valor comparado: "Em relação ao mês passado: R$ 12.345,67." */
-export function tipDelta(delta: { vs?: string; anterior?: string }): string {
-  if (!delta.vs) return delta.anterior ? `Período anterior: ${delta.anterior}.` : "";
+export function tipDelta(delta: { vs?: string; anterior?: string }, metrica?: string): string {
+  if (!delta.vs) {
+    if (metrica) return `${metrica} no período anterior${delta.anterior ? `: ${delta.anterior}` : ""}.`;
+    return delta.anterior ? `Período anterior: ${delta.anterior}.` : "";
+  }
   const base = tipRelacao(delta.vs);
-  return delta.anterior ? `${base.slice(0, -1)}: ${delta.anterior}.` : base;
+  const tip = delta.anterior ? `${base.slice(0, -1)}: ${delta.anterior}.` : base;
+  return metrica ? `${metrica} ${tip.charAt(0).toLowerCase()}${tip.slice(1)}` : tip;
 }
 
 /** `1 dia` / `N dias` — prazos e badges. */

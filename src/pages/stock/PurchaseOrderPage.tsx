@@ -4,7 +4,7 @@ import { SectionHeader } from "@/pages/operation/shared";
 export function PurchaseOrderPage() {
   return (
     <div>
-      <SectionHeader section="Estoque" title="Pedido de compra" subtitle="Monte o pedido de compra de cada loja." />
+      <SectionHeader section="Estoque" title="Pedido de compra" subtitle="Prepare o pedido de compra de cada loja." />
     </div>
   );
 }

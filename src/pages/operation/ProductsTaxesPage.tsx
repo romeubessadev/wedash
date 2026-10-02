@@ -8,18 +8,24 @@ import { FormActions, NumberField, SAVE_ERROR_MSG, StoreCardHeader, StoreCardsPa
 
 const TAX_FIELDS: CostField[] = [
   pctField("icmsPct", "ICMS", "Percentual sobre o faturamento."),
-  pctField("icmsStPct", "ICMS ST", "Percentual sobre o custo dos produtos (CMV)."),
+  pctField("icmsStPct", "ICMS ST", "Percentual sobre o CMV."),
 ];
+
+const INTRO =
+  "A tabela de custo ajuda a completar produtos vendidos sem custo no Millennium. ICMS e ICMS ST são considerados no cálculo do lucro bruto e da margem. Campos vazios são considerados 0.";
 
 /** Configurações > Produtos e impostos — tabela de custo do Millennium, ICMS e ICMS ST. */
 export function ProductsTaxesPage() {
   const { lojas, loading, refresh } = useScopedStores();
   const [tables, setTables] = useState<CostTable[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     void fetchCostTables().then((list) => {
-      if (!cancelled) setTables(list);
+      if (cancelled) return;
+      setTables(list);
+      setTablesLoading(false);
     });
     return () => {
       cancelled = true;
@@ -32,15 +38,25 @@ export function ProductsTaxesPage() {
       title="Produtos e impostos"
       subtitle="Configure a tabela de custo dos produtos e os impostos de cada loja."
       loading={loading}
-      skeleton={(n) => <StoreCardsSkeleton count={n} fields={3} />}
+      skeleton={(n) => <StoreCardsSkeleton count={n} intro fields={3} />}
       lojas={lojas}
     >
-      {(loja) => <ProductsTaxesCard loja={loja} tables={tables} onSaved={refresh} />}
+      {(loja) => <ProductsTaxesCard loja={loja} tables={tables} tablesLoading={tablesLoading} onSaved={refresh} />}
     </StoreCardsPage>
   );
 }
 
-function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: CostTable[]; onSaved: () => void }) {
+function ProductsTaxesCard({
+  loja,
+  tables,
+  tablesLoading,
+  onSaved,
+}: {
+  loja: Store;
+  tables: CostTable[];
+  tablesLoading: boolean;
+  onSaved: () => void;
+}) {
   const { show } = useToast();
   const form = useCostFields(loja, TAX_FIELDS);
   const [savedTable, setSavedTable] = useState<number | null>(loja.costTableId ?? null);
@@ -91,17 +107,20 @@ function ProductsTaxesCard({ loja, tables, onSaved }: { loja: Store; tables: Cos
           void save();
         }}
       >
+        <p className="text-[12.5px] text-t2">{INTRO}</p>
         <FormField
           label="Tabela de custo dos produtos"
-          hint="Usada quando um produto vendido chega do Millennium sem custo. A WeDash seleciona automaticamente a tabela mais próxima dos custos da loja."
+          hint="Usada quando um produto vendido chega do Millennium sem custo. Enquanto nenhuma tabela for escolhida manualmente, a WeDash seleciona automaticamente a que mais se aproxima dos custos da loja."
         >
           <Select
-            value={table == null ? "" : String(table)}
-            disabled={tables.length === 0 && table == null}
+            value={tablesLoading || table == null ? "" : String(table)}
+            disabled={tablesLoading}
             onChange={(e) => setTable(e.target.value ? Number(e.target.value) : null)}
           >
-            <option value="">{tables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
-            {table != null && !tables.some((t) => t.id === table) && <option value={String(table)}>Tabela {table}</option>}
+            <option value="">{tablesLoading ? "Buscando tabelas no Millennium…" : "Nenhuma"}</option>
+            {!tablesLoading && table != null && !tables.some((t) => t.id === table) && (
+              <option value={String(table)}>Tabela {table} · indisponível</option>
+            )}
             {tables.map((t) => (
               <option key={t.id} value={String(t.id)}>
                 {t.code} · {t.description}

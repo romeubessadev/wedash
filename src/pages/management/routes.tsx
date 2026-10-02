@@ -6,6 +6,8 @@ import { RequireRole } from "@/session/RequireSession";
 const ShiftsPage = lazyPage(() => import("./ShiftsPage"), "ShiftsPage");
 const StaffPage = lazyPage(() => import("./StaffPage"), "StaffPage");
 const ChallengesPage = lazyPage(() => import("./ChallengesPage"), "ChallengesPage");
+const ChallengeDetailPage = lazyPage(() => import("../challenges/ChallengeDetailPage"), "default");
+const ChallengeEditorPage = lazyPage(() => import("../challenges/ChallengeEditorPage"), "default");
 
 /** Gestão — Gestor e Gerente (Metas fica em `paths.goals`). */
 export const managementRoutes: RouteObject[] = [
@@ -15,6 +17,9 @@ export const managementRoutes: RouteObject[] = [
       { path: paths.management.shifts, element: <ShiftsPage /> },
       { path: paths.management.staff, element: <StaffPage /> },
       { path: paths.management.challenges, element: <ChallengesPage /> },
+      { path: paths.management.challengeNew, element: <ChallengeEditorPage /> },
+      { path: `${paths.management.challenges}/:id`, element: <ChallengeDetailPage /> },
+      { path: `${paths.management.challenges}/:id/edit`, element: <ChallengeEditorPage /> },
     ],
   },
 ];

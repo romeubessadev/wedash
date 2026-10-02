@@ -38,7 +38,14 @@ function useReportScope() {
 export function useExportPdf(tela: string, extra?: string | null, { periodo = true }: { periodo?: boolean } = {}) {
   const { lojaArquivo, periodoArquivo } = useReportScope();
   return useCallback(
-    () => exportPdf([tela, lojaArquivo, extra ?? "", periodo ? periodoArquivo : ""]),
+    () =>
+      exportPdf([
+        tela,
+        lojaArquivo,
+        extra ?? "",
+        // Tela sem período (retrato, ex.: estoque) leva a data em que foi gerado.
+        periodo ? periodoArquivo : new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+      ]),
     [tela, lojaArquivo, extra, periodo, periodoArquivo],
   );
 }
@@ -64,7 +71,7 @@ export function ReportHeader({
         <WedashBrand size={28} />
         <div className="text-right text-[11px] leading-5 text-t2">
           <p>Gerado em {geradoEm}</p>
-          <p>{atualizado ?? <LastUpdated plain />}</p>
+          <p>{atualizado ?? <LastUpdated />}</p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-[12.5px]">

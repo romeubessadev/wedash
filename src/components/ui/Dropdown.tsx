@@ -4,6 +4,8 @@ import { cn } from "@/lib/cn";
 
 export interface DropdownItem {
   label: string;
+  /** Texto menor abaixo do rótulo (ex.: corpo de uma notificação). */
+  description?: string;
   icon?: ReactNode;
   onClick?: () => void;
   danger?: boolean;
@@ -30,13 +32,15 @@ export interface DropdownProps {
   align?: "left" | "right";
   /** Classes extras do menu (ex.: altura máxima com scroll). */
   menuClassName?: string;
+  /** Classes da área dos itens — rolagem só nos itens, com o `header` fixo. */
+  bodyClassName?: string;
   /** Renderiza o menu no `body` (posição fixa) — para triggers dentro de containers com overflow (tabelas). */
   portal?: boolean;
 }
 
 const GAP = 8;
 
-export function Dropdown({ trigger, items, header, align = "right", menuClassName, portal = false }: DropdownProps) {
+export function Dropdown({ trigger, items, header, align = "right", menuClassName, bodyClassName, portal = false }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -96,6 +100,7 @@ export function Dropdown({ trigger, items, header, align = "right", menuClassNam
           style={portal ? (pos ?? { position: "fixed", top: 0, left: 0, visibility: "hidden" }) : undefined}
         >
           {header && <div className="mb-1.5 border-b border-line px-3 pb-3 pt-2">{header}</div>}
+          <div className={bodyClassName}>
           {items.map((item, i) =>
             item.divider ? (
               <div key={i} className="my-1.5 h-px bg-line" />
@@ -114,7 +119,8 @@ export function Dropdown({ trigger, items, header, align = "right", menuClassNam
                   if (!item.keepOpen) setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13px] font-medium",
+                  "flex w-full gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13px] font-medium",
+                  item.description ? "items-start" : "items-center",
                   item.disabled
                     ? "cursor-not-allowed text-t2 opacity-50"
                     : item.active
@@ -127,7 +133,14 @@ export function Dropdown({ trigger, items, header, align = "right", menuClassNam
                 )}
               >
                 {item.icon}
-                <span className="min-w-0 flex-1">{item.label}</span>
+                {item.description ? (
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{item.label}</span>
+                    <span className="mt-0.5 block text-[12px] font-normal leading-snug text-t2">{item.description}</span>
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1">{item.label}</span>
+                )}
                 {item.trailing}
                 {item.active && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -137,6 +150,7 @@ export function Dropdown({ trigger, items, header, align = "right", menuClassNam
               </button>
             ),
           )}
+          </div>
         </div>
   );
 

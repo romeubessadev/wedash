@@ -13,10 +13,12 @@ import {
 } from "@/components/ui";
 import { TimelineSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
-import { useActiveSession } from "@/session/SessionProvider";import { hydrateSessionStores, storesForSession } from "@/data/wedash/stores";
+import { useActiveSession } from "@/session/SessionProvider";
+import { hydrateSessionStores, storesForSession } from "@/data/wedash/stores";
 import {
   SYNC_JOB_KIND_LABEL,
   fetchSyncLogs,
+  syncLogExplanation,
   syncLogSourceLabel,
   syncLogSummary,
   type SyncLogEntry,
@@ -43,6 +45,47 @@ function fmtWhen(iso: string): string {
 function fmtDay(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+/** "29/09/2026" · "29/09/2026 a 30/09/2026" (dias seguidos) · lista quando há buraco entre os dias. */
+function fmtDays(days: string[]): string {
+  const sorted = [...new Set(days)].sort();
+  if (sorted.length === 1) return fmtDay(sorted[0]!);
+  const seguidos = sorted.every(
+    (d, i) => i === 0 || Date.parse(`${d}T12:00:00Z`) - Date.parse(`${sorted[i - 1]}T12:00:00Z`) === 86_400_000,
+  );
+  return seguidos ? `${fmtDay(sorted[0]!)} a ${fmtDay(sorted[sorted.length - 1]!)}` : sorted.map(fmtDay).join(", ");
+}
+
+/**
+ * Ícone e cor do símbolo da Timeline por origem — padrão Activity Logs do Vela (símbolo de uma cor só,
+ * sem fundo). `\uFE0E` força o símbolo de texto: sem ele o navegador usa o emoji colorido.
+ */
+const SOURCE_STYLE: Record<string, { icon: string; tint: string }> = {
+  login: { icon: "\u{1F511}", tint: "var(--bad)" },
+  job: { icon: "\u27F3", tint: "var(--bad)" },
+  vendas: { icon: "\u{1F5CE}", tint: "var(--acc)" },
+  margem: { icon: "\u{1F5E0}", tint: "var(--ok)" },
+  cmv: { icon: "\u{1F5E0}", tint: "var(--ok)" },
+  custo_produto: { icon: "\u{1F5E0}", tint: "var(--ok)" },
+  detalhe_movimento: { icon: "\u{1F6CD}\uFE0E", tint: "var(--info)" },
+  cupom: { icon: "\u{1F6CD}\uFE0E", tint: "var(--info)" },
+  itens_pessoa: { icon: "\u{1F6CD}\uFE0E", tint: "var(--info)" },
+  categorias: { icon: "\u{1F5C4}\uFE0E", tint: "var(--info)" },
+  catalogo: { icon: "\u{1F5C4}\uFE0E", tint: "var(--info)" },
+  top_produtos: { icon: "\u{1F5C4}\uFE0E", tint: "var(--info)" },
+  mapa_produtos: { icon: "\u{1F5C4}\uFE0E", tint: "var(--info)" },
+  gerador: { icon: "\u2699\uFE0E", tint: "var(--acc)" },
+  eventos: { icon: "\u{1F5D3}\uFE0E", tint: "var(--info)" },
+  vendedoras: { icon: "\u{1F5E3}\uFE0E", tint: "var(--acc)" },
+  millennium_ocupado: { icon: "\u23F1\uFE0E", tint: "var(--warn)" },
+};
+
+function sourceStyle(e: SyncLogEntry): { icon: string; tint: string } {
+  return (
+    SOURCE_STYLE[e.source] ??
+    (e.level === "ERROR" ? { icon: "\u2716\uFE0E", tint: "var(--bad)" } : { icon: "\u26A0\uFE0E", tint: "var(--warn)" })
+  );
 }
 
 function LevelBadge({ level }: { level: SyncLogLevel }) {
@@ -112,25 +155,36 @@ export function SyncLogsPage() {
     const q = busca.trim().toLowerCase();
     if (!q) return logs;
     return logs.filter((e) =>
-      [syncLogSummary(e), e.message, syncLogSourceLabel(e.source), lojaNome(e)].some((t) =>
+      [syncLogSummary(e), syncLogExplanation(e), e.message, syncLogSourceLabel(e.source), lojaNome(e)].some((t) =>
         t.toLowerCase().includes(q),
       ),
     );
   }, [logs, busca, lojaNome]);
 
   const events: TimelineEvent[] = filtrados.map((e) => {
-    const erro = e.level === "ERROR";
+    const temLoja = Boolean(e.storeId || e.storeLabel);
+    const rotina = e.jobKind ? (SYNC_JOB_KIND_LABEL[e.jobKind] ?? e.jobKind) : "Sincronização";
     return {
       id: e.id,
       title: (
-        <button type="button" onClick={() => setDetalhe(e)} className="group block w-full text-left">
-          <strong className="font-bold group-hover:text-acc">{syncLogSummary(e)}</strong>{" "}
-          <span className="line-clamp-2 font-normal text-t1">{e.message}</span>
+        <button
+          type="button"
+          onClick={() => setDetalhe(e)}
+          className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left"
+        >
+          <strong className="font-bold">{syncLogSummary(e)}</strong>
+          <LevelBadge level={e.level} />
         </button>
       ),
-      time: `${fmtAgo(e.createdAt)} · ${lojaNome(e)}`,
-      color: erro ? "var(--bad)" : "var(--warn)",
-      icon: <span className="text-[13px]">{erro ? "⛔" : "⚠️"}</span>,
+      time: [rotina, fmtAgo(e.createdAt), temLoja ? lojaNome(e) : null, e.count > 1 ? `${e.count} ocorrências` : null]
+        .filter(Boolean)
+        .join(" · "),
+      color: "transparent",
+      icon: (
+        <span className="text-[13px]" style={{ color: sourceStyle(e).tint }}>
+          {sourceStyle(e).icon}
+        </span>
+      ),
     };
   });
 
@@ -140,22 +194,24 @@ export function SyncLogsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-2.5 sm:ml-auto sm:w-fit sm:gap-2">
-        <Input
-          placeholder="Buscar nos logs…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          className="sm:h-[38px]!"
-        />
-        <Select
-          value={nivel}
-          onChange={(e) => setNivel(e.target.value as SyncLogLevel | "")}
-          className="sm:h-[38px]!"
-        >
-          <option value="">Todos os eventos</option>
-          <option value="ERROR">Erros</option>
-          <option value="WARN">Avisos</option>
-        </Select>
+      <div className="mb-4 flex flex-col sm:flex-row sm:justify-end print:hidden">
+        <div className="flex flex-wrap items-center justify-start gap-2 sm:w-[288px] sm:justify-end">
+          <Input
+            placeholder="Buscar nos logs…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="h-[38px] w-[160px]"
+          />
+          <Select
+            value={nivel}
+            onChange={(e) => setNivel(e.target.value as SyncLogLevel | "")}
+            className="h-[38px] w-auto"
+          >
+            <option value="">Todos os eventos</option>
+            <option value="ERROR">Erros</option>
+            <option value="WARN">Avisos</option>
+          </Select>
+        </div>
       </div>
 
       <Card padding="lg">
@@ -247,6 +303,7 @@ function logParaSuporte(e: SyncLogEntry, loja: string): string {
   const stack = stackOf(e);
   return [
     `[WeDash sync_log] ${e.level} · ${e.source} · ${syncLogSummary(e)}`,
+    `explicação: ${syncLogExplanation(e)}`,
     `log_id: ${e.id}`,
     `quando: ${e.createdAt}`,
     `job: ${e.jobKind ?? "—"} (${e.jobId ?? "sem job_id"})`,
@@ -268,22 +325,26 @@ function LogDetail({ entry, loja }: { entry: SyncLogEntry; loja: string }) {
   const mono = (v: string) => <span className="font-mono text-xs">{v}</span>;
   return (
     <div className="space-y-2.5 text-[13px]">
-      <p className="pb-1 text-[14px] font-semibold text-t0">{syncLogSummary(entry)}</p>
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-1 text-[14px] font-semibold text-t0">
+        {syncLogSummary(entry)}
+        <LevelBadge level={entry.level} />
+      </p>
       <DetailRow label="Quando" value={fmtWhen(entry.createdAt)} />
       <DetailRow label="Nível" value={<LevelBadge level={entry.level} />} />
       <DetailRow label="Origem" value={syncLogSourceLabel(entry.source)} />
-      {entry.jobKind && (
-        <DetailRow label="Tipo de sincronização" value={SYNC_JOB_KIND_LABEL[entry.jobKind] ?? entry.jobKind} />
-      )}
+      <DetailRow
+        label="Tipo de sincronização"
+        value={entry.jobKind ? (SYNC_JOB_KIND_LABEL[entry.jobKind] ?? entry.jobKind) : "Sincronização"}
+      />
       <DetailRow label="Loja" value={loja} />
-      {entry.days.length > 0 && <DetailRow label="Período" value={entry.days.map(fmtDay).join(", ")} />}
+      {entry.days.length > 0 && <DetailRow label="Período afetado" value={fmtDays(entry.days)} />}
       <DetailRow
         label="Ocorrências"
         value={entry.count > 1 ? `${entry.count} vezes nesta sincronização` : "1 vez nesta sincronização"}
       />
       <div className="pt-2">
         <span className="mb-1.5 block text-t2">Mensagem</span>
-        <pre className={PRE}>{entry.message}</pre>
+        <p className="leading-relaxed text-t0">{syncLogExplanation(entry)}</p>
       </div>
       <details className="group rounded-[var(--radius-vela-md)] border border-line">
         <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 font-semibold text-t1 hover:text-t0">
@@ -298,12 +359,10 @@ function LogDetail({ entry, loja }: { entry: SyncLogEntry; loja: string }) {
           {extra.map(([k, v]) => (
             <DetailRow key={k} label={k} value={typeof v === "string" ? v : JSON.stringify(v)} />
           ))}
-          {stack && (
-            <div className="pt-1">
-              <span className="mb-1.5 block text-t2">Detalhes técnicos do erro</span>
-              <pre className={PRE}>{stack}</pre>
-            </div>
-          )}
+          <div className="pt-1">
+            <span className="mb-1.5 block text-t2">Detalhes técnicos do erro</span>
+            <pre className={PRE}>{stack ? `${entry.message}\n\n${stack}` : entry.message}</pre>
+          </div>
         </div>
       </details>
     </div>

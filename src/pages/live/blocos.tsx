@@ -81,7 +81,7 @@ export function BlocoRanking({
                 </span>
                 <MedalhaBadge pos={pos} apagada />
               </div>
-              <p className="text-[13px] font-bold text-t2 sm:text-[14px]">Sem {pos}º colocado</p>
+              <p className="text-[13px] font-bold text-t2 sm:text-[14px]">{pos}º lugar vago</p>
               <p className="mt-0.5 text-[11px] font-semibold text-t3">Nenhuma venda</p>
               <p className="mt-0.5 font-mono text-[13px] font-extrabold text-t3 sm:text-[14px]">—</p>
               <div
@@ -128,7 +128,9 @@ export function BlocoRanking({
             </div>
 
             <p className="truncate text-[13px] font-bold text-t0 sm:text-[14px]">{l.nome.split(" ")[0]}</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-t2">{num(l.vendas)} vendas</p>
+            <p className="mt-0.5 text-[11px] font-semibold text-t2">
+              {num(l.vendas)} {l.vendas === 1 ? "venda" : "vendas"}
+            </p>
             <p className="mt-0.5 font-mono text-[13px] font-extrabold sm:text-[14px]" style={{ color: medal.cor }}>
               {formatValor(l.faturamento)}
             </p>

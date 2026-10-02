@@ -11,11 +11,11 @@ import {
   marcarRecovery,
   sessionFromPersistedAuth,
 } from "@/session/authApi";
-import { roleLabel, sessionFromUser, type Session } from "@/session/session";
+import { accessLabel, roleLabel, sessionFromUser, storesKey, type Session } from "@/session/session";
 import { clearSavedPeriod } from "@/session/periodStorage";
 
 export type { Session };
-export { roleLabel, sessionFromUser };
+export { accessLabel, roleLabel, sessionFromUser };
 
 interface SessionContextValue {
   session: Session | null;
@@ -109,6 +109,18 @@ function mergeWithCache(fromAuth: Session, cached: Session | null): Session {
   };
 }
 
+/**
+ * O supabase-js emite SIGNED_IN de novo toda vez que a aba volta a ficar visível. Sessão igual
+ * mantém o mesmo objeto (e o mesmo array de lojas) — senão as telas recarregam com skeleton.
+ */
+function keepIfSame(atual: Session | null, nova: Session): Session {
+  if (!atual) return nova;
+  // Lojas vêm do banco sem ordem garantida: mesma lista em outra ordem = mesmas lojas.
+  const mesmasLojas = storesKey(atual.stores) === storesKey(nova.stores);
+  const candidata = mesmasLojas ? { ...nova, stores: atual.stores } : nova;
+  return JSON.stringify(atual) === JSON.stringify(candidata) ? atual : candidata;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   // PWA: restaurar cache na 1ª paint — senão / e RequireSession bounce pro login.
@@ -193,7 +205,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                   if (cancel) return;
                   if (s) {
                     const merged = mergeWithCache(s, cached);
-                    setSession(merged);
+                    setSession((atual) => keepIfSame(atual, merged));
                     gravar(merged);
                   } else {
                     setSession(cached);
@@ -218,8 +230,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           if (cancel) return;
           if (s) {
             setSession((atual) => {
-              const merged = mergeWithCache(s, atual ?? cached);
-              gravar(merged);
+              const merged = keepIfSame(atual, mergeWithCache(s, atual ?? cached));
+              if (merged !== atual) gravar(merged);
               return merged;
             });
           } else {

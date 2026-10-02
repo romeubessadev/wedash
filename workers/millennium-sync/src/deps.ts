@@ -23,7 +23,7 @@ import { fetchProductRegistry, fetchProductTypes, fetchProductsOfType } from "./
 import { fetchCostTablePrices, fetchCostTables } from "./millenniumCostTable.ts";
 import type { CatalogDeps, CatalogEntry } from "./productCatalog.ts";
 import { buildCostTableDetectDeps } from "./costTableSync.ts";
-import { AUTO_REFRESH_MIN, AUTO_SESSION_MARK, planAutoRound, recoveryFloor } from "./autoRefresh.ts";
+import { AUTO_REFRESH_MIN, AUTO_SESSION_MARK, parseStoreHours, planAutoRound, recoveryFloor } from "./autoRefresh.ts";
 import {
   addMonths,
   DEEP_EMPTY_MONTHS,
@@ -931,6 +931,35 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       if (error) throw error;
     },
 
+    async replaceSellerProductDayAggs(args) {
+      const { error: delErr } = await sb
+        .from("sales_seller_product_day_agg")
+        .delete()
+        .eq("tenant_id", args.tenantId)
+        .eq("store_id", args.storeId)
+        .gte("day", args.from)
+        .lte("day", args.to);
+      if (delErr) throw delErr;
+      for (const batch of chunk(args.rows, 500)) {
+        const { error } = await sb.from("sales_seller_product_day_agg").upsert(
+          batch.map((r) => ({
+            tenant_id: r.tenantId,
+            store_id: r.storeId,
+            day: r.day,
+            seller_gerador_id: r.sellerGeradorId,
+            seller_key: r.sellerKey,
+            seller_name: r.sellerName,
+            product_code: r.productCode,
+            product_id: r.productId,
+            item_count: r.itemCount,
+            revenue_cents: r.revenueCents,
+          })),
+          { onConflict: "tenant_id,store_id,day,seller_gerador_id,product_code" },
+        );
+        if (error) throw error;
+      }
+    },
+
     async replacePriceTableDayAggs(args) {
       const { error: delErr } = await sb
         .from("sales_price_table_day_agg")
@@ -1321,8 +1350,9 @@ export async function enqueueDueCloseJobs(sb: SupabaseClient, now = new Date()):
 }
 
 /**
- * Atualização automática: enfileira o Atualizar de hoje (FORCE com `auto: true`) de todas as lojas
- * 30 min depois da última rodada automática, o dia inteiro (rodada perdida = roda assim que reconectar).
+ * Atualização automática: enfileira o Atualizar de hoje (FORCE com `auto: true`) das lojas no expediente
+ * 30 min depois da última rodada automática + a última rodada do dia (fechamento + 30 min); loja sem
+ * horário configurado não entra (rodada perdida = roda assim que reconectar). O dia fecha na madrugada.
  * Não enfileira com onboarding aberto, SEED pendente, integração pausada/senha inválida ou
  * outro Atualizar já na fila. Rodada anterior pulada por sessão caída → esta faz login 1×;
  * usuário exclusivo da WeDash (`dedicated`) faz login na hora.
@@ -1362,7 +1392,7 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
 
     const { data: storeRows, error: storeErr } = await sb
       .from("store")
-      .select("id")
+      .select("id, timezone, hours, last_sync_at")
       .eq("tenant_id", tenantId)
       .eq("active", true);
     if (storeErr) throw storeErr;
@@ -1379,7 +1409,12 @@ export async function enqueueDueAutoRefreshJobs(sb: SupabaseClient, now = new Da
       .maybeSingle();
 
     const plan = planAutoRound({
-      storeIds: storeRows.map((s) => s.id as string),
+      stores: storeRows.map((s) => ({
+        id: s.id as string,
+        timezone: (s.timezone as string) || "America/Campo_Grande",
+        hours: parseStoreHours(s.hours),
+        lastSyncAt: s.last_sync_at ? new Date(s.last_sync_at as string) : null,
+      })),
       now,
       intervalMin: AUTO_REFRESH_MIN,
       lastAutoAt: lastAuto?.created_at ? new Date(lastAuto.created_at as string) : null,

@@ -24,7 +24,7 @@ export function PageHeader({ crumbs, title, subtitle, actions, notices }: PageHe
           {subtitle && <p className="mt-1 text-[13px] text-t1">{subtitle}</p>}
         </div>
         {actions && <div className="order-3 flex flex-wrap items-center justify-start gap-2 sm:order-2 sm:justify-end print:hidden">{actions}</div>}
-        {notices && <div className="order-2 flex w-full flex-col gap-3 sm:order-3 print:hidden">{notices}</div>}
+        {notices && <div className="order-2 flex w-full flex-col gap-3 empty:hidden sm:order-3 print:hidden">{notices}</div>}
       </div>
     </div>
   );

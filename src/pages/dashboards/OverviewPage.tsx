@@ -1,6 +1,8 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
+import { GoalLevelSummary } from "@/components/wedash/GoalLevelsBar";
+import { ProductNameCell } from "@/components/wedash/ProductNameCell";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
@@ -37,7 +39,8 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
-import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { StoreHoursNotice } from "@/pages/dashboard/StoreHoursNotice";
+import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { cn } from "@/lib/cn";
@@ -48,6 +51,8 @@ import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
+import { fetchGoals, fetchGoalTeam, type GoalRecord, type GoalTeamMember } from "@/data/wedash/goalsRepo";
+import { storesForSession } from "@/data/wedash/stores";
 import {
   applyPeriodDateChange,
   dateRangeFromPeriod,
@@ -101,8 +106,18 @@ const KPI_COLORS = [
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
 
-/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
+/**
+ * Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard).
+ * `metrica` nomeia o que o badge compara quando o título do card fala de outra coisa
+ * ("Faturamento total em relação ao mês passado: R$ …").
+ */
+function BadgeVsAnterior({
+  delta,
+  metrica,
+}: {
+  delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string };
+  metrica?: string;
+}) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -110,7 +125,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
       {delta.value}
     </Badge>
   );
-  const tip = tipDelta(delta);
+  const tip = tipDelta(delta, metrica);
   return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
 }
 
@@ -141,6 +156,10 @@ export default function OverviewPage() {
   const [goalHistoryHourAggs, setGoalHistoryHourAggs] = useState<SalesHourAgg[]>([]);
   const [prevDayAggs, setPrevDayAggs] = useState<SalesDayAgg[]>([]);
   const [prevHourAggs, setPrevHourAggs] = useState<SalesHourAgg[]>([]);
+  const [goals, setGoals] = useState<GoalRecord[]>([]);
+  const [goalDayAggs, setGoalDayAggs] = useState<SalesDayAgg[]>([]);
+  const [goalSellerDayAggs, setGoalSellerDayAggs] = useState<SalesSellerDayAgg[]>([]);
+  const [goalTeam, setGoalTeam] = useState<GoalTeamMember[]>([]);
   // Catálogo de lojas (horário/fuso) hidratado depois do 1º render → recalcula eixos.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -159,8 +178,29 @@ export default function OverviewPage() {
     const ant = previousPeriod(periodo);
     const singleDay = periodo.inicio === periodo.fim;
     const goalDays = goalHistoryDayRange(periodo.inicio);
+    const hoje = calendarTodayIso();
+    const goalStoreIds =
+      escopo.filialIds.length > 0 ? escopo.filialIds : storesForSession(session.stores).map((s) => s.id);
+    const goalsP = fetchGoals({ tenantId: session.tenantId, storeIds: goalStoreIds, from: periodo.inicio, to: periodo.fim });
+    // Atingimento da meta = do início de cada meta até hoje (pode sair do período da tela).
+    // Nível de meta no Destaques da equipe = mesma janela, por pessoa.
+    const vazio = { days: [] as SalesDayAgg[], sellers: [] as SalesSellerDayAgg[], team: [] as GoalTeamMember[] };
+    const goalDataP = goalsP.then(async (gs) => {
+      if (gs.length === 0) return vazio;
+      const from = gs.reduce((m, g) => (g.startsOn < m ? g.startsOn : m), gs[0]!.startsOn);
+      const fim = gs.reduce((m, g) => (g.endsOn > m ? g.endsOn : m), gs[0]!.endsOn);
+      const to = fim < hoje ? fim : hoje;
+      if (from > to) return vazio;
+      const storeIds = [...new Set(gs.map((g) => g.storeId))];
+      const [days, sellers, team] = await Promise.all([
+        fetchSalesDayAggs({ tenantId: session.tenantId, storeIds, from, to, brand: "ALL" }),
+        fetchSalesSellerDayAggs({ tenantId: session.tenantId, storeIds, from, to }),
+        fetchGoalTeam(session.tenantId, storeIds),
+      ]);
+      return { days, sellers, team };
+    });
     try {
-      const [days, hours, cats, catalog, payments, sellers, products, productCosts, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts] = await Promise.all([
+      const [days, hours, cats, catalog, payments, sellers, products, productCosts, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts, goalsLoaded, goalAggs] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
           // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
@@ -246,8 +286,14 @@ export default function OverviewPage() {
             })
           : Promise.resolve([] as SalesHourAgg[]),
         fetchSellerShifts(session.tenantId),
+        goalsP,
+        goalDataP,
       ]);
       if (gen !== reloadGen.current) return;
+      setGoals(goalsLoaded);
+      setGoalDayAggs(goalAggs.days);
+      setGoalSellerDayAggs(goalAggs.sellers);
+      setGoalTeam(goalAggs.team);
       setDayAggs(days);
       setHourAggs(hours);
       setGoalHistoryDayAggs(goalHistDays);
@@ -267,7 +313,7 @@ export default function OverviewPage() {
       if (gen !== reloadGen.current) return;
       console.error("Overview reloadAggs:", e);
     }
-  }, [escopo, session.tenantId]);
+  }, [escopo, session.tenantId, session.stores]);
 
   useEffect(() => {
     const onSynced = () => void reloadAggs();
@@ -328,9 +374,13 @@ export default function OverviewPage() {
         goalHistoryHourAggs,
         prevDayAggs,
         prevHourAggs,
+        goals,
+        goalDayAggs,
+        goalSellerDayAggs,
+        goalTeam,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, productCostDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, storesTick],
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, productCostDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, goals, goalDayAggs, goalSellerDayAggs, goalTeam, storesTick],
   );
 
   // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
@@ -371,7 +421,11 @@ export default function OverviewPage() {
   const printing = usePrintMode();
   const exportar = useExportPdf("Visão geral");
   const { abrir: abrirDetalhe, modal: detalheModal } = useProductDetail({ escopo, tenantId: session.tenantId });
-  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, tenantId: session.tenantId });
+  const niveisMeta = useMemo(
+    () => new Map(view.topVendedoras.flatMap((v) => (v.key && v.meta ? [[v.key, v.meta] as const] : []))),
+    [view.topVendedoras],
+  );
+  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, tenantId: session.tenantId, niveisMeta });
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
@@ -397,13 +451,14 @@ export default function OverviewPage() {
                 Exportar
               </Button>
             </div>
-            <LastUpdated />
           </div>
         }
       />
 
+      <ErpStatusNotice />
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      <StoreHoursNotice />
 
       {showSkeleton ? (
         <OverviewSkeleton weekdays={periodoAtual.inicio !== periodoAtual.fim} />
@@ -426,9 +481,9 @@ export default function OverviewPage() {
           const realizado = meta?.realizado ?? fatAcum;
           const alvo = meta?.alvo ?? 0;
           const faltamValor = meta ? Math.max(0, meta.alvo - meta.realizado) : 0;
-          const projecaoValor = meta
-            ? (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")
-            : "—";
+          const metaEncerrada = view.projecaoFechamento === "Meta encerrada";
+          const projecaoValor =
+            meta && !metaEncerrada ? (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—") : "—";
           if (!meta) {
             return (
               <Card className="flex flex-col">
@@ -438,7 +493,7 @@ export default function OverviewPage() {
                 <EmptyBlock
                   icon="🎯"
                   title="Meta não configurada"
-                  description="Cadastre a meta do mês para acompanhar o atingimento e a projeção de fechamento."
+                  description="Cadastre uma meta para este período para acompanhar o atingimento e a projeção de fechamento."
                   action={
                     <Button size="sm" onClick={() => navigate(paths.goals)}>
                       Criar meta
@@ -452,17 +507,18 @@ export default function OverviewPage() {
             <Card>
               <div className="mb-4">
                 <CardTitle>Atingimento da meta</CardTitle>
+                {view.metaDescricao && <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.metaDescricao}</p>}
               </div>
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} trackColor="var(--bg-inset)" label="da meta" />
               </div>
               <div className="flex flex-col gap-2.5">
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Faturamento</span>
+                  <span className="text-[12.5px] text-t2">Realizado</span>
                   <span className="text-[13px] font-bold text-t0">{brlCent(realizado)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className="text-[12.5px] text-t2">Meta</span>
                   <span className={`text-[13px] font-bold ${meta && pct < 100 ? "text-warn" : meta ? "text-ok" : "text-t2"}`}>
                     {meta ? brlCent(alvo) : "—"}
                   </span>
@@ -475,7 +531,10 @@ export default function OverviewPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Projeção</span>
-                  <span className={`text-[13px] font-bold ${meta ? "text-t0" : "text-t2"}`}>{projecaoValor}</span>
+                  <span className="text-right">
+                    <span className={`block text-[13px] font-bold ${meta && !metaEncerrada ? "text-t0" : "text-t2"}`}>{projecaoValor}</span>
+                    {metaEncerrada && <span className="block text-[11px] font-semibold text-t2">Meta encerrada</span>}
+                  </span>
                 </div>
               </div>
             </Card>
@@ -487,7 +546,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento x meta</CardTitle>
-                <Tooltip label="Compare o faturamento realizado com a meta esperada para cada período. A meta mensal é distribuída com base no histórico de vendas da operação.">
+                <Tooltip label="Compare o faturamento realizado com a meta esperada para cada período. A meta é distribuída ao longo do período com base no histórico de vendas da operação.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -526,7 +585,7 @@ export default function OverviewPage() {
                 <EmptyBlock
                   icon="🎯"
                   title="Meta não configurada"
-                  description="Cadastre a meta do mês para comparar o faturamento realizado com o esperado ao longo do período."
+                  description="Cadastre uma meta para este período para comparar o faturamento realizado com o esperado."
                   action={
                     <Button size="sm" onClick={() => navigate(paths.goals)}>
                       Criar meta
@@ -551,9 +610,10 @@ export default function OverviewPage() {
             }
             return (
               <AreaLineChart
-                data={serie.map((e) => e.realizado)}
+                data={serie.map((e) => (e.futuro ? null : e.realizado))}
                 compareData={serie.map((e) => e.meta)}
                 labels={serie.map((e) => e.label)}
+                tooltipLabels={serie.map((e) => e.faixa)}
                 color="var(--ok)"
                 compareColor="var(--warn)"
                 formatValue={brlCent}
@@ -578,7 +638,7 @@ export default function OverviewPage() {
                 </Tooltip>
               </div>
             </div>
-            <BadgeVsAnterior delta={view.deltaFaturamento} />
+            <BadgeVsAnterior delta={view.deltaFaturamento} metrica="Faturamento total" />
           </div>
           {view.categoriaVsMeta.filter((c) => c.realizado > 0).length === 0 ? (
             <EmptyBlock />
@@ -603,7 +663,7 @@ export default function OverviewPage() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Dias da semana x meta</CardTitle>
-                  <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta esperada.">
+                  <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta prevista para esse dia.">
                     <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                       ?
                     </span>
@@ -634,7 +694,7 @@ export default function OverviewPage() {
                 </div>
                 )}
               </div>
-              <BadgeVsAnterior delta={view.deltaFaturamento} />
+              <BadgeVsAnterior delta={view.deltaFaturamento} metrica="Faturamento total" />
             </div>
             {view.diaVsMeta.every((d) => d.realizado === 0 && d.meta === 0) ? (
               <EmptyBlock />
@@ -662,7 +722,7 @@ export default function OverviewPage() {
             <CardTitle>Ranking de lojas</CardTitle>
             {escopo.filialIds.length === 1 && view.rankingLojas.length > 0 && (view.rankingRedeTotal ?? 0) > 0 && (
               <Badge variant="accent">
-                Total da rede: {brlCent(view.rankingRedeTotal ?? 0)}
+                Rede: {brlCent(view.rankingRedeTotal ?? 0)}
               </Badge>
             )}
           </CardHeader>
@@ -796,8 +856,8 @@ export default function OverviewPage() {
           ) : (
           <div className="flex flex-col gap-1 px-2 pb-3">
             {view.topVendedoras.map((v, idx) => {
-              const hasMeta = v.pctMeta != null;
-              const pct = v.pctMeta ?? 0;
+              const hasMeta = v.meta != null || v.pctMeta != null;
+              const pct = v.meta?.atingimentoPct ?? v.pctMeta ?? 0;
               const key = v.key;
               const abrir = key ? () => abrirPessoa(key, v.nome) : undefined;
               return (
@@ -829,8 +889,8 @@ export default function OverviewPage() {
                       <span className="min-w-0 truncate text-[13px] font-bold text-t0">{v.nome}</span>
                       <span className="shrink-0 font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
                     </div>
-                    {hasMeta && <ProgressBar value={pct} height={5} />}
-                    <div className={`flex flex-wrap items-center gap-x-1.5 text-[11px] text-t2 ${hasMeta ? "mt-0.5" : ""}`}>
+                    {!v.meta && hasMeta && <ProgressBar value={Math.min(100, pct)} height={5} />}
+                    <div className={`flex flex-wrap items-center gap-x-1.5 text-[11px] text-t2 ${hasMeta && !v.meta ? "mt-0.5" : ""}`}>
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
@@ -844,13 +904,25 @@ export default function OverviewPage() {
                           <span>P.A. {num(v.pa, 2)}</span>
                         </>
                       )}
-                      {hasMeta && (
+                      {hasMeta && !v.meta && (
                         <>
                           <span>·</span>
                           <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
                         </>
                       )}
                     </div>
+                    {v.meta && (
+                      <div className="mt-2">
+                        <GoalLevelSummary
+                          pct={pct}
+                          nivel={v.meta.nivel}
+                          nivelNumero={v.meta.nivelNumero}
+                          marcos={v.meta.marcos}
+                          completo={!printing}
+                          rolagem
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -913,9 +985,6 @@ export default function OverviewPage() {
               </thead>
               <tbody>
                 {topProdutosOrdenados.map((p, idx) => {
-                  const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-                  const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
-                  const corAvatar = cores[idx % cores.length];
                   const chave = p.chave;
                   const abrir = chave ? () => abrirDetalhe({ tipo: "produto", chave, nome: p.nome }) : undefined;
                   return (
@@ -936,13 +1005,7 @@ export default function OverviewPage() {
                     >
                       <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                       <td className="px-1 py-3">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold" style={{ background: `color-mix(in srgb, ${corAvatar} 15%, transparent)`, color: corAvatar }}>{iniciais || "?"}</span>
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold uppercase text-t0">{p.nome}</p>
-                            {p.categoria && <p className="text-[11px] uppercase text-t2">{p.categoria}</p>}
-                          </div>
-                        </div>
+                        <ProductNameCell nome={p.nome} idx={idx} sub={p.categoria} upper />
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.itens != null ? p.itens.toLocaleString("pt-BR") : (p.sub?.replace(" itens", "") ?? "—")}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.valor)}</td>

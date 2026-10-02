@@ -9,7 +9,8 @@
  * Marca pelo código do produto (WP* = WPINK; resto = WEPINK). Vendedora pelo gerador.
  * Não traz venda sem vendedora → quem chama faz fallback (DetMov só desses cupons).
  */
-import type { SalesProductDayAgg } from "../../../src/data/wedash/salesTypes.ts";
+import { sellerKeyFromName } from "../../../src/data/wedash/salesAggregate.ts";
+import type { SalesProductDayAgg, SalesSellerProductDayAgg } from "../../../src/data/wedash/salesTypes.ts";
 import { millenniumBaseUrl } from "./millenniumAuth.ts";
 import { brandFromCodProduto } from "./millenniumMargem.ts";
 import { couponKey, type BrandSplitHeader, type CouponBrand } from "./brandSplitFromDetalhe.ts";
@@ -228,6 +229,51 @@ export function productDayAggsFromCouponLines(
     }
   }
   return [...map.values()].sort((a, b) => a.day.localeCompare(b.day) || b.revenueCents - a.revenueCents);
+}
+
+/**
+ * Itens por pessoa × produto × dia (desafios). Mesmo `dayOf` do top produtos; linha sem gerador
+ * (venda sem vendedor identificado, itens do DetMov) fica de fora. Produto agrupado pelo código.
+ */
+export function sellerProductDayAggsFromCouponLines(
+  byCoupon: Map<string, CouponReportLine[]>,
+  opts: { tenantId: string; storeId: string; dayOf: (couponKey: string, lines: CouponReportLine[]) => string | null },
+): SalesSellerProductDayAgg[] {
+  const map = new Map<string, SalesSellerProductDayAgg>();
+  for (const [key, lines] of byCoupon) {
+    const day = opts.dayOf(key, lines);
+    if (!day) continue;
+    for (const line of lines) {
+      if (line.sellerGeradorId == null) continue;
+      const productCode = line.productCode || `#${line.productId}`;
+      const k = `${day}|${line.sellerGeradorId}|${productCode}`;
+      const acc =
+        map.get(k) ??
+        ({
+          tenantId: opts.tenantId,
+          storeId: opts.storeId,
+          day,
+          sellerGeradorId: line.sellerGeradorId,
+          sellerKey: "",
+          sellerName: "",
+          productCode,
+          productId: line.productId,
+          itemCount: 0,
+          revenueCents: 0,
+        } satisfies SalesSellerProductDayAgg);
+      acc.itemCount += Math.round(line.qty);
+      acc.revenueCents += line.revenueCents;
+      if (line.sellerName) {
+        acc.sellerName = line.sellerName;
+        acc.sellerKey = sellerKeyFromName(line.sellerName) ?? "";
+      }
+      map.set(k, acc);
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) =>
+      a.day.localeCompare(b.day) || a.sellerGeradorId - b.sellerGeradorId || a.productCode.localeCompare(b.productCode),
+  );
 }
 
 export type PriceTableDayAgg = {

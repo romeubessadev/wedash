@@ -23,7 +23,7 @@ import {
   updatePassword,
   verifyRecoveryOtp,
 } from "@/session/authApi";
-import { senhaValida } from "@/lib/password";
+import { SENHA_REGRA_TEXTO, senhaValida } from "@/lib/password";
 import { cn } from "@/lib/cn";
 
 /** Caixinhas 1 caractere cada — quantidade = length do OTP. */
@@ -358,7 +358,7 @@ export function Reset() {
                   label="Nova senha"
                   value={senha}
                   onChange={setSenha}
-                  placeholder="Digite sua nova senha"
+                  placeholder={SENHA_REGRA_TEXTO}
                   autoComplete="new-password"
                   autoFocus
                 />

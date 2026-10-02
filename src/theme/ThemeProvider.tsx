@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 type Theme = "dark" | "light";
 /** Escolha do usuário; "system" segue o tema do aparelho. */
@@ -15,14 +15,22 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const STORAGE_KEY = "vela-theme";
+/**
+ * Cópia da escolha salva na conta (abre já no tema certo, antes da conta responder).
+ * Só gravado quando há escolha; "vela-theme" era gravado sozinho com "dark" e fica ignorado.
+ */
+const STORAGE_KEY = "wedash.theme";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
-function getInitialPreference(): ThemePreference {
-  if (typeof window === "undefined") return "dark";
+/** Escolha guardada neste aparelho; `null` = nunca escolheu aqui. */
+export function storedThemePreference(): ThemePreference | null {
+  if (typeof window === "undefined") return null;
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark" || stored === "system") return stored;
-  return "dark";
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : null;
+}
+
+function getInitialPreference(): ThemePreference {
+  return storedThemePreference() ?? "system";
 }
 
 function systemTheme(): Theme {
@@ -48,20 +56,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, preference);
-  }, [preference]);
+  const choose = useCallback((p: ThemePreference) => {
+    window.localStorage.setItem(STORAGE_KEY, p);
+    setPreference(p);
+  }, []);
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({
+  const value = useMemo<ThemeContextValue>(() => {
+    return {
       theme,
       preference,
-      setPreference,
-      toggleTheme: () => setPreference(theme === "dark" ? "light" : "dark"),
-      setTheme: setPreference,
-    }),
-    [theme, preference],
-  );
+      setPreference: choose,
+      toggleTheme: () => choose(theme === "dark" ? "light" : "dark"),
+      setTheme: choose,
+    };
+  }, [theme, preference, choose]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

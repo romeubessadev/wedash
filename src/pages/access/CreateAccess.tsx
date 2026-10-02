@@ -5,7 +5,7 @@ import { BrandMark } from "@/pages/auth/authKit";
 import { CampoFoto, CampoSenha, CamposNome, ForcaSenha, acessoBotao, nomePessoaValido, type NomePessoa } from "@/pages/access/AccessKit";
 import { ONBOARDING_STEPS } from "@/pages/onboarding/steps";
 import { PRODUCT_NAME } from "@/data/wedash/tenant";
-import { senhaValida } from "@/lib/password";
+import { SENHA_REGRA_TEXTO, senhaValida } from "@/lib/password";
 import { padTopoEBase } from "@/lib/safeArea";
 import { paths } from "@/router/paths";
 import { destinationAfterAuth, createAccess } from "@/session/authApi";
@@ -91,7 +91,7 @@ export function CreateAccess() {
               label="Nova senha"
               value={senha}
               onChange={setSenha}
-              placeholder="Digite sua nova senha"
+              placeholder={SENHA_REGRA_TEXTO}
               autoComplete="new-password"
             />
             <CampoSenha

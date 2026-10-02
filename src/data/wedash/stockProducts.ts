@@ -99,10 +99,13 @@ export type StockTransfer = { de: string; para: string; qtd: number };
 
 type LocalNivel = "estoque" | "intermediario" | "loja";
 
+/** Nome na interface do local de onde sai a venda (QUIOSQUE no Millennium). */
+export const STOCK_SALES_LOCATION = "PONTO DE VENDA";
+
 function localNivel(nome: string): LocalNivel {
   const n = nome.trim().toUpperCase();
   if (n === "ESTOQUE") return "estoque";
-  if (n === "LOJA" || n === "QUIOSQUE") return "loja";
+  if (n === STOCK_SALES_LOCATION || n === "QUIOSQUE") return "loja";
   return "intermediario";
 }
 

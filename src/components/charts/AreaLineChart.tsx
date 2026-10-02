@@ -1,10 +1,13 @@
 import { useId, useMemo, useState } from "react";
 
 export interface AreaLineChartProps {
-  data: number[];
-  /** Segunda série no mesmo eixo (ex.: meta). Escala compartilhada. */
-  compareData?: number[];
+  /** `null` = ponto sem valor (ex.: horas de hoje que ainda não chegaram) — a linha para antes dele. */
+  data: (number | null)[];
+  /** Segunda série no mesmo eixo (ex.: meta). Escala compartilhada; `null` = sem ponto. */
+  compareData?: (number | null)[];
   labels?: string[];
+  /** Título do tooltip por ponto (ex.: "21h às 22h"); sem ele usa `labels`. */
+  tooltipLabels?: (string | undefined)[];
   color?: string;
   compareColor?: string;
   height?: number;
@@ -16,7 +19,9 @@ export interface AreaLineChartProps {
   formatValue?: (v: number) => string;
 }
 
-function buildSmoothPath(points: { x: number; y: number }[]) {
+type Point = { x: number; y: number };
+
+function buildSmoothPath(points: Point[]) {
   if (points.length < 2) return "";
   let d = `M ${points[0].x} ${points[0].y}`;
   for (let i = 0; i < points.length - 1; i++) {
@@ -38,18 +43,23 @@ const VB_W = 600;
 /** Largura mínima por ponto no mobile — abaixo disso ativa scroll horizontal. */
 const MIN_POINT_W = 56;
 
-function toPoints(data: number[], height: number, padY: number, min: number, range: number) {
+function toPoints(data: (number | null)[], height: number, padY: number, min: number, range: number) {
   const chartH = height - padY * 2;
-  return data.map((v, i) => ({
-    x: data.length <= 1 ? VB_W / 2 : (i / (data.length - 1)) * VB_W,
-    y: padY + chartH * (1 - (v - min) / range),
-  }));
+  return data.map((v, i) =>
+    v == null
+      ? null
+      : {
+          x: data.length <= 1 ? VB_W / 2 : (i / (data.length - 1)) * VB_W,
+          y: padY + chartH * (1 - (v - min) / range),
+        },
+  );
 }
 
 export function AreaLineChart({
   data,
   compareData,
   labels,
+  tooltipLabels,
   color = "var(--acc)",
   compareColor = "var(--t2)",
   height = 240,
@@ -64,9 +74,13 @@ export function AreaLineChart({
   const minW = Math.max(VB_W, data.length * MIN_POINT_W);
 
   const { points, comparePoints, min, max } = useMemo(() => {
-    const pool = compareData && compareData.length === data.length ? [...data, ...compareData] : data;
-    const mn = Math.min(...pool);
-    const mx = Math.max(...pool);
+    const values = data.filter((v): v is number => v != null);
+    const pool =
+      compareData && compareData.length === data.length
+        ? [...values, ...compareData.filter((v): v is number => v != null)]
+        : values;
+    const mn = pool.length > 0 ? Math.min(...pool) : 0;
+    const mx = pool.length > 0 ? Math.max(...pool) : 0;
     const range = mx - mn || 1;
     return {
       points: toPoints(data, height, padY, mn, range),
@@ -79,13 +93,17 @@ export function AreaLineChart({
     };
   }, [data, compareData, height]);
 
-  const linePath = buildSmoothPath(points);
+  const drawn = points.filter((p): p is Point => p != null);
+  const linePath = buildSmoothPath(drawn);
   const areaPath =
-    points.length > 0
-      ? `${linePath} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
+    drawn.length > 1
+      ? `${linePath} L ${drawn[drawn.length - 1].x} ${height} L ${drawn[0].x} ${height} Z`
       : "";
-  const comparePath = comparePoints ? buildSmoothPath(comparePoints) : "";
-  const active = hoverIdx !== null ? points[hoverIdx] : null;
+  const comparePath = comparePoints ? buildSmoothPath(comparePoints.filter((p): p is Point => p != null)) : "";
+  const activeCompare = hoverIdx !== null ? (comparePoints?.[hoverIdx] ?? null) : null;
+  const activeCompareValue = hoverIdx !== null ? (compareData?.[hoverIdx] ?? null) : null;
+  const active = hoverIdx !== null ? (points[hoverIdx] ?? comparePoints?.[hoverIdx] ?? null) : null;
+  const activeValue = hoverIdx !== null ? data[hoverIdx] : null;
 
   function handleMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -131,20 +149,22 @@ export function AreaLineChart({
               vectorEffect="non-scaling-stroke"
             />
             {showValues &&
-              points.map((p, i) => (
-                <text
-                  key={i}
-                  x={p.x}
-                  y={p.y - 8}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="700"
-                  fill={color}
-                  style={{ pointerEvents: "none" }}
-                >
-                  {formatValue(data[i])}
-                </text>
-              ))}
+              points.map((p, i) =>
+                p == null ? null : (
+                  <text
+                    key={i}
+                    x={p.x}
+                    y={p.y - 8}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    fill={color}
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {formatValue(data[i] as number)}
+                  </text>
+                ),
+              )}
             {active && (
               <g>
                 <line
@@ -156,17 +176,19 @@ export function AreaLineChart({
                   strokeDasharray="3 3"
                   vectorEffect="non-scaling-stroke"
                 />
-                {comparePoints && hoverIdx !== null && (
+                {activeCompare && (
                   <circle
-                    cx={comparePoints[hoverIdx].x}
-                    cy={comparePoints[hoverIdx].y}
+                    cx={activeCompare.x}
+                    cy={activeCompare.y}
                     r="4"
                     fill={compareColor}
                     stroke="var(--bg-2)"
                     strokeWidth="2"
                   />
                 )}
-                <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+                {activeValue != null && (
+                  <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+                )}
               </g>
             )}
           </svg>
@@ -189,17 +211,21 @@ export function AreaLineChart({
                   whiteSpace: "nowrap",
                 }}
               >
-                {labels?.[hoverIdx] ? (
-                  <span className="mb-0.5 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span>
+                {(tooltipLabels?.[hoverIdx] ?? labels?.[hoverIdx]) ? (
+                  <span className="mb-0.5 block text-[10px] font-semibold text-t2">
+                    {tooltipLabels?.[hoverIdx] ?? labels?.[hoverIdx]}
+                  </span>
                 ) : null}
-                <span className="flex items-center gap-1.5 font-bold text-t0">
-                  <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: color }} />
-                  {formatValue(data[hoverIdx])}
-                </span>
-                {compareData && compareData.length === data.length && (
+                {activeValue != null && (
+                  <span className="flex items-center gap-1.5 font-bold text-t0">
+                    <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: color }} />
+                    {formatValue(activeValue)}
+                  </span>
+                )}
+                {compareData && compareData.length === data.length && activeCompareValue != null && (
                   <span className="mt-0.5 flex items-center gap-1.5 font-semibold text-t1">
                     <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: compareColor }} />
-                    {formatValue(compareData[hoverIdx])}
+                    {formatValue(activeCompareValue)}
                   </span>
                 )}
               </div>

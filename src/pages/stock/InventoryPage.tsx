@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, DataTable, type DataTableColumn, type SortDir } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardTitle, ThSort, type SortDir } from "@/components/ui";
 import type { StatusVariant } from "@/lib/status";
 import { StockProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
-import { MobileSortBar } from "@/components/wedash/MobileSortBar";
+import { ProductNameCell } from "@/components/wedash/ProductNameCell";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { stockStatus, type StockProductRow, type StockStatus } from "@/data/wedash/stockProducts";
 import { cn } from "@/lib/cn";
-import { titleName } from "@/lib/format";
+import { num } from "@/lib/format";
 import { usePrintMode } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
 import { TABLE_PAGE_SIZE } from "@/lib/usePagedRows";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
+import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { SectionHeader } from "@/pages/operation/shared";
 import { HeaderFilter, HeaderSearch } from "@/pages/dashboard/HeaderFilter";
 import {
   ExportButton,
-  ProductCell,
   TableFooter,
+  TipHelp,
   UpdatedLine,
   HeaderFilters,
   localQty,
@@ -27,15 +28,15 @@ import {
 import { useStockData } from "./useStockData";
 
 type StatusFiltro = "todos" | StockStatus;
-type SortKey = "nome" | "estoque" | "status";
+type SortKey = "nome" | "estoque" | "status" | `local:${string}`;
 
 const STATUS_BADGE: Record<StockStatus, { label: string; variant: StatusVariant }> = {
   negativo: { label: "Negativo", variant: "danger" },
   aguardando: { label: "Aguardando transferência", variant: "warning" },
-  ok: { label: "Ok", variant: "success" },
+  ok: { label: "Regular", variant: "success" },
 };
 
-/** "Transferir 71 de ESTOQUE para LOJA.", uma linha por transferência ("LOJA X: transferir …" quando há várias lojas). */
+/** "Transferir 71 de ESTOQUE para PONTO DE VENDA.", uma linha por transferência ("LOJA X: transferir …" quando há várias lojas). */
 function transferTip(r: StockProductRow, variasLojas: boolean): string {
   return r.lojas
     .flatMap((l) =>
@@ -89,7 +90,7 @@ export function InventoryPage() {
     );
     const dir = sortDir === "asc" ? 1 : -1;
     const valor = ({ r, status: s }: (typeof out)[number]): number =>
-      (sortKey === "status" ? STATUS_PESO[s] : r.estoque);
+      sortKey === "status" ? STATUS_PESO[s] : sortKey.startsWith("local:") ? localQty(r, sortKey.slice(6)) : r.estoque;
     out.sort((a, b) => {
       if (sortKey === "nome") return a.r.nome.localeCompare(b.r.nome, "pt-BR") * dir;
       return (valor(a) - valor(b)) * dir || a.r.nome.localeCompare(b.r.nome, "pt-BR");
@@ -103,50 +104,21 @@ export function InventoryPage() {
   const pageSafe = Math.min(page, totalPages);
   const pageRows = printing ? linhas : linhas.slice((pageSafe - 1) * TABLE_PAGE_SIZE, pageSafe * TABLE_PAGE_SIZE);
 
-  type Linha = (typeof linhas)[number];
-  const columns: DataTableColumn<Linha>[] = [
-    {
-      key: "produto",
-      header: "Produto",
-      render: ({ r }) => <ProductCell r={r} />,
-    },
-    ...locais.map<DataTableColumn<Linha>>((nome) => ({
-      key: `local:${nome}`,
-      header: nome,
-      align: "right",
-      render: ({ r }) => <LocalQty v={localQty(r, nome)} />,
-    })),
-    ...(mostraTotal
-      ? [
-          {
-            key: "estoque",
-            header: "Total",
-            align: "right",
-            render: ({ r }: Linha) => <TotalQty v={r.estoque} />,
-          } satisfies DataTableColumn<Linha>,
-        ]
-      : []),
-    {
-      key: "status",
-      header: "Status",
-      render: ({ r, status: s }) => {
-        const badge = <Badge variant={STATUS_BADGE[s].variant}>{STATUS_BADGE[s].label}</Badge>;
-        if (s !== "aguardando") return badge;
-        const tip = transferTip(r, variasLojas);
-        return (
-          <>
-            <Tooltip label={tip}>
-              <span tabIndex={0} className="cursor-help rounded-[999px] outline-none focus-visible:ring-2 focus-visible:ring-acc">
-                {badge}
-              </span>
-            </Tooltip>
-            {/* No papel não há tooltip: a instrução vai escrita abaixo do badge. */}
-            <p className="mt-1 hidden whitespace-pre-line text-[11px] leading-4 text-t2 print:block">{tip}</p>
-          </>
-        );
-      },
-    },
-  ];
+  const toggleSort = (k: SortKey) => {
+    if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir(k === "nome" ? "asc" : "desc");
+    }
+  };
+
+  const totais = useMemo(
+    () => ({
+      locais: locais.map((nome) => linhas.reduce((s, { r }) => s + localQty(r, nome), 0)),
+      estoque: linhas.reduce((s, { r }) => s + r.estoque, 0),
+    }),
+    [linhas, locais],
+  );
 
   const statusLabel = statusOpcoes.find((o) => o.value === status)?.label ?? "Todos os status";
 
@@ -166,7 +138,7 @@ export function InventoryPage() {
         subtitle="Acompanhe o saldo de cada produto por local de estoque."
         actions={
           <HeaderFilters
-            updated={<UpdatedLine text={atualizadoTexto} tip="O estoque é atualizado pelo Millennium ao abrir a tela, a cada 30 minutos e quando você usa Atualizar." />}
+            updated={<UpdatedLine text={atualizadoTexto} tip="O estoque é buscado no Millennium ao abrir esta tela, quando a última busca tem mais de 30 minutos, e quando você usa Atualizar." />}
           >
             <HeaderSearch value={busca} onChange={setBusca} placeholder="Buscar por produto ou código…" width={240} />
             <HeaderFilter label="Status" value={status} onChange={setStatus} options={statusOpcoes} />
@@ -182,48 +154,34 @@ export function InventoryPage() {
           </HeaderFilters>
         }
         notices={
-          !showSkeleton && view && nNegativo > 0 ? (
-            <Alert
-              variant="warning"
-              title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium." : `${nNegativo} produtos estão com estoque negativo no Millennium.`}
-            >
-              Confira as entradas e saídas desses produtos.
-            </Alert>
-          ) : undefined
+          <>
+            <ErpStatusNotice dado="estoque" className="" />
+            {!showSkeleton && view && nNegativo > 0 && (
+              <Alert
+                variant="warning"
+                title={nNegativo === 1 ? "1 produto está com estoque negativo no Millennium" : `${nNegativo} produtos estão com estoque negativo no Millennium`}
+              >
+                Confira as entradas e saídas desses produtos.
+              </Alert>
+            )}
+          </>
         }
       />
 
       {showSkeleton || !view ? (
         <StockProductsSkeleton />
       ) : (
-        <>
-          {linhas.length > 1 && (
-            <MobileSortBar
-              always
-              className="mb-3"
-              options={[
-                { key: "nome" as SortKey, label: "Produto", text: true },
-                { key: "estoque" as SortKey, label: locais.length === 1 ? titleName(locais[0]) : "Total" },
-                { key: "status" as SortKey, label: "Status" },
-              ]}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onChange={(k, d) => {
-                setSortKey(k);
-                setSortDir(d);
-              }}
-            />
-          )}
-
+        <Card className="flex flex-col">
+          <CardTitle className="mb-4">Produtos</CardTitle>
           {linhas.length === 0 ? (
-            <div className="flex rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
+            <div className="flex flex-1">
               {view.rows.length === 0 ? (
                 syncing ? (
-                  <EmptyBlock icon="📦" title="Buscando estoque" description="Buscando os dados de estoque no Millennium…" />
+                  <EmptyBlock icon="📦" title="Buscando estoque" description="Buscando os saldos no Millennium…" />
                 ) : (
                   <EmptyBlock
                     icon="📦"
-                    title="Sem estoque"
+                    title="Nenhum saldo encontrado"
                     description={variasLojas ? "Nenhum produto com saldo nas lojas selecionadas." : "Nenhum produto com saldo nesta loja."}
                   />
                 )
@@ -249,10 +207,82 @@ export function InventoryPage() {
               )}
             </div>
           ) : (
-            <DataTable columns={columns} data={pageRows} rowKey={({ r }) => r.codigo} />
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm" style={{ minWidth: 460 + (locais.length + (mostraTotal ? 1 : 0)) * 110 }}>
+                <thead>
+                  <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                    <th className="px-1 pb-3 text-left font-bold">#</th>
+                    <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
+                    {locais.map((nome) => (
+                      <ThSort
+                        key={nome}
+                        label={nome}
+                        active={sortKey === `local:${nome}`}
+                        dir={sortDir}
+                        onClick={() => toggleSort(`local:${nome}`)}
+                        className="px-1 pb-3"
+                      />
+                    ))}
+                    {mostraTotal && (
+                      <ThSort label="Total" active={sortKey === "estoque"} dir={sortDir} onClick={() => toggleSort("estoque")} className="px-1 pb-3" />
+                    )}
+                    <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} align="left" className="pb-3 pl-4 pr-1" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map(({ r, status: s }, i) => {
+                    const idx = (printing ? 0 : (pageSafe - 1) * TABLE_PAGE_SIZE) + i;
+                    return (
+                      <tr key={r.codigo} className="border-b border-line">
+                        <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                        <td className="px-1 py-3">
+                          <ProductNameCell nome={r.nome} idx={idx} sub={[r.codigo, r.categoria].filter(Boolean).join(" · ")} />
+                        </td>
+                        {locais.map((nome) => (
+                          <td key={nome} className="px-1 py-3 text-right">
+                            <Qty v={localQty(r, nome)} />
+                          </td>
+                        ))}
+                        {mostraTotal && (
+                          <td className="px-1 py-3 text-right">
+                            <Qty v={r.estoque} />
+                          </td>
+                        )}
+                        <td className="py-3 pl-4 pr-1">
+                          <StatusCell r={r} status={s} variasLojas={variasLojas} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-bg-inset">
+                    <td />
+                    <td className="px-1 py-3 text-[13px] font-extrabold text-t0">
+                      <span className="inline-flex items-center gap-1">
+                        Total do filtro
+                        <TipHelp label="Soma todos os produtos encontrados no filtro, inclusive os que não aparecem nesta página." />
+                      </span>
+                      <span className="mt-0.5 block text-[11px] font-semibold text-t2">
+                        {num(linhas.length)} produto{linhas.length === 1 ? "" : "s"}
+                      </span>
+                    </td>
+                    {totais.locais.map((v, i) => (
+                      <td key={locais[i]} className="px-1 py-3 text-right">
+                        <Qty v={v} total />
+                      </td>
+                    ))}
+                    {mostraTotal && (
+                      <td className="px-1 py-3 text-right">
+                        <Qty v={totais.estoque} total />
+                      </td>
+                    )}
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
           {linhas.length > 0 && <TableFooter shown={pageRows.length} total={linhas.length} page={pageSafe} totalPages={totalPages} onPage={setPage} />}
-        </>
+        </Card>
       )}
     </div>
   );
@@ -260,10 +290,28 @@ export function InventoryPage() {
 
 export default InventoryPage;
 
-function LocalQty({ v }: { v: number }) {
-  return <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", v < 0 ? "font-bold text-bad" : v === 0 ? "text-t2" : "text-t1")}>{qty(v)}</span>;
+/** Saldo em mono negrito (como os números do Desempenho por produto): negativo em vermelho, zero em cinza. */
+function Qty({ v, total = false }: { v: number; total?: boolean }) {
+  return (
+    <span className={cn("whitespace-nowrap font-mono text-[13px] tabular-nums", total ? "font-extrabold" : "font-bold", v < 0 ? "text-bad" : v === 0 ? "text-t2" : "text-t0")}>
+      {qty(v)}
+    </span>
+  );
 }
 
-function TotalQty({ v }: { v: number }) {
-  return <span className={cn("whitespace-nowrap font-mono text-[13px] font-bold tabular-nums", v < 0 ? "text-bad" : "text-t0")}>{qty(v)}</span>;
+function StatusCell({ r, status, variasLojas }: { r: StockProductRow; status: StockStatus; variasLojas: boolean }) {
+  const badge = <Badge variant={STATUS_BADGE[status].variant}>{STATUS_BADGE[status].label}</Badge>;
+  if (status !== "aguardando") return badge;
+  const tip = transferTip(r, variasLojas);
+  return (
+    <>
+      <Tooltip label={tip}>
+        <span tabIndex={0} className="cursor-help rounded-[999px] outline-none focus-visible:ring-2 focus-visible:ring-acc">
+          {badge}
+        </span>
+      </Tooltip>
+      {/* No papel não há tooltip: a instrução vai escrita abaixo do badge. */}
+      <p className="mt-1 hidden whitespace-pre-line text-[11px] leading-4 text-t2 print:block">{tip}</p>
+    </>
+  );
 }

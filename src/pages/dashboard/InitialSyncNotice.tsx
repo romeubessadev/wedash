@@ -18,12 +18,12 @@ export function InitialSyncNotice() {
         : "Não foi possível buscar as vendas de hoje";
   const texto =
     sync.phase === "running"
-      ? "Os dados aparecerão automaticamente assim que a sincronização terminar."
+      ? "As vendas aparecerão automaticamente assim que a sincronização terminar."
       : sync.phase === "stuck"
         ? "Ainda não conseguimos iniciar a busca das vendas de hoje. Se continuar assim, fale com o suporte."
         : sync.busy
           ? "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente."
-          : "Não foi possível obter os dados do Millennium. Tente novamente em instantes.";
+          : "Não foi possível obter as vendas no Millennium. Tente novamente em instantes.";
 
   return (
     <Alert
@@ -40,7 +40,7 @@ export function InitialSyncNotice() {
       action={
         falhou && (
           <Button size="sm" variant="outline" disabled={retrying} onClick={() => void retry()}>
-            {retrying ? "Aguarde…" : "Tentar novamente"}
+            {retrying ? "Tentando…" : "Tentar novamente"}
           </Button>
         )
       }

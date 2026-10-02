@@ -10,10 +10,27 @@ import {
   buildTeamDashboardView,
   resolvePeriod,
   TEAM_SEM_TURNO,
+  type Scope,
   type TeamAggInput,
   type TeamMemberRow,
 } from "@/data/wedash/dashboard";
-import { fetchSalesCoverage } from "@/data/wedash/salesRepo";
+import { fetchSalesCoverage, fetchSalesDayAggs, fetchSalesSellerDayAggs } from "@/data/wedash/salesRepo";
+import { fetchGoals, fetchGoalTeam, type GoalRecord, type GoalTeamMember } from "@/data/wedash/goalsRepo";
+import { buildGoalCardView, goalStatus, sellerGoalLevels, type SellerGoalLevel } from "@/data/wedash/goalView";
+import { GoalLevelSummary } from "@/components/wedash/GoalLevelsBar";
+import { AvatarIniciais } from "@/components/wedash/InitialsAvatar";
+import type { SalesDayAgg, SalesSellerDayAgg } from "@/data/wedash/salesTypes";
+import { storesForSession } from "@/data/wedash/stores";
+import { CardMeta } from "./blocos";
+import {
+  emptyChallengeAggInput,
+  fetchChallengeInput,
+  fetchChallenges,
+  type ChallengeAggInput,
+  type ChallengeRecord,
+} from "@/data/wedash/challengesRepo";
+import { buildChallengeView } from "@/data/wedash/challengeView";
+import { ChallengeMiniCard } from "@/pages/challenges/ChallengeMiniCard";
 import { fetchTeamAggInput, useTeamMemberDetail } from "@/pages/dashboard/TeamMemberDetail";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { useActiveSession } from "@/session/SessionProvider";
@@ -21,7 +38,8 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
-import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { StoreHoursNotice } from "@/pages/dashboard/StoreHoursNotice";
+import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
@@ -40,6 +58,41 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
+
+type GoalsData = { goals: GoalRecord[]; dayAggs: SalesDayAgg[]; sellerAggs: SalesSellerDayAgg[]; team: GoalTeamMember[] };
+const GOALS_VAZIO: GoalsData = { goals: [], dayAggs: [], sellerAggs: [], team: [] };
+
+/** Metas das lojas do filtro que cruzam o período; vendas do início de cada meta até hoje (igual ao detalhe da meta). */
+async function fetchGoalsData(tenantId: string, escopo: Scope, sessionStores: string[]): Promise<GoalsData> {
+  const hoje = calendarTodayIso();
+  const periodo = resolvePeriod(escopo.periodo, hoje);
+  const storeIds = escopo.filialIds.length > 0 ? escopo.filialIds : storesForSession(sessionStores).map((s) => s.id);
+  const goals = await fetchGoals({ tenantId, storeIds, from: periodo.inicio, to: periodo.fim });
+  if (goals.length === 0) return GOALS_VAZIO;
+  const lojas = [...new Set(goals.map((g) => g.storeId))];
+  const from = goals.reduce((m, g) => (g.startsOn < m ? g.startsOn : m), goals[0]!.startsOn);
+  const fim = goals.reduce((m, g) => (g.endsOn > m ? g.endsOn : m), goals[0]!.endsOn);
+  const to = fim < hoje ? fim : hoje;
+  const query = { tenantId, storeIds: lojas, from, to };
+  const [dayAggs, sellerAggs, team] = await Promise.all([
+    from <= to ? fetchSalesDayAggs({ ...query, brand: "ALL" }) : Promise.resolve([]),
+    from <= to ? fetchSalesSellerDayAggs(query) : Promise.resolve([]),
+    fetchGoalTeam(tenantId, lojas),
+  ]);
+  return { goals, dayAggs, sellerAggs, team };
+}
+
+type ChallengesData = { challenges: ChallengeRecord[]; aggs: ChallengeAggInput };
+const CHALLENGES_VAZIO: ChallengesData = { challenges: [], aggs: emptyChallengeAggInput() };
+
+/** Desafios em andamento hoje nas lojas do filtro (não seguem o período da tela). */
+async function fetchActiveChallenges(tenantId: string, escopo: Scope, sessionStores: string[]): Promise<ChallengesData> {
+  const hoje = calendarTodayIso();
+  const storeIds = escopo.filialIds.length > 0 ? escopo.filialIds : storesForSession(sessionStores).map((s) => s.id);
+  const challenges = await fetchChallenges({ tenantId, storeIds, from: hoje, to: hoje });
+  if (challenges.length === 0) return CHALLENGES_VAZIO;
+  return { challenges, aggs: await fetchChallengeInput({ tenantId, challenges, today: hoje }) };
+}
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -78,8 +131,6 @@ const KPI_COLORS = [
 const CORES_TURNO = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
 /** Fatia neutra (sem turno / fora da equipe) — não compete com as demais. */
 const COR_NEUTRA = "color-mix(in srgb, var(--t2) 40%, transparent)";
-const CORES_RANK = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
-
 const PODE_CONFIGURAR_LOJA = new Set(["OWNER", "MANAGER", "ADMIN_GLOBAL"]);
 
 type SortKey = "nome" | "faturamento" | "vendas" | "ticketMedio" | "pa" | "participacaoPct" | "variacaoPct";
@@ -94,19 +145,6 @@ const TipHelp = ({ label }: { label: string }) => (
 
 const filtroInputClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
-
-function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
-  const iniciais = nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-  const cor = CORES_RANK[idx % CORES_RANK.length];
-  return (
-    <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold"
-      style={{ background: `color-mix(in srgb, ${cor} 15%, transparent)`, color: cor }}
-    >
-      {iniciais || "?"}
-    </span>
-  );
-}
 
 const pctFmt = (v: number | null, casas = 1) => (v == null ? "—" : `${num(v, casas)}%`);
 const paFmt = (v: number | null) => (v == null ? "—" : num(v, 2));
@@ -137,7 +175,7 @@ function rotuloLojas(lojas: string[]): string | null {
 
 /**
  * Dashboard > Equipe: desempenho individual da equipe de vendas no período.
- * Metas, escada de premiação e desafios entram quando esses módulos existirem.
+ * Aba Metas = metas reais (Gestão > Metas) das lojas do filtro; aba Desafios = desafios em andamento hoje.
  */
 export function TeamPage() {
   const session = useActiveSession();
@@ -152,6 +190,8 @@ export function TeamPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [turnoSel, setTurnoSel] = useState<string | null>(null);
+  const [goalsData, setGoalsData] = useState<GoalsData>(GOALS_VAZIO);
+  const [challengesData, setChallengesData] = useState<ChallengesData>(CHALLENGES_VAZIO);
   const printing = usePrintMode();
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
@@ -165,18 +205,25 @@ export function TeamPage() {
   const reload = useCallback(async () => {
     const gen = ++reloadGen.current;
     try {
-      const [next, cov] = await Promise.all([
+      const [next, cov, metas, desafios] = await Promise.all([
         fetchTeamAggInput(session.tenantId, escopo),
         fetchSalesCoverage(session.tenantId, escopo.filialIds),
+        fetchGoalsData(session.tenantId, escopo, session.stores),
+        fetchActiveChallenges(session.tenantId, escopo, session.stores).catch((e: unknown) => {
+          console.error("Team challenges:", e);
+          return CHALLENGES_VAZIO;
+        }),
       ]);
       if (gen !== reloadGen.current) return;
       setAggs(next);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
+      setGoalsData(metas);
+      setChallengesData(desafios);
     } catch (e) {
       if (gen !== reloadGen.current) return;
       console.error("Team reload:", e);
     }
-  }, [escopo, session.tenantId]);
+  }, [escopo, session.tenantId, session.stores]);
 
   useEffect(() => {
     void reload().finally(() => setLoading(false));
@@ -193,6 +240,51 @@ export function TeamPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [escopo, aggs, storesTick, turnoSel],
   );
+
+  const hojeIso = calendarTodayIso();
+  const metaCards = useMemo(() => {
+    const nomeLoja = new Map(storesForSession(session.stores).map((s) => [s.id, s.fantasia]));
+    const ordem = { active: 0, upcoming: 1, ended: 2 } as const;
+    return [...goalsData.goals]
+      .sort((a, b) => ordem[goalStatus(a, hojeIso)] - ordem[goalStatus(b, hojeIso)] || b.startsOn.localeCompare(a.startsOn))
+      .map((goal) =>
+        buildGoalCardView({
+          goal,
+          lojaNome: nomeLoja.get(goal.storeId) ?? "Loja",
+          dayAggs: goalsData.dayAggs,
+          sellerDayAggs: goalsData.sellerAggs,
+          team: goalsData.team,
+          today: hojeIso,
+        }),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalsData, session.stores, hojeIso, storesTick]);
+
+  const desafioCards = useMemo(() => {
+    const nomeLoja = new Map(storesForSession(session.stores).map((s) => [s.id, s.fantasia]));
+    return challengesData.challenges
+      .map((challenge) => ({
+        challenge,
+        view: buildChallengeView({ challenge, aggs: challengesData.aggs, today: hojeIso }),
+        lojaNome: nomeLoja.get(challenge.storeId),
+      }))
+      .filter((c) => c.view.status === "active")
+      .sort((a, b) => a.challenge.endsOn.localeCompare(b.challenge.endsOn) || a.challenge.name.localeCompare(b.challenge.name, "pt-BR"));
+  }, [challengesData, session.stores, hojeIso]);
+  const mostraLojaDesafio = escopo.filialIds.length === 0 && storesForSession(session.stores).length > 1;
+
+  const niveisMeta = useMemo(
+    () =>
+      sellerGoalLevels({
+        goals: goalsData.goals,
+        dayAggs: goalsData.dayAggs,
+        sellerDayAggs: goalsData.sellerAggs,
+        team: goalsData.team,
+        today: hojeIso,
+      }),
+    [goalsData, hojeIso],
+  );
+  const temColunaMeta = goalsData.goals.length > 0;
 
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
   const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
@@ -254,7 +346,7 @@ export function TeamPage() {
   }
 
   const exportar = useExportPdf("Equipe", view.turnoFiltro);
-  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, data: aggs, turno: view.turnoFiltro });
+  const { abrir: abrirPessoa, modal: pessoaModal } = useTeamMemberDetail({ escopo, data: aggs, turno: view.turnoFiltro, niveisMeta });
   const teclaAbre = (p: TeamMemberRow) => (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -262,7 +354,7 @@ export function TeamPage() {
     }
   };
   const tipVariacao = `Faturamento ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
-  const tipVariacaoTotal = `Faturamento somado das pessoas do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}. Cada pessoa pesa pelo quanto vende.`;
+  const tipVariacaoTotal = `Faturamento total das pessoas do filtro ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const temVendasEquipe = view.pessoas.length > 0;
   const podeConfigurar = PODE_CONFIGURAR_LOJA.has(session.role);
   const rankPorKey = new Map(view.pessoas.map((p, i) => [p.key, i]));
@@ -303,13 +395,14 @@ export function TeamPage() {
                 Exportar
               </Button>
             </div>
-            <LastUpdated />
           </div>
         }
       />
 
+      <ErpStatusNotice />
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      <StoreHoursNotice />
 
       {showSkeleton ? (
         <TeamSkeleton />
@@ -339,10 +432,7 @@ export function TeamPage() {
             {/* Faturamento por turno */}
             <Card className="flex flex-col">
               <CardHeader>
-                <div className="flex items-center gap-1.5">
-                  <CardTitle>Faturamento por grupo</CardTitle>
-                  <TipHelp label="Mostra a participação de cada grupo no faturamento da equipe." />
-                </div>
+                <CardTitle>Faturamento por grupo</CardTitle>
               </CardHeader>
               {!temVendasEquipe ? (
                 <EmptyBlock />
@@ -419,11 +509,11 @@ export function TeamPage() {
                       ? [
                           { nome: view.turnoFiltro, valor: turno, cor: "var(--acc)" },
                           { nome: "Demais da equipe", valor: Math.max(0, equipe - turno), cor: "var(--info)" },
-                          { nome: "Sem vendedor ou gerência", valor: fora, cor: COR_NEUTRA },
+                          { nome: "Sem vendedor identificado ou gerência", valor: fora, cor: COR_NEUTRA },
                         ]
                       : [
                           { nome: "Equipe de vendas", valor: equipe, cor: "var(--acc)" },
-                          { nome: "Sem vendedor ou gerência", valor: fora, cor: COR_NEUTRA },
+                          { nome: "Sem vendedor identificado ou gerência", valor: fora, cor: COR_NEUTRA },
                         ]
                   ).filter((f) => f.valor > 0);
                   return (
@@ -458,7 +548,7 @@ export function TeamPage() {
           <Card className="mt-4 min-w-0 overflow-hidden" padding="lg">
             <div className="mb-4 flex items-center gap-1.5">
               <CardTitle>Desempenho da equipe</CardTitle>
-              <TipHelp label={"Acompanhe ranking, desafios e metas individuais no período.\n\nVendas sem vendedor identificado ou realizadas pela gerência não entram no ranking."} />
+              <TipHelp label={"Acompanhe ranking, desafios e metas da equipe no período.\n\nVendas sem vendedor identificado ou realizadas pela gerência não entram no ranking."} />
             </div>
             {printing ? (
               !temVendasEquipe ? <EmptyBlock /> : abaRanking()
@@ -477,35 +567,55 @@ export function TeamPage() {
                   key: "desafios",
                   label: "Desafios",
                   icon: <FlameIcon size={14} />,
-                  content: (
-                    <EmptyBlock
-                      icon="🔥"
-                      title="Desafio não configurado"
-                      description="Crie um desafio para engajar a equipe e acompanhar o progresso de cada pessoa."
-                      action={
-                        <Button size="sm" onClick={() => navigate(paths.management.challenges)}>
-                          Criar desafio
-                        </Button>
-                      }
-                    />
-                  ),
+                  content:
+                    desafioCards.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                        {desafioCards.map(({ challenge, view: desafio, lojaNome }) => (
+                          <ChallengeMiniCard
+                            key={challenge.id}
+                            challenge={challenge}
+                            view={desafio}
+                            lojaNome={mostraLojaDesafio ? lojaNome : undefined}
+                            onOpen={() => navigate(paths.management.challengeDetail(challenge.id))}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyBlock
+                        icon="🔥"
+                        title="Desafio não configurado"
+                        description="Crie um desafio para engajar a equipe e acompanhar o progresso de cada pessoa."
+                        action={
+                          <Button size="sm" onClick={() => navigate(paths.management.challenges)}>
+                            Criar desafio
+                          </Button>
+                        }
+                      />
+                    ),
                 },
                 {
                   key: "metas",
                   label: "Metas",
                   icon: <TargetIcon size={14} />,
-                  content: (
-                    <EmptyBlock
-                      icon="🎯"
-                      title="Meta não configurada"
-                      description="Cadastre a meta do mês para acompanhar o atingimento de cada pessoa da equipe."
-                      action={
-                        <Button size="sm" onClick={() => navigate(paths.goals)}>
-                          Criar meta
-                        </Button>
-                      }
-                    />
-                  ),
+                  content:
+                    metaCards.length > 0 ? (
+                      <div className="flex flex-col gap-4">
+                        {metaCards.map((card) => (
+                          <CardMeta key={card.id} card={card} metaAtiva hojeIso={hojeIso} />
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyBlock
+                        icon="🎯"
+                        title="Meta não configurada"
+                        description="Cadastre uma meta para acompanhar o desempenho da equipe no período."
+                        action={
+                          <Button size="sm" onClick={() => navigate(paths.goals)}>
+                            Criar meta
+                          </Button>
+                        }
+                      />
+                    ),
                 },
               ]}
             />
@@ -526,7 +636,7 @@ export function TeamPage() {
         <div className="mt-6 mb-4 flex flex-wrap items-center gap-2 sm:justify-end print:hidden">
           <input
             type="search"
-            placeholder="Buscar..."
+            placeholder="Buscar por nome…"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className={cn(filtroInputClass, "sm:w-56")}
@@ -549,6 +659,7 @@ export function TeamPage() {
                   <ThSort label="P.A." active={sortKey === "pa"} dir={sortDir} onClick={() => toggleSort("pa")} className="px-1 pb-3" />
                   <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} className="px-1 pb-3" />
                   <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} className="px-1 pb-3" />
+                  {temColunaMeta && <th className="pb-3 pl-5 pr-1 text-left font-bold">Nível da meta</th>}
                 </tr>
               </thead>
               <tbody>
@@ -597,6 +708,7 @@ export function TeamPage() {
                           </span>
                         </Tooltip>
                       </td>
+                      {temColunaMeta && <CelulaNivelMeta nivel={niveisMeta.get(p.key)} completo={!printing} />}
                     </tr>
                   );
                 })}
@@ -625,6 +737,7 @@ export function TeamPage() {
                       </span>
                     </Tooltip>
                   </td>
+                  {temColunaMeta && <td />}
                 </tr>
               </tbody>
             </table>
@@ -642,6 +755,16 @@ export function TeamPage() {
       </div>
     );
   }
+}
+
+/** Barra da meta da pessoa com os níveis (N1 · nome (premiação %)); sem meta = "—". */
+function CelulaNivelMeta({ nivel, completo }: { nivel?: SellerGoalLevel; completo: boolean }) {
+  if (!nivel) return <td className="py-3 pl-5 pr-1 text-[13px] text-t2">—</td>;
+  return (
+    <td className="py-3 pl-5 pr-1 align-middle">
+      <GoalLevelSummary pct={nivel.atingimentoPct} nivel={nivel.nivel} nivelNumero={nivel.nivelNumero} marcos={nivel.marcos} completo={completo} />
+    </td>
+  );
 }
 
 function SemResultado({ temDados, onLimpar }: { temDados: boolean; onLimpar: () => void }) {

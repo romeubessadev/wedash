@@ -11,6 +11,9 @@ export const MENSAGEM_LOGIN = "E-mail ou senha incorretos.";
 export const MENSAGEM_SENHA_GENERICA = "Não foi possível salvar sua senha. Tente novamente.";
 export const MENSAGEM_OTP_INVALIDO = "Código inválido ou expirado. Solicite um novo código.";
 export const MENSAGEM_OTP_GENERICA = "Não foi possível verificar o código. Tente novamente.";
+export const MENSAGEM_SESSAO_EXPIRADA = "Sua sessão expirou. Entre novamente.";
+const MENSAGEM_FOTO_ENVIO_SEM_PONTO = "Não foi possível enviar a foto. Tente novamente";
+const MENSAGEM_FOTO_ENVIO = `${MENSAGEM_FOTO_ENVIO_SEM_PONTO}.`;
 /** Tamanho do OTP de recovery — alinhar com Auth → Providers → Email → OTP length. */
 export const RECOVERY_OTP_LENGTH = 6;
 /** Aceita letra+número (A–Z / 0–9). Se o Dashboard só gerar dígitos, continua válido. */
@@ -346,18 +349,18 @@ export async function uploadAvatar(photo: File): Promise<{ ok: true; url: string
   if (!sb) return { ok: true, url: URL.createObjectURL(photo) };
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
-  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo." };
+  if (!uid) return { ok: false, error: MENSAGEM_SESSAO_EXPIRADA };
   let blob: Blob;
   try {
     blob = await prepararAvatar(photo);
   } catch {
-    return { ok: false, error: "Não foi possível ler essa imagem. Tente outra foto." };
+    return { ok: false, error: "Não foi possível abrir essa imagem. Tente outra foto." };
   }
   const path = `${uid}/${Date.now()}.jpg`;
   const { error } = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg" });
   if (error) {
     console.warn("uploadAvatar:", error.message);
-    return { ok: false, error: "Não foi possível enviar a foto. Tente novamente ou continue sem foto." };
+    return { ok: false, error: MENSAGEM_FOTO_ENVIO };
   }
   return { ok: true, url: sb.storage.from("avatars").getPublicUrl(path).data.publicUrl };
 }
@@ -392,7 +395,9 @@ export async function createAccess(
   let avatarUrl: string | null = null;
   if (input.photo) {
     const up = await uploadAvatar(input.photo);
-    if (!up.ok) return up;
+    if (!up.ok) {
+      return { ok: false, error: up.error === MENSAGEM_FOTO_ENVIO ? `${MENSAGEM_FOTO_ENVIO_SEM_PONTO} ou continue sem foto.` : up.error };
+    }
     avatarUrl = up.url;
   }
 
@@ -448,7 +453,7 @@ export async function saveMyProfile(
 
   const { data: userData } = await sb.auth.getUser();
   const uid = userData.user?.id;
-  if (!uid) return { ok: false, error: "Sua sessão expirou. Entre de novo." };
+  if (!uid) return { ok: false, error: MENSAGEM_SESSAO_EXPIRADA };
 
   let avatarUrl: string | null | undefined;
   if (input.photo) {
@@ -482,7 +487,12 @@ export async function changeMyPassword(email: string, atual: string, nova: strin
   const { error: loginErr } = await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: atual });
   if (loginErr) return { ok: false, error: "Senha atual incorreta." };
   const { error } = await sb.auth.updateUser({ password: nova });
-  if (error) return { ok: false, error: mensagemErroSenhaAuth(error) };
+  if (error) {
+    const msg = mensagemErroSenhaAuth(error);
+    if (msg === MENSAGEM_OTP_INVALIDO) return { ok: false, error: MENSAGEM_SESSAO_EXPIRADA };
+    if (msg === MENSAGEM_SENHA_GENERICA) return { ok: false, error: "Não foi possível alterar sua senha. Tente novamente." };
+    return { ok: false, error: msg };
+  }
   return { ok: true };
 }
 
@@ -613,6 +623,38 @@ export async function touchLastSeen(): Promise<void> {
   if (!sb) return;
   const { error } = await sb.rpc("touch_last_seen");
   if (error) console.warn("touch_last_seen:", error.message);
+}
+
+export type ThemeChoice = "light" | "dark" | "system";
+
+/** Aparência salva na conta (Meu perfil). `null` = nunca escolheu, sem banco ou falha. */
+export async function fetchThemePreference(): Promise<ThemeChoice | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data: auth } = await sb.auth.getSession();
+  const user = auth.session?.user;
+  if (!user) return null;
+  const { data, error } = await sb
+    .from("identity")
+    .select("theme_preference")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (error) {
+    console.warn("fetchThemePreference:", error.message);
+    return null;
+  }
+  const p = data?.theme_preference;
+  return p === "light" || p === "dark" || p === "system" ? p : null;
+}
+
+export async function saveThemePreference(p: ThemeChoice): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { data: auth } = await sb.auth.getSession();
+  const user = auth.session?.user;
+  if (!user) return;
+  const { error } = await sb.from("identity").update({ theme_preference: p }).eq("auth_user_id", user.id);
+  if (error) console.warn("saveThemePreference:", error.message);
 }
 
 /** Para seed/manual: monta Session a partir de User fixture. */

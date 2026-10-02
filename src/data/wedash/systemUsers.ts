@@ -41,32 +41,38 @@ export interface InviteInput {
   storeIds: string[];
 }
 
-export type ActionResult = { ok: true } | { ok: false; message: string };
+/** `code` = código de erro da Edge, para a tela trocar a mensagem pelo contexto (ex.: `protected_member`). */
+export type ActionResult = { ok: true } | { ok: false; message: string; code?: string };
+
+const GENERIC_ERROR = "Não foi possível concluir. Tente novamente.";
+const LOAD_ERROR = "Não foi possível carregar os usuários. Tente novamente.";
 
 const MESSAGES: Record<string, string> = {
   invalid_email: "Informe um e-mail válido.",
-  invalid_role: "Escolha o papel.",
+  invalid_role: "Escolha o tipo de acesso.",
   invalid_stores: "Escolha ao menos uma loja.",
-  already_invited: "Essa pessoa já tem um convite pendente. Use Reenviar convite na aba Convites pendentes.",
-  already_member: "Essa pessoa já tem acesso à WeDash.",
+  already_invited: "Este e-mail já tem um convite pendente. Use Reenviar convite na aba Convites pendentes.",
+  already_member: "Este e-mail já tem acesso à WeDash.",
   email_in_use: "Este e-mail já está vinculado a outra empresa na WeDash.",
-  rate_limited: "Muitos e-mails foram enviados em pouco tempo. Aguarde um minuto e tente novamente.",
+  rate_limited: "Muitos convites foram enviados em pouco tempo. Aguarde um minuto e tente novamente.",
   email_failed: "Não foi possível enviar o e-mail do convite. Tente novamente.",
   invite_failed: "Não foi possível concluir o convite. Se o e-mail chegou, ignore-o e envie um novo convite.",
   update_failed: "Não foi possível salvar as alterações. Tente novamente.",
   revoke_failed: "Não foi possível cancelar o convite. Tente novamente.",
-  protected_member: "O Gestor principal e o seu próprio acesso não podem ser alterados aqui.",
+  protected_member: "O acesso do Gestor principal não pode ser alterado aqui.",
   not_pending: "Este convite já foi aceito ou cancelado.",
   forbidden: "Somente Gestores podem gerenciar usuários.",
 };
 
 function messageFor(code: string | undefined): string {
-  return (code && MESSAGES[code]) || "Não foi possível concluir. Tente novamente.";
+  return (code && MESSAGES[code]) || GENERIC_ERROR;
 }
 
-async function invoke<T>(body: Record<string, unknown>): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+async function invoke<T>(
+  body: Record<string, unknown>,
+): Promise<{ ok: true; data: T } | { ok: false; message: string; code?: string }> {
   const sb = getSupabase();
-  if (!sb) return { ok: false, message: "Supabase não configurado." };
+  if (!sb) return { ok: false, message: GENERIC_ERROR };
   const { data, error } = await sb.functions.invoke("team-members", {
     body: { ...body, origin: window.location.origin },
   });
@@ -78,10 +84,10 @@ async function invoke<T>(body: Record<string, unknown>): Promise<{ ok: true; dat
     } catch {
       /* ignore */
     }
-    return { ok: false, message: messageFor(code) };
+    return { ok: false, message: messageFor(code), code };
   }
   const res = data as { ok?: boolean; error?: string } & T;
-  if (!res?.ok) return { ok: false, message: messageFor(res?.error) };
+  if (!res?.ok) return { ok: false, message: messageFor(res?.error), code: res?.error };
   return { ok: true, data: res };
 }
 
@@ -120,7 +126,7 @@ export async function fetchSystemUsers(): Promise<{ ok: true; data: SystemUsersD
     };
   }
   const r = await invoke<SystemUsersData>({ action: "list" });
-  if (!r.ok) return r;
+  if (!r.ok) return { ok: false, message: r.message === GENERIC_ERROR ? LOAD_ERROR : r.message };
   const members = (r.data.members ?? []).map((m) => ({ ...m, name: titleName(m.name) }));
   return { ok: true, data: { members, stores: r.data.stores ?? [] } };
 }

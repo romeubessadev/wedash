@@ -1,4 +1,4 @@
-import { brlCent, deIso, intervaloDias, num } from "@/lib/format";
+import { brlCent, deIso, fimDoMes, intervaloDias, num, paraIso, somarDias } from "@/lib/format";
 import type { GoalRecord, GoalTeamMember } from "./goalsRepo";
 import type { SalesDayAgg, SalesSellerDayAgg } from "./salesTypes";
 import type { GoalCardView, NetworkGlobalGoal, SellerRow } from "./teamViews";
@@ -34,6 +34,44 @@ function diasRestantes(g: GoalRecord, today: string): number {
   return goalStatus(g, today) === "active" ? diasEntre(today, g.endsOn) : 0;
 }
 
+/** Prazo da meta em andamento ("12 dias restantes"); `dias` inclui hoje, então 1 = "Último dia". */
+export function prazoRestante(dias: number): string {
+  if (dias <= 1) return "Último dia";
+  return `${dias} dias restantes`;
+}
+
+/**
+ * Período da cópia de uma meta: meta de meses fechados (dia 1 ao último dia) = os meses seguintes,
+ * com a mesma quantidade de meses; senão começa no dia seguinte ao fim, com a mesma duração.
+ */
+export function nextGoalPeriod(startsOn: string, endsOn: string): { startsOn: string; endsOn: string } {
+  const ini = deIso(startsOn);
+  const fim = deIso(endsOn);
+  if (ini.getDate() === 1 && fimDoMes(endsOn) === endsOn) {
+    const meses = (fim.getFullYear() - ini.getFullYear()) * 12 + fim.getMonth() - ini.getMonth() + 1;
+    const novoIni = new Date(fim.getFullYear(), fim.getMonth() + 1, 1);
+    return { startsOn: paraIso(novoIni), endsOn: paraIso(new Date(novoIni.getFullYear(), novoIni.getMonth() + meses, 0)) };
+  }
+  const novoIni = somarDias(endsOn, 1);
+  return { startsOn: novoIni, endsOn: somarDias(novoIni, diasEntre(startsOn, endsOn) - 1) };
+}
+
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const MES_NO_NOME = /(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(\s+(?:de\s+)?|\s*\/\s*)?(\d{4})?/giu;
+
+/** Nome da cópia: o mês do nome (um só) vira o mês do novo período, mantendo maiúsculas; senão "{nome} (cópia)". */
+export function copyGoalName(name: string, newStartsOn: string): string {
+  const achados = [...name.matchAll(MES_NO_NOME)];
+  if (achados.length !== 1) return `${name} (cópia)`;
+  const d = deIso(newStartsOn);
+  const mes = MESES[d.getMonth()]!;
+  return name.replace(MES_NO_NOME, (m: string, nomeMes: string, sep: string | undefined, ano: string | undefined) => {
+    const novo =
+      nomeMes === nomeMes.toUpperCase() ? mes.toUpperCase() : nomeMes[0] === nomeMes[0]!.toUpperCase() ? mes[0]!.toUpperCase() + mes.slice(1) : mes;
+    return ano ? `${novo}${sep ?? " "}${d.getFullYear()}` : `${novo}${m.slice(nomeMes.length)}`;
+  });
+}
+
 /** Faturamento da loja (brand ALL) dentro do período da meta. */
 export function goalRealized(g: GoalRecord, dayAggs: SalesDayAgg[]): number {
   let cents = 0;
@@ -62,6 +100,8 @@ export interface GoalSummary {
   diasRestantes: number;
   /** Nível da loja na escada pelo realizado (null = nenhum ainda). */
   nivelAtual: string | null;
+  /** Número do nível (1 = N1); null = nenhum ainda. */
+  nivelNumero: number | null;
 }
 
 export function buildGoalSummary(g: GoalRecord, dayAggs: SalesDayAgg[], today: string): GoalSummary {
@@ -69,9 +109,11 @@ export function buildGoalSummary(g: GoalRecord, dayAggs: SalesDayAgg[], today: s
   const realizado = status === "upcoming" ? 0 : goalRealized(g, dayAggs);
   const pct = g.target > 0 ? (realizado / g.target) * 100 : 0;
   let nivel: string | null = null;
-  for (const t of g.tiers) {
-    if (pct >= t.atingimentoMinPct) nivel = t.nome;
-    else break;
+  let nivelNumero: number | null = null;
+  for (const [i, t] of g.tiers.entries()) {
+    if (pct < t.atingimentoMinPct) break;
+    nivel = t.nome;
+    nivelNumero = i + 1;
   }
   return {
     goal: g,
@@ -81,6 +123,142 @@ export function buildGoalSummary(g: GoalRecord, dayAggs: SalesDayAgg[], today: s
     projetadoPct: status === "active" && fracaoDecorrida(g, today) >= 0.5 ? projetadoPct(pct, g, today) : null,
     diasRestantes: diasRestantes(g, today),
     nivelAtual: nivel,
+    nivelNumero,
+  };
+}
+
+export interface SellerGoalLevel {
+  /** Nome do nível alcançado; null = abaixo do 1º nível. */
+  nivel: string | null;
+  nivelNumero: number | null;
+  atingimentoPct: number;
+  /** Níveis da meta (cortes da barra). */
+  marcos: { nome: string; pct: number; comissaoPct: number }[];
+  metaNome: string;
+  inicio: string;
+  fim: string;
+  status: GoalStatus;
+  /** Dias que faltam (incluindo hoje) com a meta em andamento; 0 encerrada. */
+  diasRestantes: number;
+  modo: "individual" | "grupo";
+  /** Grupo de distribuição da pessoa (null = meta sem grupos). */
+  grupo: string | null;
+  /** Meta da pessoa (individual) ou do grupo (modo Grupo). */
+  metaValor: number;
+  /** O que conta para a meta: vendas da pessoa (individual) ou do grupo (modo Grupo), do início da meta até hoje. */
+  realizado: number;
+  proximo: { nome: string; numero: number; falta: number; comissaoPct: number; bonus: number } | null;
+  /** Premiação do nível alcançado (no modo Grupo, a parte da pessoa). */
+  premiacao: number;
+  /** Bônus somados dos níveis alcançados. */
+  bonus: number;
+}
+
+/**
+ * Nível de meta de cada pessoa, com a mesma conta do detalhe da meta (do início da meta até hoje).
+ * Chave = `e:{código}` / `n:{nome normalizado}` (a mesma do Destaques da equipe). Só metas que já começaram;
+ * pessoa em mais de uma meta = a que começou por último (mesmo início = a loja onde mais vendeu). Sem meta = fora do mapa.
+ */
+export function sellerGoalLevels(input: {
+  goals: GoalRecord[];
+  dayAggs: SalesDayAgg[];
+  sellerDayAggs: SalesSellerDayAgg[];
+  team: GoalTeamMember[];
+  today: string;
+}): Map<string, SellerGoalLevel> {
+  const melhor = new Map<string, { level: SellerGoalLevel; startsOn: string; faturamento: number }>();
+  for (const goal of input.goals) {
+    const status = goalStatus(goal, input.today);
+    if (status === "upcoming") continue;
+    const view = buildGoalCardView({ goal, lojaNome: "", dayAggs: input.dayAggs, sellerDayAggs: input.sellerDayAggs, team: input.team, today: input.today });
+    for (const r of view.vendedoras) {
+      if (r.semMeta) continue;
+      const atual = melhor.get(r.colaboradorId);
+      if (atual && (atual.startsOn > goal.startsOn || (atual.startsOn === goal.startsOn && atual.faturamento >= r.faturamentoValor))) continue;
+      melhor.set(r.colaboradorId, {
+        level: {
+          nivel: r.degrauAtual,
+          nivelNumero: r.nivelAtual,
+          atingimentoPct: r.atingimentoPct,
+          marcos: goal.tiers.map((t) => ({ nome: t.nome, pct: t.atingimentoMinPct, comissaoPct: t.comissaoPct })),
+          metaNome: goal.name,
+          inicio: goal.startsOn,
+          fim: goal.endsOn,
+          status,
+          diasRestantes: diasRestantes(goal, input.today),
+          modo: goal.tierMode === "INDIVIDUAL" ? "individual" : "grupo",
+          grupo: goal.groups.length > 0 ? r.grupo : null,
+          metaValor: r.metaIndividualValor,
+          realizado: (r.atingimentoPct * r.metaIndividualValor) / 100,
+          proximo: r.proximoDegrau
+            ? {
+                nome: r.proximoDegrau.nome,
+                numero: (r.nivelAtual ?? 0) + 1,
+                falta: r.proximoDegrau.faltaValor,
+                comissaoPct: r.proximoDegrau.pctPremiacao,
+                bonus: r.proximoDegrau.bonus,
+              }
+            : null,
+          premiacao: r.premiacaoAcumulada,
+          bonus: r.bonusAlcancado,
+        },
+        startsOn: goal.startsOn,
+        faturamento: r.faturamentoValor,
+      });
+    }
+  }
+  const out = new Map([...melhor].map(([k, v]) => [k, v.level]));
+  // Venda gravada só pelo nome: a meta liga pelo cadastro (`e:`), o Destaques agrupa pelo nome (`n:`).
+  for (const m of input.team) {
+    const level = out.get(`e:${m.employeeId}`);
+    if (!level) continue;
+    for (const k of m.nameKeys) if (!out.has(`n:${k}`)) out.set(`n:${k}`, level);
+  }
+  return out;
+}
+
+export interface GoalManagerPrize {
+  /** Nível alcançado pela loja (null = abaixo do 1º). */
+  nivel: string | null;
+  nivelNumero: number | null;
+  /** % da premiação da gerência no nível alcançado. */
+  pct: number;
+  /** Premiação sobre o faturamento total da loja, do início da meta até hoje. */
+  premiacao: number;
+  /** Bônus somados dos níveis alcançados. */
+  bonus: number;
+  proximo: { nome: string; numero: number; falta: number; pct: number; bonus: number } | null;
+}
+
+/**
+ * Premiação da gerência: sobe de nível pelo faturamento total da loja (inclui vendas sem vendedor identificado e da
+ * própria gerência) contra a meta da loja, e ganha o % do nível sobre tudo o que a loja vendeu. null = meta sem gerência.
+ */
+export function goalManagerPrize(g: GoalRecord, realizado: number): GoalManagerPrize | null {
+  if (!g.tiers.some((t) => t.gerenciaPct != null)) return null;
+  const pctLoja = g.target > 0 ? (realizado / g.target) * 100 : 0;
+  let idx = -1;
+  g.tiers.forEach((t, i) => {
+    if (pctLoja >= t.atingimentoMinPct && i === idx + 1) idx = i;
+  });
+  const degrau = idx >= 0 ? g.tiers[idx]! : null;
+  const seguinte = idx + 1 < g.tiers.length ? g.tiers[idx + 1]! : null;
+  const pct = degrau?.gerenciaPct ?? 0;
+  return {
+    nivel: degrau?.nome ?? null,
+    nivelNumero: degrau ? idx + 1 : null,
+    pct,
+    premiacao: (realizado * pct) / 100,
+    bonus: g.tiers.slice(0, idx + 1).reduce((s, t) => s + (t.gerenciaBonus ?? 0), 0),
+    proximo: seguinte
+      ? {
+          nome: seguinte.nome,
+          numero: idx + 2,
+          falta: Math.max(0, (g.target * seguinte.atingimentoMinPct) / 100 - realizado),
+          pct: seguinte.gerenciaPct ?? 0,
+          bonus: seguinte.gerenciaBonus ?? 0,
+        }
+      : null,
   };
 }
 
@@ -105,7 +283,9 @@ type Acc = {
 /**
  * Detalhe da meta no formato do card de meta da Equipe (faixa + escada por pessoa).
  * Pessoas = equipe de vendas ativa da loja ∪ quem vendeu no período (ex-vendedoras incluídas).
- * Meta individual (modo INDIVIDUAL) = meta da loja ÷ pessoas; modo GROUP = todos pela meta da loja.
+ * Meta do grupo = meta × % do grupo (sem grupos = a meta inteira para a equipe toda). Pessoa fora dos grupos da meta = sem meta.
+ * INDIVIDUAL: meta do grupo ÷ pessoas, premiação sobre as próprias vendas. GROUP: o grupo sobe pela soma das vendas e a
+ * premiação é dividida igualmente. Bônus soma os níveis alcançados (bateu o 2º = bônus do 1º + do 2º), para cada pessoa.
  */
 export function buildGoalCardView(input: {
   goal: GoalRecord;
@@ -154,14 +334,38 @@ export function buildGoalCardView(input: {
   const pessoas = [...accs.values()];
   const n = pessoas.length;
   const individual = g.tierMode === "INDIVIDUAL";
-  const metaInd = individual ? (n > 0 ? g.target / n : 0) : g.target;
   const escala = Math.max(100, ...g.tiers.map((t) => t.atingimentoMinPct));
   const marcos = g.tiers.map((t) => ({ nome: t.nome, pct: t.atingimentoMinPct, pctPremiacao: t.comissaoPct, bonus: t.bonus }));
   const diasPeriodo = intervaloDias(g.startsOn, g.endsOn).length;
   const equipeTotal = pessoas.reduce((s, p) => s + p.faturamento, 0);
 
+  // Sem grupos de distribuição = um grupo só, com a equipe toda e a meta inteira.
+  const TODOS = "*";
+  const metaGrupo = new Map<string, number>(
+    g.groups.length > 0 ? g.groups.map((x) => [x.shiftId, (g.target * x.pct) / 100]) : [[TODOS, g.target]],
+  );
+  const grupoDe = (p: Acc): string | null => {
+    if (g.groups.length === 0) return TODOS;
+    const sid = p.employeeId != null ? porCodigo.get(p.employeeId)?.shiftId : null;
+    return sid && metaGrupo.has(sid) ? sid : null;
+  };
+  const membrosGrupo = new Map<string, number>();
+  const vendasGrupo = new Map<string, number>();
+  for (const p of pessoas) {
+    const k = grupoDe(p);
+    if (!k) continue;
+    membrosGrupo.set(k, (membrosGrupo.get(k) ?? 0) + 1);
+    vendasGrupo.set(k, (vendasGrupo.get(k) ?? 0) + p.faturamento);
+  }
+
   const vendedoras: SellerRow[] = pessoas.map((p) => {
-    const base = individual ? p.faturamento : equipeTotal;
+    // Individual: meta do grupo ÷ pessoas, sobre as próprias vendas.
+    // Grupo: o grupo sobe junto pela soma das vendas; premiação dividida igualmente entre as pessoas.
+    const k = grupoDe(p);
+    const membros = k ? (membrosGrupo.get(k) ?? 0) : 0;
+    const metaG = k ? (metaGrupo.get(k) ?? 0) : 0;
+    const metaInd = membros > 0 ? (individual ? metaG / membros : metaG) : 0;
+    const base = individual ? p.faturamento : k ? (vendasGrupo.get(k) ?? 0) : 0;
     const ating = metaInd > 0 ? (base / metaInd) * 100 : 0;
     let idx = -1;
     g.tiers.forEach((t, i) => {
@@ -169,6 +373,8 @@ export function buildGoalCardView(input: {
     });
     const degrau = idx >= 0 ? g.tiers[idx] : null;
     const seguinte = idx + 1 < g.tiers.length ? g.tiers[idx + 1] : null;
+    const premiacao = degrau && metaInd > 0 ? (base * degrau.comissaoPct) / 100 / (individual ? 1 : membros) : 0;
+    const bonus = metaInd > 0 ? g.tiers.slice(0, idx + 1).reduce((s, t) => s + t.bonus, 0) : 0;
     const membro = p.employeeId != null ? porCodigo.get(p.employeeId) : undefined;
     const ticket = p.vendas > 0 ? p.faturamento / p.vendas : 0;
     const pa = p.vendas > 0 && p.itens > 0 ? p.itens / p.vendas : 0;
@@ -205,11 +411,11 @@ export function buildGoalCardView(input: {
             atingMinPct: seguinte.atingimentoMinPct,
           }
         : null,
-      premiacaoAcumulada: degrau ? (p.faturamento * degrau.comissaoPct) / 100 : 0,
+      premiacaoAcumulada: premiacao,
       comissaoPct: degrau?.comissaoPct ?? 0,
       premiacaoProjetadaIndividual: null,
       atingimentoProjetadoPct: status === "active" && frac > 0 ? ating / frac : null,
-      bonusAlcancado: degrau?.bonus ?? 0,
+      bonusAlcancado: bonus,
       atencao: null,
       semMeta: metaInd <= 0,
     };
@@ -234,7 +440,7 @@ export function buildGoalCardView(input: {
     tipo: individual ? "individual" : "grupo",
     lojaNome,
     marcas: [],
-    qtdGrupos: 0,
+    qtdGrupos: g.groups.length,
     qtdVendedoras: n,
     qtdNiveis: g.tiers.length,
     degraus: g.tiers,

@@ -6,8 +6,9 @@ import { MobileDrawer } from "./MobileDrawer";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { PageLoader } from "./PageLoader";
-import { touchLastSeen } from "@/session/authApi";
+import { fetchThemePreference, saveThemePreference, touchLastSeen } from "@/session/authApi";
 import { installPrintMode } from "@/lib/printMode";
+import { storedThemePreference, useTheme } from "@/theme/ThemeProvider";
 
 /** O banco só grava 1x a cada 5 min; aqui só evita chamadas à toa. */
 const LAST_SEEN_INTERVAL_MS = 5 * 60_000;
@@ -41,6 +42,27 @@ export function AppShell() {
   }, []);
 
   useEffect(() => installPrintMode(), []);
+
+  // Aparência da conta (Meu perfil): igual em qualquer aparelho; relida ao voltar para o app (PWA).
+  const { preference, setPreference } = useTheme();
+  const preferenceRef = useRef(preference);
+  preferenceRef.current = preference;
+  useEffect(() => {
+    const sync = async () => {
+      if (document.visibilityState !== "visible") return;
+      const conta = await fetchThemePreference();
+      if (conta) {
+        if (conta !== preferenceRef.current) setPreference(conta);
+        return;
+      }
+      // Conta sem escolha: leva a que este aparelho já tinha.
+      const local = storedThemePreference();
+      if (local) void saveThemePreference(local);
+    };
+    void sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [setPreference]);
 
   useEffect(() => {
     const touch = () => {

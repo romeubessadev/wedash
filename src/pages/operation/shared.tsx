@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, CardHeader, CardSubtitle, CardTitle, EmptyState, FormField, Input, PageHeader, Select, TabNav } from "@/components/ui";
 import { managementTabs, operationTabs } from "@/layout/nav-wedash";
 import { halfHourOptions } from "@/data/wedash/storeHours";
 import { useActiveSession } from "@/session/SessionProvider";
+import { storesKey } from "@/session/session";
 import { useScope } from "@/pages/dashboard/useScope";
 import { hydrateSessionStores, storesForSession, type Store } from "@/data/wedash/stores";
 import { StoreIcon } from "@/pages/dashboards/icons";
@@ -15,21 +16,27 @@ export function useScopedStores() {
   const { escopo } = useScope();
   const [tick, setTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const key = `${session.tenantId}|${storesKey(session.stores)}`;
+  const loadedKey = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // Skeleton só quando as lojas da sessão mudam de verdade (não a cada reidratação da sessão).
+      if (loadedKey.current !== key) setLoading(true);
       if (session.stores.length > 0) {
         await hydrateSessionStores(session.tenantId, session.stores);
         if (!cancelled) setTick((n) => n + 1);
       }
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        loadedKey.current = key;
+        setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [session.tenantId, session.stores]);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lojas = useMemo(() => {
     const todas = storesForSession(session.stores);
@@ -57,6 +64,7 @@ const SECTION_PAGES: Record<SectionName, Array<() => Promise<unknown>>> = {
     () => import("@/pages/management/StaffPage"),
   ],
   "Configurações": [
+    () => import("@/pages/operation/StorePage"),
     () => import("@/pages/operation/FranchisePage"),
     () => import("@/pages/operation/RentPage"),
     () => import("@/pages/operation/ProductsTaxesPage"),
@@ -228,6 +236,7 @@ export function NumberInput({
   unit,
   compact = false,
   invalid = false,
+  autoFocus,
   className,
   "aria-label": ariaLabel,
 }: {
@@ -239,6 +248,7 @@ export function NumberInput({
   compact?: boolean;
   /** Borda vermelha (campo com erro). */
   invalid?: boolean;
+  autoFocus?: boolean;
   className?: string;
   "aria-label"?: string;
 }) {
@@ -250,6 +260,7 @@ export function NumberInput({
         placeholder={money ? "0,00" : "0"}
         value={value}
         disabled={disabled}
+        autoFocus={autoFocus}
         onChange={(e) => onChange(money ? maskBrl(e.target.value) : e.target.value)}
         className={cn(money ? "pl-10" : "pr-8", compact && "h-9!", invalid && "border-bad!")}
         aria-label={ariaLabel}
@@ -264,12 +275,23 @@ export function NumberInput({
 const TIME_OPTS = halfHourOptions();
 
 /** Hora de meia em meia hora (horário da loja, turnos). */
-export function TimeSelect({ value, disabled, onChange }: { value: string; disabled?: boolean; onChange: (v: string) => void }) {
+export function TimeSelect({
+  value,
+  disabled,
+  onChange,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (v: string) => void;
+  "aria-label"?: string;
+}) {
   return (
     <Select
       className="h-9! w-[80px]! bg-[position:right_0.45rem_center]! pl-2.5! pr-7! sm:w-[96px]! sm:pl-3.5! sm:pr-8!"
       value={value}
       disabled={disabled}
+      aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
     >
       {TIME_OPTS.map((t) => (
