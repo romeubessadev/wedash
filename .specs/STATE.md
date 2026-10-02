@@ -26,6 +26,7 @@
 | AD-021 | Millennium disconnect only via Settings > Integra��o ERP; WeDash logout keeps ERP session | Allows HISTORY while gestor offline; explicit release for ERP desktop use | 2026-09-22 |
 | AD-022 | SEED = previous calendar month ? today; LIGHT = today without filial; HISTORY monthly with filial sequential | Probe: multi-day without filial times out; dashboard needs MoM | 2026-09-22 |
 | AD-024 | Regras de negócio de Gestão (metas, desafios) calculadas no navegador em módulos puros `*View.ts` com testes, a partir dos agregados do Postgres; dado novo por pessoa vem de relatório que o sincronizador já busca (sem chamada nova ao ERP) | Regra muda sem migration; testável; respeita sessão única do Millennium | 2026-10-02 |
+| AD-025 | Desafio = Tipo (Quantidade · Valor · P.A. · Ticket médio) + O que conta (produtos · categorias · tudo, só Quantidade/Valor) + Quem ganha (Quem fizer mais · Quem chegar ao mínimo); editor em 1 card / 1 coluna; coluna `challenge.scope` | Dono: configuração mais simples que meta; mínimo com o nome do tipo deixava claro o que é inteiro × R$ × P.A. | 2026-10-02 |
 | AD-023 | No white label: platform always shows WeDash; no slug / wedash.app/{slug} / {empresa}.wedash.app; access always via default WeDash URL | Company name kept only as account identification (profile, invites) | 2026-09-27 |
 
 ## Handoff

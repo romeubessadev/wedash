@@ -6,9 +6,11 @@ import type { GoalTeamMember } from "./goalsRepo";
 import type { NonSalesPeople } from "./salesRepo";
 import type { SalesSellerDayAgg, SalesSellerProductDayAgg } from "./salesTypes";
 
-/** Produtos (itens dos produtos escolhidos) · Categorias (itens das categorias) · P.A. · Ticket médio. */
-export type ChallengeMetric = "PRODUCTS" | "CATEGORIES" | "PA" | "TICKET";
-/** CONTEST = Disputa (pódio) · MINIMUM = Mínimo (todos que chegarem no alvo). */
+/** Tipo do desafio: Quantidade (itens) · Valor (R$ vendido) · P.A. · Ticket médio. */
+export type ChallengeMetric = "QUANTITY" | "VALUE" | "PA" | "TICKET";
+/** O que conta em Quantidade/Valor: produtos escolhidos · categorias escolhidas · tudo o que a pessoa vender. */
+export type ChallengeScope = "PRODUCTS" | "CATEGORIES" | "ALL";
+/** CONTEST = Quem fizer mais (pódio) · MINIMUM = Quem chegar ao mínimo (todos que chegarem). */
 export type ChallengeMode = "CONTEST" | "MINIMUM";
 
 /** Prêmio: valor em R$ (> 0) ou descrição livre (1–60 caracteres). */
@@ -33,10 +35,12 @@ export interface ChallengeRecord {
   startsOn: string;
   endsOn: string;
   metric: ChallengeMetric;
+  /** Quantidade/Valor; P.A. e ticket = ALL. */
+  scope: ChallengeScope;
   mode: ChallengeMode;
   products: ChallengeProduct[];
   categories: ChallengeCategory[];
-  /** Mínimo: alvo · Disputa: piso (null = sem piso). Itens = inteiro; P.A. = 2 casas; ticket = R$. */
+  /** Mínimo (obrigatório em "Quem chegar ao mínimo", opcional em "Quem fizer mais"). Itens = inteiro; P.A. = 2 casas; valor/ticket = R$. */
   target: number | null;
   /** P.A./ticket: vendas mínimas para concorrer. */
   minSales: number | null;
@@ -51,8 +55,19 @@ export type ChallengeInput = Omit<ChallengeRecord, "id">;
 
 export const PRIZE_LABEL_MAX = 60;
 
-const METRICS: readonly ChallengeMetric[] = ["PRODUCTS", "CATEGORIES", "PA", "TICKET"];
+const METRICS: readonly ChallengeMetric[] = ["QUANTITY", "VALUE", "PA", "TICKET"];
+const SCOPES: readonly ChallengeScope[] = ["PRODUCTS", "CATEGORIES", "ALL"];
 const MODES: readonly ChallengeMode[] = ["CONTEST", "MINIMUM"];
+
+export const usesScope = (m: ChallengeMetric) => m === "QUANTITY" || m === "VALUE";
+
+/** Tipo + escopo da linha; aceita o formato antigo (metric PRODUCTS/CATEGORIES = Quantidade). */
+function parseMetricScope(metric: string, scope: string | null | undefined): { metric: ChallengeMetric; scope: ChallengeScope } {
+  if (metric === "PRODUCTS" || metric === "CATEGORIES") return { metric: "QUANTITY", scope: metric };
+  const m = METRICS.includes(metric as ChallengeMetric) ? (metric as ChallengeMetric) : "QUANTITY";
+  if (!usesScope(m)) return { metric: m, scope: "ALL" };
+  return { metric: m, scope: SCOPES.includes(scope as ChallengeScope) ? (scope as ChallengeScope) : "ALL" };
+}
 
 type PrizeJson = { kind?: unknown; cents?: unknown; label?: unknown };
 
@@ -109,6 +124,7 @@ export type ChallengeRow = {
   starts_on: string;
   ends_on: string;
   metric: string;
+  scope: string | null;
   mode: string;
   products: unknown;
   categories: unknown;
@@ -133,7 +149,7 @@ export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
     name: r.name,
     startsOn: r.starts_on,
     endsOn: r.ends_on,
-    metric: METRICS.includes(r.metric as ChallengeMetric) ? (r.metric as ChallengeMetric) : "PRODUCTS",
+    ...parseMetricScope(r.metric, r.scope),
     mode: MODES.includes(r.mode as ChallengeMode) ? (r.mode as ChallengeMode) : "CONTEST",
     products: parseProducts(r.products),
     categories: parseCategories(r.categories),
@@ -159,6 +175,7 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
     starts_on: c.startsOn,
     ends_on: c.endsOn,
     metric: c.metric,
+    scope: usesScope(c.metric) ? c.scope : "ALL",
     mode: c.mode,
     products: c.products.map((p) => ({ code: p.code, name: p.name })),
     categories: c.categories.map((x) => ({ typeId: x.typeId, name: x.name })),
@@ -172,7 +189,7 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
 }
 
 const COLS =
-  "id, store_id, name, starts_on, ends_on, metric, mode, products, categories, target, min_sales, prizes, manager_prize";
+  "id, store_id, name, starts_on, ends_on, metric, scope, mode, products, categories, target, min_sales, prizes, manager_prize";
 
 async function client() {
   const { getSupabase } = await import("@/lib/supabase");
@@ -383,8 +400,8 @@ export async function fetchChallengeInput(q: {
   const from = q.challenges.reduce((m, c) => (c.startsOn < m ? c.startsOn : m), q.challenges[0].startsOn);
   const maxEnd = q.challenges.reduce((m, c) => (c.endsOn > m ? c.endsOn : m), q.challenges[0].endsOn);
   const to = maxEnd < q.today ? maxEnd : q.today;
-  const needsItems = q.challenges.some((c) => c.metric === "PRODUCTS" || c.metric === "CATEGORIES");
-  const needsTypes = q.challenges.some((c) => c.metric === "CATEGORIES");
+  const needsItems = q.challenges.some((c) => usesScope(c.metric) && c.scope !== "ALL");
+  const needsTypes = q.challenges.some((c) => usesScope(c.metric) && c.scope === "CATEGORIES");
 
   out.team = await fetchGoalTeam(q.tenantId, storeIds);
   if (from > to) return out;

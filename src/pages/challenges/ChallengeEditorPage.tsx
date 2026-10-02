@@ -4,8 +4,6 @@ import {
   Breadcrumbs,
   Button,
   Card,
-  CardHeader,
-  CardTitle,
   DatePicker,
   FormField,
   Input,
@@ -22,6 +20,7 @@ import {
   emptyChallengeForm,
   emptyPrize,
   MAX_PODIUM,
+  usesMinSales,
   validateChallengeForm,
   type ChallengeForm,
   type ChallengeFormErrors,
@@ -32,9 +31,11 @@ import {
   fetchChallengeCatalog,
   PRIZE_LABEL_MAX,
   saveChallenge,
+  usesScope,
   type ChallengeCatalog,
   type ChallengeMetric,
   type ChallengeMode,
+  type ChallengeScope,
 } from "@/data/wedash/challengesRepo";
 import { copyChallenge } from "@/data/wedash/challengeView";
 import { storesForSession } from "@/data/wedash/stores";
@@ -48,20 +49,33 @@ import { paths } from "@/router/paths";
 import { useActiveSession } from "@/session/SessionProvider";
 
 const METRIC_HELP: Record<ChallengeMetric, string> = {
-  PRODUCTS: "Conta os itens vendidos dos produtos escolhidos (todas as cores e tamanhos de cada código).",
-  CATEGORIES: "Conta os itens vendidos dos produtos das categorias escolhidas.",
+  QUANTITY: "Itens vendidos por cada pessoa no período.",
+  VALUE: "Valor vendido por cada pessoa no período.",
   PA: "Itens por venda de cada pessoa no período.",
-  TICKET: "Faturamento ÷ número de vendas de cada pessoa no período.",
+  TICKET: "Valor médio por venda (faturamento ÷ número de vendas) de cada pessoa no período.",
+};
+
+const SCOPE_HELP: Record<ChallengeScope, string> = {
+  PRODUCTS: "Só os produtos escolhidos (todas as cores e tamanhos de cada código).",
+  CATEGORIES: "Só os produtos das categorias escolhidas.",
+  ALL: "Tudo o que a pessoa vender no período.",
 };
 
 const MODE_HELP: Record<ChallengeMode, string> = {
-  CONTEST: "Quem fizer mais ganha. Empatadas levam o prêmio da posição e a posição seguinte é pulada.",
-  MINIMUM: "Todas as pessoas que chegarem ao alvo ganham o prêmio.",
+  CONTEST: "Ganha quem fizer mais. Empate leva o prêmio da posição e a posição seguinte é pulada.",
+  MINIMUM: "Ganha todo mundo que chegar ao mínimo.",
+};
+
+const MIN_LABEL: Record<ChallengeMetric, string> = {
+  QUANTITY: "Quantidade mínima",
+  VALUE: "Valor mínimo",
+  PA: "P.A. mínimo",
+  TICKET: "Ticket médio mínimo",
 };
 
 const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
-  PRODUCTS: "Média de itens por pessoa: total de itens da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
-  CATEGORIES: "Média de itens por pessoa: total de itens da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
+  QUANTITY: "Média de itens por pessoa: total da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
+  VALUE: "Média vendida por pessoa: total da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
   PA: "P.A. da equipe toda: total de itens ÷ total de vendas.",
   TICKET: "Ticket médio da equipe toda: faturamento ÷ total de vendas.",
 };
@@ -159,7 +173,7 @@ export default function ChallengeEditorPage() {
     setForm((f) =>
       f.metric === metric
         ? f
-        : { ...f, metric, target: "", managerTarget: "", minSales: (metric === "PA" || metric === "TICKET") && !f.minSales.trim() ? "10" : f.minSales },
+        : { ...f, metric, target: "", managerTarget: "", minSales: usesMinSales(metric) && !f.minSales.trim() ? "10" : f.minSales },
     );
   const setPrize = (i: number, p: PrizeForm) => setForm((f) => ({ ...f, prizes: f.prizes.map((x, j) => (j === i ? p : x)) }));
 
@@ -217,109 +231,140 @@ export default function ChallengeEditorPage() {
 
   if (showSkeleton) {
     return (
-      <div>
+      <div className="max-w-[720px]">
         {header}
         <ChallengeEditorSkeleton />
       </div>
     );
   }
 
-  const usaVendas = form.metric === "PA" || form.metric === "TICKET";
+  const usaVendas = usesMinSales(form.metric);
+  const usaEscopo = usesScope(form.metric);
   const podio = form.mode === "CONTEST" ? form.prizes.slice(0, MAX_PODIUM) : form.prizes.slice(0, 1);
 
   return (
-    <div>
+    <div className="max-w-[720px]">
       {header}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações gerais</CardTitle>
-          </CardHeader>
-          <div className="flex flex-col gap-4">
-            <FormField label="Nome do desafio" required error={errors.name}>
-              <Input
-                value={form.name}
-                onChange={(e) => set({ name: e.target.value })}
-                placeholder="Ex.: Body Splash — quem vender mais"
-                maxLength={80}
-                className={errors.name ? "border-bad!" : undefined}
+      <Card>
+        <div className="flex flex-col gap-4">
+          <FormField label="Nome do desafio" required error={errors.name}>
+            <Input
+              value={form.name}
+              onChange={(e) => set({ name: e.target.value })}
+              placeholder="Ex.: Body Splash — quem vender mais"
+              maxLength={80}
+              className={errors.name ? "border-bad!" : undefined}
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Data de início" required error={errors.startsOn}>
+              <DatePicker
+                value={form.startsOn}
+                onChange={(d) => set({ startsOn: d, ...(form.endsOn && form.endsOn < d ? { endsOn: null } : {}) })}
+                invalid={Boolean(errors.startsOn)}
+                aria-label="Data de início"
               />
             </FormField>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Data de início" required error={errors.startsOn}>
-                <DatePicker
-                  value={form.startsOn}
-                  onChange={(d) => set({ startsOn: d, ...(form.endsOn && form.endsOn < d ? { endsOn: null } : {}) })}
-                  invalid={Boolean(errors.startsOn)}
-                  aria-label="Data de início"
-                />
-              </FormField>
-              <FormField label="Data de fim" required error={errors.endsOn}>
-                <DatePicker
-                  value={form.endsOn}
-                  onChange={(d) => set({ endsOn: d })}
-                  minDate={form.startsOn}
-                  invalid={Boolean(errors.endsOn)}
-                  aria-label="Data de fim"
-                />
-              </FormField>
-            </div>
-            {!lojaFixa && (
-              <FormField label="Loja" required error={errors.storeId}>
-                <Select
-                  value={form.storeId}
-                  onChange={(e) => set({ storeId: e.target.value })}
-                  className={cn(!form.storeId && "text-t2", errors.storeId && "border-bad!")}
-                >
-                  {!form.storeId && <option value="">Selecione a loja</option>}
-                  {lojas.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.fantasia} · Filial {l.codFilial}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
+            <FormField label="Data de fim" required error={errors.endsOn}>
+              <DatePicker
+                value={form.endsOn}
+                onChange={(d) => set({ endsOn: d })}
+                minDate={form.startsOn}
+                invalid={Boolean(errors.endsOn)}
+                aria-label="Data de fim"
+              />
+            </FormField>
           </div>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Métrica</CardTitle>
-          </CardHeader>
-          <div className="flex flex-col gap-4">
-            <FormField label="O que conta no desafio" required>
-              <Segmented<ChallengeMetric>
-                options={[
-                  { value: "PRODUCTS", label: "Produtos" },
-                  { value: "CATEGORIES", label: "Categorias" },
-                  { value: "PA", label: "P.A." },
-                  { value: "TICKET", label: "Ticket médio" },
-                ]}
-                value={form.metric}
-                onChange={(v) => v && setMetric(v)}
-              />
-              <p className="mt-1.5 text-[11.5px] text-t2">{METRIC_HELP[form.metric]}</p>
+          {!lojaFixa && (
+            <FormField label="Loja" required error={errors.storeId}>
+              <Select
+                value={form.storeId}
+                onChange={(e) => set({ storeId: e.target.value })}
+                className={cn(!form.storeId && "text-t2", errors.storeId && "border-bad!")}
+              >
+                {!form.storeId && <option value="">Selecione a loja</option>}
+                {lojas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.fantasia} · Filial {l.codFilial}
+                  </option>
+                ))}
+              </Select>
             </FormField>
-            {form.metric === "PRODUCTS" && (
-              <ProductPicker
-                catalog={catalog}
-                selected={form.products}
-                onChange={(products) => set({ products })}
-                error={errors.products}
+          )}
+
+          <Divider />
+          <FormField label="Tipo de desafio" required>
+            <Segmented<ChallengeMetric>
+              options={[
+                { value: "QUANTITY", label: "Quantidade" },
+                { value: "VALUE", label: "Valor" },
+                { value: "PA", label: "P.A." },
+                { value: "TICKET", label: "Ticket médio" },
+              ]}
+              value={form.metric}
+              onChange={(v) => v && setMetric(v)}
+            />
+            <p className="mt-1.5 text-[11.5px] text-t2">{METRIC_HELP[form.metric]}</p>
+          </FormField>
+          {usaEscopo && (
+            <FormField label="O que conta" required>
+              <Segmented<ChallengeScope>
+                options={[
+                  { value: "PRODUCTS", label: "Produtos escolhidos" },
+                  { value: "CATEGORIES", label: "Categorias escolhidas" },
+                  { value: "ALL", label: "Tudo o que vender" },
+                ]}
+                value={form.scope}
+                onChange={(v) => v && set({ scope: v })}
               />
-            )}
-            {form.metric === "CATEGORIES" && (
-              <CategoryPicker
-                catalog={catalog}
-                selected={form.categories}
-                onChange={(categories) => set({ categories })}
-                error={errors.categories}
-              />
-            )}
+              <p className="mt-1.5 text-[11.5px] text-t2">{SCOPE_HELP[form.scope]}</p>
+            </FormField>
+          )}
+          {usaEscopo && form.scope === "PRODUCTS" && (
+            <ProductPicker
+              catalog={catalog}
+              selected={form.products}
+              onChange={(products) => set({ products })}
+              error={errors.products}
+            />
+          )}
+          {usaEscopo && form.scope === "CATEGORIES" && (
+            <CategoryPicker
+              catalog={catalog}
+              selected={form.categories}
+              onChange={(categories) => set({ categories })}
+              error={errors.categories}
+            />
+          )}
+
+          <Divider />
+          <FormField label="Quem ganha" required>
+            <Segmented<ChallengeMode>
+              options={[
+                { value: "CONTEST", label: "Quem fizer mais" },
+                { value: "MINIMUM", label: "Quem chegar ao mínimo" },
+              ]}
+              value={form.mode}
+              onChange={(v) => v && set({ mode: v })}
+            />
+            <p className="mt-1.5 text-[11.5px] text-t2">{MODE_HELP[form.mode]}</p>
+          </FormField>
+          <div className={cn("grid grid-cols-1 gap-3", usaVendas && "sm:grid-cols-2")}>
+            <FormField
+              label={MIN_LABEL[form.metric]}
+              required={form.mode === "MINIMUM"}
+              error={errors.target}
+              hint={
+                form.mode === "MINIMUM"
+                  ? "Quem chegar a esse valor no período ganha o prêmio."
+                  : "Opcional. Abaixo dele a pessoa não leva prêmio, mesmo em 1º lugar."
+              }
+            >
+              <TargetInput metric={form.metric} value={form.target} onChange={(target) => set({ target })} invalid={Boolean(errors.target)} />
+            </FormField>
             {usaVendas && (
               <FormField
-                label="Mínimo de vendas"
+                label="Vendas mínimas para participar"
                 required
                 error={errors.minSales}
                 hint="Quem tiver menos vendas no período não concorre ao prêmio."
@@ -329,118 +374,87 @@ export default function ChallengeEditorPage() {
                   value={form.minSales}
                   onChange={(e) => set({ minSales: e.target.value.replace(/\D/g, "").slice(0, 5) })}
                   className={errors.minSales ? "border-bad!" : undefined}
-                  aria-label="Mínimo de vendas"
+                  aria-label="Vendas mínimas para participar"
                 />
               </FormField>
             )}
           </div>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Modo e prêmios</CardTitle>
-          </CardHeader>
-          <div className="flex flex-col gap-4">
-            <FormField label="Modo" required>
-              <Segmented<ChallengeMode>
-                options={[
-                  { value: "CONTEST", label: "Disputa" },
-                  { value: "MINIMUM", label: "Mínimo" },
-                ]}
-                value={form.mode}
-                onChange={(v) => v && set({ mode: v })}
-              />
-              <p className="mt-1.5 text-[11.5px] text-t2">{MODE_HELP[form.mode]}</p>
-            </FormField>
+          <Divider />
+          {podio.map((p, i) => (
             <FormField
-              label={form.mode === "MINIMUM" ? "Alvo" : "Piso mínimo"}
-              required={form.mode === "MINIMUM"}
-              error={errors.target}
-              hint={
-                form.mode === "MINIMUM"
-                  ? "Quem chegar a esse valor no período ganha o prêmio."
-                  : "Opcional. Abaixo do piso a pessoa não leva prêmio, mesmo em 1º lugar."
-              }
+              key={i}
+              label={form.mode === "MINIMUM" ? "Prêmio por pessoa" : PODIUM_LABEL[i]}
+              required
+              error={errors.prizes?.[i]}
             >
-              <TargetInput metric={form.metric} value={form.target} onChange={(target) => set({ target })} invalid={Boolean(errors.target)} />
+              <div className="flex items-start gap-2">
+                <PrizeField prize={p} onChange={(np) => setPrize(i, np)} invalid={Boolean(errors.prizes?.[i])} />
+                {form.mode === "CONTEST" && i > 0 && i === podio.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => set({ prizes: form.prizes.slice(0, i) })}
+                    aria-label={`Remover ${i + 1}º lugar`}
+                    className="mt-10 grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-vela-md)] text-t2 transition-colors hover:bg-bad-soft hover:text-bad"
+                  >
+                    <Icon d={icons.trash} size={15} />
+                  </button>
+                )}
+              </div>
             </FormField>
-
-            {podio.map((p, i) => (
-              <FormField
-                key={i}
-                label={form.mode === "MINIMUM" ? "Prêmio por pessoa" : PODIUM_LABEL[i]}
-                required
-                error={errors.prizes?.[i]}
+          ))}
+          {form.mode === "CONTEST" && podio.length < MAX_PODIUM && (
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon d={icons.plus} size={14} />}
+                onClick={() => set({ prizes: [...podio, emptyPrize()] })}
               >
-                <div className="flex items-start gap-2">
-                  <PrizeField prize={p} onChange={(np) => setPrize(i, np)} invalid={Boolean(errors.prizes?.[i])} />
-                  {form.mode === "CONTEST" && i > 0 && i === podio.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={() => set({ prizes: form.prizes.slice(0, i) })}
-                      aria-label={`Remover ${i + 1}º lugar`}
-                      className="mt-10 grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-vela-md)] text-t2 transition-colors hover:bg-bad-soft hover:text-bad"
-                    >
-                      <Icon d={icons.trash} size={15} />
-                    </button>
-                  )}
-                </div>
-              </FormField>
-            ))}
-            {form.mode === "CONTEST" && podio.length < MAX_PODIUM && (
-              <div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Icon d={icons.plus} size={14} />}
-                  onClick={() => set({ prizes: [...podio, emptyPrize()] })}
+                Adicionar {podio.length + 1}º lugar
+              </Button>
+            </div>
+          )}
+
+          <Divider />
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[12.5px] font-bold text-t0">Prêmio da gerência</p>
+              <Switch
+                checked={form.managerOn}
+                onChange={(v) =>
+                  set(v && !form.managerTarget.trim() ? { managerOn: v, managerTarget: form.target } : { managerOn: v })
+                }
+              />
+            </div>
+            <p className="mt-1.5 text-[11.5px] text-t2">A gerência ganha se a equipe chegar à meta da gerência.</p>
+            {form.managerOn && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  label="Meta da gerência"
+                  required
+                  error={errors.managerTarget}
+                  hint={MANAGER_TARGET_HELP[form.metric]}
                 >
-                  Adicionar {podio.length + 1}º lugar
-                </Button>
+                  <TargetInput
+                    metric={form.metric}
+                    value={form.managerTarget}
+                    onChange={(managerTarget) => set({ managerTarget })}
+                    invalid={Boolean(errors.managerTarget)}
+                  />
+                </FormField>
+                <FormField label="Prêmio da gerência" required error={errors.managerPrize}>
+                  <PrizeField
+                    prize={form.managerPrize}
+                    onChange={(managerPrize) => set({ managerPrize })}
+                    invalid={Boolean(errors.managerPrize)}
+                  />
+                </FormField>
               </div>
             )}
-
-            <div className="border-t border-line pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[12.5px] font-bold text-t0">Prêmio da gerência</p>
-                <Switch
-                  checked={form.managerOn}
-                  onChange={(v) =>
-                    set(v && !form.managerTarget.trim() ? { managerOn: v, managerTarget: form.target } : { managerOn: v })
-                  }
-                />
-              </div>
-              <p className="mt-1.5 text-[11.5px] text-t2">
-                A gerência ganha se a média da equipe chegar à meta da gerência, definida separadamente da meta das vendedoras.
-              </p>
-              {form.managerOn && (
-                <div className="mt-3 flex flex-col gap-4">
-                  <FormField
-                    label="Meta da gerência"
-                    required
-                    error={errors.managerTarget}
-                    hint={MANAGER_TARGET_HELP[form.metric]}
-                  >
-                    <TargetInput
-                      metric={form.metric}
-                      value={form.managerTarget}
-                      onChange={(managerTarget) => set({ managerTarget })}
-                      invalid={Boolean(errors.managerTarget)}
-                    />
-                  </FormField>
-                  <FormField label="Prêmio da gerência" required error={errors.managerPrize}>
-                    <PrizeField
-                      prize={form.managerPrize}
-                      onChange={(managerPrize) => set({ managerPrize })}
-                      invalid={Boolean(errors.managerPrize)}
-                    />
-                  </FormField>
-                </div>
-              )}
-            </div>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       <div className="mt-5 flex justify-end gap-2.5">
         <Button variant="outline" onClick={voltar}>
@@ -454,7 +468,9 @@ export default function ChallengeEditorPage() {
   );
 }
 
-/** Alvo / piso na unidade da métrica: itens (inteiro), P.A. (2 casas) ou R$. */
+const Divider = () => <div className="border-t border-line" />;
+
+/** Mínimo na unidade do tipo: itens (inteiro), P.A. (2 casas) ou R$. */
 function TargetInput({
   metric,
   value,
@@ -466,8 +482,17 @@ function TargetInput({
   onChange: (v: string) => void;
   invalid: boolean;
 }) {
-  if (metric === "TICKET") return <NumberInput value={value} onChange={onChange} unit="R$" invalid={invalid} aria-label="Valor do ticket médio" />;
-  const itens = metric !== "PA";
+  if (metric === "TICKET" || metric === "VALUE")
+    return (
+      <NumberInput
+        value={value}
+        onChange={onChange}
+        unit="R$"
+        invalid={invalid}
+        aria-label={metric === "TICKET" ? "Valor do ticket médio" : "Valor vendido"}
+      />
+    );
+  const itens = metric === "QUANTITY";
   return (
     <div className="relative">
       <Input

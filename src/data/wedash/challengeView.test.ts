@@ -17,7 +17,8 @@ const challenge = (over: Partial<ChallengeRecord> = {}): ChallengeRecord => ({
   name: "Body Splash — quem vender mais",
   startsOn: "2026-10-05",
   endsOn: "2026-10-11",
-  metric: "PRODUCTS",
+  metric: "QUANTITY",
+  scope: "PRODUCTS",
   mode: "CONTEST",
   products: [{ code: "BS1", name: "BODY SPLASH 1" }],
   categories: [],
@@ -108,7 +109,7 @@ describe("buildChallengeView — participantes e resultado", () => {
 
   it("Categorias: soma os itens cujo tipo no catálogo está entre os escolhidos", () => {
     const v = build(
-      challenge({ metric: "CATEGORIES", products: [], categories: [{ typeId: 14, name: "BODY SPLASH" }] }),
+      challenge({ scope: "CATEGORIES", products: [], categories: [{ typeId: 14, name: "BODY SPLASH" }] }),
       input({
         sellerProducts: [item(1001, "BS1", 3), item(1001, "PERF", 4), item(1002, "BS2", 2)],
         typeByCode: new Map([
@@ -120,6 +121,38 @@ describe("buildChallengeView — participantes e resultado", () => {
     );
     expect(byName(v).ANA.resultado).toBe(3);
     expect(byName(v).BIA.resultado).toBe(2);
+  });
+
+  it("Valor dos produtos escolhidos = R$ desses produtos, por pessoa", () => {
+    const v = build(
+      challenge({ metric: "VALUE", products: [{ code: "BS1", name: "A" }] }),
+      input({ sellerProducts: [item(1001, "BS1", 3), item(1001, "OUTRO", 9), item(1002, "BS1", 1, { revenueCents: 4_990 })] }),
+    );
+    expect(byName(v).ANA.resultado).toBe(150);
+    expect(byName(v).BIA.resultado).toBe(49.9);
+  });
+
+  it("Tudo o que vender: Quantidade = itens das vendas; Valor = faturamento da pessoa", () => {
+    const aggs = input({
+      sellerDays: [sellerDay(1, 10, 19, 92_300), sellerDay(1, 5, 8, 40_000, { day: "2026-10-07" }), sellerDay(2, 3, 6, 30_000)],
+      sellerProducts: [item(1001, "BS1", 99)],
+    });
+    const qtd = byName(build(challenge({ scope: "ALL", products: [] }), aggs));
+    expect(qtd.ANA.resultado).toBe(27);
+    expect(qtd.BIA.resultado).toBe(6);
+    const valor = byName(build(challenge({ metric: "VALUE", scope: "ALL", products: [] }), aggs));
+    expect(valor.ANA.resultado).toBe(1323);
+    expect(valor.BIA.resultado).toBe(300);
+  });
+
+  it("Quantidade de tudo sem itens gravados em algum dia com venda = \"—\" e não concorre", () => {
+    const v = build(
+      challenge({ scope: "ALL", products: [] }),
+      input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(1, 4, 0, 30_000, { day: "2026-10-07" }), sellerDay(2, 5, 7, 40_000)] }),
+    );
+    expect(byName(v).ANA.resultado).toBeNull();
+    expect(byName(v).ANA.vencedor).toBe(false);
+    expect(byName(v).BIA.vencedor).toBe(true);
   });
 
   it("P.A. = itens ÷ vendas e Ticket = faturamento ÷ vendas (2 casas)", () => {
@@ -278,7 +311,7 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
     expect(disputa.CAROL.falta).toBe("Faltam 7 itens para o 2º lugar");
 
     const piso = byName(build(challenge({ target: 12 }), input({ sellerProducts: [item(1001, "BS1", 10)] })));
-    expect(piso.ANA.falta).toBe("Faltam 2 itens para o piso");
+    expect(piso.ANA.falta).toBe("Faltam 2 itens para o mínimo");
 
     const ticket = byName(
       build(
@@ -310,6 +343,14 @@ describe("buildChallengeView — gerência, incompleto e status", () => {
     const v = build(c(4), aggs);
     expect(v.gerencia).toMatchObject({ resultado: 3, alvo: 4, atingiu: false });
     expect(v.atingiram).toBe(2);
+  });
+
+  it("gerência em Valor = Σ R$ ÷ participantes", () => {
+    const v = build(
+      challenge({ metric: "VALUE", managerPrize: { kind: "MONEY", amount: 80 }, managerTarget: 100 }),
+      input({ sellerProducts: [item(1001, "BS1", 4), item(1002, "BS1", 2)] }),
+    );
+    expect(v.gerencia).toMatchObject({ resultado: 100, alvo: 100, atingiu: true });
   });
 
   it("gerência em P.A. = Σ itens ÷ Σ vendas da equipe; na Disputa vale sem piso", () => {
@@ -354,6 +395,7 @@ describe("buildChallengeView — gerência, incompleto e status", () => {
     });
     expect(build(challenge(), aggs).diasIncompletos).toEqual(["2026-10-05", "2026-10-08"]);
     expect(build(challenge({ metric: "PA", products: [], minSales: 1 }), aggs).diasIncompletos).toEqual([]);
+    expect(build(challenge({ scope: "ALL", products: [] }), aggs).diasIncompletos).toEqual([]);
   });
 
   it("prazo e fechamento: em andamento, último dia, encerrado e fechamento em andamento até o dia seguinte", () => {
@@ -416,9 +458,10 @@ describe("fechamento, card e duplicar", () => {
   });
 
   it("rótulos de valor por métrica", () => {
-    expect(metricValueLabel("PRODUCTS", 12)).toBe("12 itens");
-    expect(metricValueLabel("CATEGORIES", 1)).toBe("1 item");
-    expect(metricValueLabel("PRODUCTS", 7.5)).toBe("7,5 itens");
+    expect(metricValueLabel("QUANTITY", 12)).toBe("12 itens");
+    expect(metricValueLabel("QUANTITY", 1)).toBe("1 item");
+    expect(metricValueLabel("QUANTITY", 7.5)).toBe("7,5 itens");
+    expect(metricValueLabel("VALUE", 1500)).toBe("R$\u00a01.500,00");
     expect(metricValueLabel("PA", 1.85)).toBe("1,85");
     expect(metricValueLabel("TICKET", 92.3)).toBe("R$\u00a092,30");
     expect(prizeLabel({ kind: "ITEM", label: "Combo KFC" })).toBe("Combo KFC");

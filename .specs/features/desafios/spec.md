@@ -84,13 +84,13 @@ O gestor cria desafios curtos para a equipe de vendas (em geral 4 por mês, 1 po
 
 **Acceptance Criteria**:
 
-1. WHEN o gestor abre Novo desafio THEN the system SHALL mostrar os campos obrigatórios Nome, Data de início, Data de fim, Métrica e Modo, e Loja só quando o seletor de lojas está em "Todas as lojas" (igual a Metas).
-2. WHERE a métrica é Produtos the system SHALL exigir ao menos 1 produto do catálogo.
-3. WHERE a métrica é Categorias the system SHALL exigir ao menos 1 categoria.
-4. WHERE a métrica é P.A. ou Ticket médio the system SHALL exigir o Mínimo de vendas (inteiro ≥ 1), preenchido com 10 ao criar.
-5. WHERE o modo é Mínimo the system SHALL exigir o alvo (itens: inteiro > 0; P.A.: > 0 com 2 casas; ticket: R$ > 0) e um prêmio por pessoa que atingir.
-6. WHERE o modo é Disputa the system SHALL exigir o prêmio do 1º lugar e permitir 2º e 3º lugar opcionais, com o 3º só disponível depois do 2º.
-7. WHERE o modo é Disputa the system SHALL permitir um piso mínimo opcional na unidade da métrica.
+1. WHEN o gestor abre Novo desafio THEN the system SHALL mostrar, num card só em uma coluna, os campos obrigatórios Nome, Data de início, Data de fim, Tipo de desafio (Quantidade · Valor · P.A. · Ticket médio) e Quem ganha (Quem fizer mais · Quem chegar ao mínimo), e Loja só quando o seletor de lojas está em "Todas as lojas" (igual a Metas). *(2026-10-02: substitui Métrica Produtos/Categorias/P.A./Ticket e Modo Disputa/Mínimo.)*
+2. WHERE o tipo é Quantidade ou Valor the system SHALL pedir O que conta (Produtos escolhidos · Categorias escolhidas · Tudo o que vender); com Produtos escolhidos SHALL exigir ao menos 1 produto do catálogo.
+3. WHERE o que conta é Categorias escolhidas the system SHALL exigir ao menos 1 categoria.
+4. WHERE o tipo é P.A. ou Ticket médio the system SHALL exigir Vendas mínimas para participar (inteiro ≥ 1), preenchido com 10 ao criar.
+5. WHERE Quem ganha é Quem chegar ao mínimo the system SHALL exigir o mínimo com o nome do tipo (Quantidade mínima: inteiro > 0 · Valor mínimo: R$ > 0 · P.A. mínimo: > 0 com 2 casas · Ticket médio mínimo: R$ > 0) e um prêmio por pessoa que atingir.
+6. WHERE Quem ganha é Quem fizer mais the system SHALL exigir o prêmio do 1º lugar e permitir 2º e 3º lugar opcionais, com o 3º só disponível depois do 2º.
+7. WHERE Quem ganha é Quem fizer mais the system SHALL permitir o mínimo opcional (abaixo dele a pessoa não leva prêmio, mesmo em 1º lugar).
 8. The system SHALL aceitar como prêmio um valor em R$ maior que 0 ou uma descrição de 1 a 60 caracteres.
 9. WHERE o prêmio da gerência está ligado the system SHALL exigir o prêmio da gerência (R$ ou descrição) e a Meta da gerência (na unidade da métrica, > 0; itens = inteiro).
 10. WHEN o usuário liga o prêmio da gerência com a Meta da gerência vazia the system SHALL preenchê-la com o alvo/piso atual, editável; a Disputa sem piso também permite ligar.

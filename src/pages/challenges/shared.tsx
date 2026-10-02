@@ -1,4 +1,4 @@
-import type { ChallengeRecord } from "@/data/wedash/challengesRepo";
+import type { ChallengeMetric, ChallengeRecord } from "@/data/wedash/challengesRepo";
 import {
   challengeCardSummary,
   metricValueLabel,
@@ -14,11 +14,18 @@ export const CHALLENGE_STATUS_VARIANT: Record<ChallengeStatus, "success" | "info
   ended: "neutral",
 };
 
-/** "Quem vender mais" / "Alvo: 15 itens" — o critério do desafio em uma linha. */
+const MAIOR: Record<ChallengeMetric, string> = {
+  QUANTITY: "Quem vender mais itens",
+  VALUE: "Quem vender mais",
+  PA: "Maior P.A.",
+  TICKET: "Maior ticket médio",
+};
+
+/** "Quem vender mais" / "Mínimo: 15 itens" — o critério do desafio em uma linha. */
 export function challengeCriterion(c: ChallengeRecord): string {
-  if (c.mode === "MINIMUM") return c.target != null ? `Alvo: ${metricValueLabel(c.metric, c.target)}` : "Alvo não definido";
-  const quem = c.metric === "PA" ? "Maior P.A." : c.metric === "TICKET" ? "Maior ticket médio" : "Quem vender mais";
-  return c.target != null ? `${quem} · piso de ${metricValueLabel(c.metric, c.target)}` : quem;
+  if (c.mode === "MINIMUM") return c.target != null ? `Mínimo: ${metricValueLabel(c.metric, c.target)}` : "Mínimo não definido";
+  const quem = MAIOR[c.metric];
+  return c.target != null ? `${quem} · mínimo de ${metricValueLabel(c.metric, c.target)}` : quem;
 }
 
 /** Linha de destaque do card: líder(es) / vencedor(es) na Disputa, quantas atingiram no Mínimo. */
@@ -27,7 +34,7 @@ export function challengeHeadline(c: ChallengeRecord, view: ChallengeView): { la
   const encerrado = view.status === "ended";
   if (c.mode === "MINIMUM") {
     const n = view.atingiram;
-    const alvo = c.target != null ? ` · alvo ${metricValueLabel(c.metric, c.target)}` : "";
+    const alvo = c.target != null ? ` · mínimo de ${metricValueLabel(c.metric, c.target)}` : "";
     if (n === 0) return { label: "Atingiram", value: `${encerrado ? "Ninguém atingiu" : "Ninguém atingiu ainda"}${alvo}` };
     return { label: "Atingiram", value: `${n} ${n === 1 ? "pessoa" : "pessoas"}${alvo}` };
   }

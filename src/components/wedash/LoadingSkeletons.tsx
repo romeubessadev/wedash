@@ -690,20 +690,21 @@ export function ChallengeDetailSkeleton() {
 /** Editor do desafio: cards Informações gerais · Métrica · Modo e prêmios. */
 export function ChallengeEditorSkeleton() {
   return (
-    <Busy className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-      {[4, 3, 5].map((campos, i) => (
-        <Card key={i}>
-          <Title className="w-36" />
-          <div className="mt-4 flex flex-col gap-4">
-            {Array.from({ length: campos }, (_, j) => (
-              <div key={j}>
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="mt-2 h-10 w-full rounded-xl" />
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
+    <Busy>
+      <Card>
+        <div className="flex flex-col gap-4">
+          {[3, 2, 2, 2].map((campos, i) => (
+            <div key={i} className={cn("flex flex-col gap-4", i > 0 && "border-t border-line pt-4")}>
+              {Array.from({ length: campos }, (_, j) => (
+                <div key={j}>
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="mt-2 h-10 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </Card>
     </Busy>
   );
 }

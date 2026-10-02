@@ -4,12 +4,20 @@ import { Alert, Badge, Breadcrumbs, Button, Card, CardTitle } from "@/components
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ChallengeDetailSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { WedashBrand } from "@/components/wedash/WedashBrand";
-import { fetchChallenge, fetchChallengeInput, type ChallengeAggInput, type ChallengeRecord } from "@/data/wedash/challengesRepo";
+import { usesMinSales } from "@/data/wedash/challengeForm";
+import {
+  fetchChallenge,
+  fetchChallengeInput,
+  usesScope,
+  type ChallengeAggInput,
+  type ChallengeRecord,
+} from "@/data/wedash/challengesRepo";
 import {
   buildChallengeView,
   challengePayout,
   CHALLENGE_METRIC_LABEL,
   CHALLENGE_MODE_LABEL,
+  CHALLENGE_SCOPE_LABEL,
   CHALLENGE_STATUS_LABEL,
   metricValueLabel,
   prizeLabel,
@@ -39,8 +47,8 @@ const TipHelp = ({ label }: { label: string }) => (
 );
 
 const AJUDA_MODO: Record<ChallengeRecord["mode"], string> = {
-  CONTEST: "Quem fizer mais ganha o prêmio da posição. Empatadas levam o prêmio da posição e a posição seguinte é pulada.",
-  MINIMUM: "Todas as pessoas que chegarem ao alvo ganham o prêmio.",
+  CONTEST: "Ganha quem fizer mais. Empate leva o prêmio da posição e a posição seguinte é pulada.",
+  MINIMUM: "Ganha todo mundo que chegar ao mínimo.",
 };
 
 const ORDINAL = ["1º", "2º", "3º"];
@@ -163,7 +171,9 @@ function prizesText(c: ChallengeRecord): string {
 
 /** "Body Splash VF Golden, Desod Col Obsessed e mais 2" — itens do desafio em uma linha. */
 function itemsText(c: ChallengeRecord): string | null {
-  const nomes = c.metric === "PRODUCTS" ? c.products.map((p) => p.name) : c.metric === "CATEGORIES" ? c.categories.map((t) => t.name) : [];
+  if (!usesScope(c.metric)) return null;
+  if (c.scope === "ALL") return CHALLENGE_SCOPE_LABEL.ALL;
+  const nomes = c.scope === "PRODUCTS" ? c.products.map((p) => p.name) : c.categories.map((t) => t.name);
   if (nomes.length === 0) return null;
   if (nomes.length <= 3) return nomes.length === 1 ? nomes[0]! : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
   return `${nomes.slice(0, 3).join(", ")} e mais ${nomes.length - 3}`;
@@ -172,13 +182,13 @@ function itemsText(c: ChallengeRecord): string | null {
 function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeRecord; view: ChallengeView; lojaNome?: string }) {
   const destaque = challengeHeadline(c, view);
   const itens = itemsText(c);
-  const usaVendas = c.metric === "PA" || c.metric === "TICKET";
+  const usaVendas = usesMinSales(c.metric);
   const stats: { label: string; value: string; sub?: string; help?: string }[] = [
-    { label: "Métrica", value: CHALLENGE_METRIC_LABEL[c.metric], sub: itens ?? undefined },
+    { label: "Tipo", value: CHALLENGE_METRIC_LABEL[c.metric], sub: itens ?? undefined },
     {
       label: "Critério",
       value: challengeCriterion(c),
-      sub: usaVendas && c.minSales ? `Mínimo de ${num(c.minSales)} ${c.minSales === 1 ? "venda" : "vendas"}` : undefined,
+      sub: usaVendas && c.minSales ? `Para participar: ${num(c.minSales)} ${c.minSales === 1 ? "venda" : "vendas"}` : undefined,
     },
     {
       label: "Prêmios",
@@ -225,7 +235,7 @@ function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeR
 function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; view: ChallengeView }) {
   const disputa = c.mode === "CONTEST";
   const aComecar = view.status === "upcoming";
-  const usaVendas = c.metric === "PA" || c.metric === "TICKET";
+  const usaVendas = usesMinSales(c.metric);
   const n = view.participantes.length;
 
   return (
@@ -248,7 +258,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
         <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-xl bg-bg-inset px-3.5 py-3 text-[12.5px]">
           <p className="font-bold text-t0">Gerência</p>
           <p className="text-t1">
-            <span className="text-t2">Média da equipe: </span>
+            <span className="text-t2">{usesScope(c.metric) ? "Média da equipe: " : "Equipe: "}</span>
             <span className="font-mono font-bold">{view.gerencia.resultado != null ? metricValueLabel(c.metric, view.gerencia.resultado) : "—"}</span>
           </p>
           <p className="text-t1">
@@ -289,7 +299,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
                     {p.grupo && <p className="text-[11px] text-t2">{p.grupo}</p>}
                   </td>
                   <td className="py-2.5 pr-3 text-right font-mono font-bold text-t0">
-                    {aComecar ? "—" : p.resultado != null ? metricValueLabel(c.metric, p.resultado) : <NoPa />}
+                    {aComecar ? "—" : p.resultado != null ? metricValueLabel(c.metric, p.resultado) : <SemItens />}
                   </td>
                   {usaVendas && <td className="py-2.5 pr-3 text-right font-mono font-bold text-t1">{aComecar ? "—" : num(p.vendas)}</td>}
                   <td className="py-2.5 pr-3">
@@ -312,8 +322,8 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
   );
 }
 
-const NoPa = () => (
-  <Tooltip label="O P.A. não está disponível: faltam os itens de algum dia com venda.">
+const SemItens = () => (
+  <Tooltip label="Resultado indisponível: faltam os itens de algum dia com venda.">
     <span className="cursor-help">—</span>
   </Tooltip>
 );

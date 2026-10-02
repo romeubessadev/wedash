@@ -1,6 +1,7 @@
 import { paraIso, deIso } from "@/lib/format";
 import {
   PRIZE_LABEL_MAX,
+  usesScope,
   type ChallengeCategory,
   type ChallengeInput,
   type ChallengeMetric,
@@ -8,6 +9,7 @@ import {
   type ChallengePrize,
   type ChallengeProduct,
   type ChallengeRecord,
+  type ChallengeScope,
 } from "./challengesRepo";
 
 export const CHALLENGE_NAME_MAX = 80;
@@ -27,10 +29,12 @@ export interface ChallengeForm {
   endsOn: Date | null;
   storeId: string;
   metric: ChallengeMetric;
+  /** O que conta (Quantidade/Valor). */
+  scope: ChallengeScope;
   mode: ChallengeMode;
   products: ChallengeProduct[];
   categories: ChallengeCategory[];
-  /** Mínimo: alvo · Disputa: piso (opcional). Na unidade da métrica. */
+  /** Mínimo na unidade do tipo: obrigatório em "Quem chegar ao mínimo", opcional em "Quem fizer mais". */
   target: string;
   minSales: string;
   /** Disputa: 1º, 2º, 3º · Mínimo: só o 1º (por pessoa que atingir). */
@@ -66,7 +70,8 @@ export function emptyChallengeForm(storeId: string): ChallengeForm {
     startsOn: null,
     endsOn: null,
     storeId,
-    metric: "PRODUCTS",
+    metric: "QUANTITY",
+    scope: "PRODUCTS",
     mode: "CONTEST",
     products: [],
     categories: [],
@@ -88,23 +93,25 @@ function parseNumber(txt: string): number | null {
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
-const usesItems = (m: ChallengeMetric) => m === "PRODUCTS" || m === "CATEGORIES";
-const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET";
+export const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET";
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
-/** Erro do alvo/piso; undefined = válido (ou vazio quando opcional). */
+/** Erro do mínimo; undefined = válido (ou vazio quando opcional). */
 function targetError(metric: ChallengeMetric, txt: string, required: boolean): string | undefined {
   const v = parseNumber(txt);
   if (v == null) return required ? REQUIRED : undefined;
-  if (usesItems(metric)) return Number.isInteger(v) && v > 0 ? undefined : "Informe um número inteiro de itens maior que 0.";
+  if (metric === "QUANTITY") return Number.isInteger(v) && v > 0 ? undefined : "Informe um número inteiro de itens maior que 0.";
   return v > 0 ? undefined : "Informe um valor maior que 0.";
 }
 
 function targetValue(metric: ChallengeMetric, txt: string): number | null {
   const v = parseNumber(txt);
   if (v == null || Number.isNaN(v) || v <= 0) return null;
-  return usesItems(metric) ? Math.round(v) : round2(v);
+  return metric === "QUANTITY" ? Math.round(v) : round2(v);
 }
+
+const scopeOf = (f: { metric: ChallengeMetric; scope: ChallengeScope }): ChallengeScope =>
+  usesScope(f.metric) ? f.scope : "ALL";
 
 function prizeError(p: PrizeForm): string | undefined {
   if (p.kind === "MONEY") {
@@ -134,8 +141,9 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   else if (f.startsOn && f.endsOn < f.startsOn) e.endsOn = "A data de fim precisa ser depois da data de início.";
   if (!f.storeId) e.storeId = REQUIRED;
 
-  if (f.metric === "PRODUCTS" && f.products.length === 0) e.products = "Escolha ao menos 1 produto.";
-  if (f.metric === "CATEGORIES" && f.categories.length === 0) e.categories = "Escolha ao menos 1 categoria.";
+  const scope = scopeOf(f);
+  if (scope === "PRODUCTS" && f.products.length === 0) e.products = "Escolha ao menos 1 produto.";
+  if (scope === "CATEGORIES" && f.categories.length === 0) e.categories = "Escolha ao menos 1 categoria.";
   if (usesMinSales(f.metric)) {
     const v = parseNumber(f.minSales);
     if (v == null) e.minSales = REQUIRED;
@@ -163,15 +171,17 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
 
 /** Formulário válido → dados para gravar. */
 export function challengeFormToInput(f: ChallengeForm): ChallengeInput {
+  const scope = scopeOf(f);
   return {
     storeId: f.storeId,
     name: f.name.trim(),
     startsOn: paraIso(f.startsOn!),
     endsOn: paraIso(f.endsOn!),
     metric: f.metric,
+    scope,
     mode: f.mode,
-    products: f.metric === "PRODUCTS" ? f.products : [],
-    categories: f.metric === "CATEGORIES" ? f.categories : [],
+    products: scope === "PRODUCTS" ? f.products : [],
+    categories: scope === "CATEGORIES" ? f.categories : [],
     target: targetValue(f.metric, f.target),
     minSales: usesMinSales(f.metric) ? Math.round(parseNumber(f.minSales) ?? 1) : null,
     prizes: activePrizes(f).map(prizeValue),
@@ -188,7 +198,7 @@ function prizeToForm(p: ChallengePrize): PrizeForm {
 
 function targetToText(metric: ChallengeMetric, v: number | null): string {
   if (v == null) return "";
-  if (metric === "TICKET") return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (metric === "TICKET" || metric === "VALUE") return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return String(v).replace(".", ",");
 }
 
@@ -200,6 +210,7 @@ export function challengeToForm(c: ChallengeRecord | ChallengeInput): ChallengeF
     endsOn: deIso(c.endsOn),
     storeId: c.storeId,
     metric: c.metric,
+    scope: usesScope(c.metric) ? c.scope : "PRODUCTS",
     mode: c.mode,
     products: c.products.map((p) => ({ ...p })),
     categories: c.categories.map((t) => ({ ...t })),

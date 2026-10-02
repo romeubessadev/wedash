@@ -1,11 +1,13 @@
 import { brlCent, collaboratorName, dataCurta, deIso, intervaloDias, num, somarDias } from "@/lib/format";
-import type {
-  ChallengeAggInput,
-  ChallengeInput,
-  ChallengeMetric,
-  ChallengeMode,
-  ChallengePrize,
-  ChallengeRecord,
+import {
+  usesScope,
+  type ChallengeAggInput,
+  type ChallengeInput,
+  type ChallengeMetric,
+  type ChallengeMode,
+  type ChallengePrize,
+  type ChallengeRecord,
+  type ChallengeScope,
 } from "./challengesRepo";
 import type { GoalTeamMember } from "./goalsRepo";
 import { goalStatus, prazoRestante, type GoalStatus } from "./goalView";
@@ -19,15 +21,21 @@ export const CHALLENGE_STATUS_LABEL: Record<ChallengeStatus, string> = {
 };
 
 export const CHALLENGE_METRIC_LABEL: Record<ChallengeMetric, string> = {
-  PRODUCTS: "Produtos",
-  CATEGORIES: "Categorias",
+  QUANTITY: "Quantidade",
+  VALUE: "Valor",
   PA: "P.A.",
   TICKET: "Ticket médio",
 };
 
+export const CHALLENGE_SCOPE_LABEL: Record<ChallengeScope, string> = {
+  PRODUCTS: "Produtos escolhidos",
+  CATEGORIES: "Categorias escolhidas",
+  ALL: "Tudo o que vender",
+};
+
 export const CHALLENGE_MODE_LABEL: Record<ChallengeMode, string> = {
-  CONTEST: "Disputa",
-  MINIMUM: "Mínimo",
+  CONTEST: "Quem fizer mais",
+  MINIMUM: "Quem chegar ao mínimo",
 };
 
 export interface ChallengeParticipant {
@@ -63,11 +71,10 @@ export interface ChallengeView {
   /** Mínimo: quantas pessoas atingiram. */
   atingiram: number;
   gerencia: ChallengeManagerResult | null;
-  /** Dias com venda da loja e sem itens por pessoa (Produtos/Categorias). */
+  /** Dias com venda da loja e sem itens por pessoa (produtos/categorias escolhidos). */
   diasIncompletos: string[];
 }
 
-const usesItems = (m: ChallengeMetric) => m === "PRODUCTS" || m === "CATEGORIES";
 const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET";
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -78,7 +85,7 @@ function diasEntre(inicio: string, fim: string): number {
 /** 12 itens · 1 item · 7,5 itens · 1,85 · R$ 92,30 */
 export function metricValueLabel(metric: ChallengeMetric, value: number): string {
   if (metric === "PA") return num(value, 2);
-  if (metric === "TICKET") return brlCent(value);
+  if (metric === "TICKET" || metric === "VALUE") return brlCent(value);
   const inteiro = Number.isInteger(value);
   return `${num(value, inteiro ? 0 : 1)} ${value === 1 ? "item" : "itens"}`;
 }
@@ -89,7 +96,7 @@ export function prizeLabel(p: ChallengePrize): string {
 
 function faltaLabel(metric: ChallengeMetric, diff: number): string {
   if (metric === "PA") return `Falta ${num(diff, 2)} de P.A.`;
-  if (metric === "TICKET") return `Faltam ${brlCent(diff)}`;
+  if (metric === "TICKET" || metric === "VALUE") return `Faltam ${brlCent(diff)}`;
   const n = Math.ceil(diff - 1e-9);
   return n === 1 ? "Falta 1 item" : `Faltam ${num(n)} itens`;
 }
@@ -100,7 +107,9 @@ interface Acc {
   key: string;
   nome: string;
   grupo: string | null;
+  /** Itens e R$ dos produtos/categorias escolhidos. */
   itens: number;
+  valorCents: number;
   vendas: number;
   itensVendas: number;
   faturamentoCents: number;
@@ -134,6 +143,7 @@ export function buildChallengeView(args: {
         nome: collaboratorName(membro?.name ?? (sellerName || sellerKey)),
         grupo: membro?.shiftName ?? null,
         itens: 0,
+        valorCents: 0,
         vendas: 0,
         itensVendas: 0,
         faturamentoCents: 0,
@@ -146,17 +156,21 @@ export function buildChallengeView(args: {
 
   for (const m of team) if (m.salesPerson) acc(m, "", m.name);
 
+  const porProduto = usesScope(c.metric) && c.scope !== "ALL";
   if (status !== "upcoming") {
-    if (usesItems(c.metric)) {
+    if (porProduto) {
       const codigos = new Set(c.products.map((p) => p.code));
       const tipos = new Set(c.categories.map((t) => t.typeId));
       const conta = (code: string) =>
-        c.metric === "PRODUCTS" ? codigos.has(code) : tipos.has(aggs.typeByCode.get(code) ?? Number.NaN);
+        c.scope === "PRODUCTS" ? codigos.has(code) : tipos.has(aggs.typeByCode.get(code) ?? Number.NaN);
       for (const r of aggs.sellerProducts) {
         if (!noPeriodo(r)) continue;
         const membro = porGerador.get(r.sellerGeradorId) ?? porNome.get(r.sellerKey);
         const a = acc(membro, r.sellerKey, r.sellerName);
-        if (conta(r.productCode)) a.itens += r.itemCount;
+        if (conta(r.productCode)) {
+          a.itens += r.itemCount;
+          a.valorCents += r.revenueCents;
+        }
       }
     }
     for (const r of aggs.sellerDays) {
@@ -175,7 +189,8 @@ export function buildChallengeView(args: {
 
   const resultadoDe = (a: Acc): number | null => {
     if (status === "upcoming") return null;
-    if (usesItems(c.metric)) return a.itens;
+    if (c.metric === "QUANTITY") return porProduto ? a.itens : a.semItens ? null : a.itensVendas;
+    if (c.metric === "VALUE") return round2((porProduto ? a.valorCents : a.faturamentoCents) / 100);
     if (a.vendas <= 0) return 0;
     if (c.metric === "PA") return a.semItens ? null : round2(a.itensVendas / a.vendas);
     return round2(a.faturamentoCents / 100 / a.vendas);
@@ -220,7 +235,7 @@ export function buildChallengeView(args: {
       else if (c.mode === "MINIMUM") {
         if (!vencedor && c.target != null) falta = faltaLabel(c.metric, c.target - resultado);
       } else if (c.target != null && resultado < c.target - 1e-9) {
-        falta = `${faltaLabel(c.metric, c.target - resultado)} para o piso`;
+        falta = `${faltaLabel(c.metric, c.target - resultado)} para o mínimo`;
       } else {
         const acima = valoresAcima
           .filter((v) => v.valor > resultado + 1e-9)
@@ -253,8 +268,13 @@ export function buildChallengeView(args: {
     if (status !== "upcoming") {
       const todos = [...accs.values()];
       const vendas = todos.reduce((s, a) => s + a.vendas, 0);
-      if (usesItems(c.metric)) {
-        resultado = todos.length > 0 ? round2(todos.reduce((s, a) => s + a.itens, 0) / todos.length) : 0;
+      if (usesScope(c.metric)) {
+        const porPessoa = todos.map(resultadoDe);
+        resultado = porPessoa.some((v) => v == null)
+          ? null
+          : todos.length > 0
+            ? round2(porPessoa.reduce<number>((s, v) => s + (v ?? 0), 0) / todos.length)
+            : 0;
       } else if (c.metric === "PA") {
         resultado = todos.some((a) => a.semItens)
           ? null
@@ -274,7 +294,7 @@ export function buildChallengeView(args: {
   }
 
   const diasIncompletos: string[] = [];
-  if (usesItems(c.metric) && status !== "upcoming") {
+  if (porProduto && status !== "upcoming") {
     const comItens = new Set(aggs.sellerProducts.filter(noPeriodo).map((r) => r.day));
     for (const day of intervaloDias(c.startsOn, ate)) {
       if (aggs.storeSaleDays.has(`${c.storeId}|${day}`) && !comItens.has(day)) diasIncompletos.push(day);

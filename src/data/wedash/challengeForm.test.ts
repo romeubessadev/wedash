@@ -24,9 +24,9 @@ const valid = (over: Partial<ChallengeForm> = {}): ChallengeForm => ({
 });
 
 describe("emptyChallengeForm", () => {
-  it("novo desafio começa em Produtos · Disputa, mínimo de 10 vendas e 1 prêmio em R$ vazio", () => {
+  it("novo desafio começa em Quantidade de produtos escolhidos · Quem fizer mais, 10 vendas e 1 prêmio em R$ vazio", () => {
     const f = emptyChallengeForm("s1");
-    expect(f).toMatchObject({ storeId: "s1", metric: "PRODUCTS", mode: "CONTEST", minSales: "10", managerOn: false });
+    expect(f).toMatchObject({ storeId: "s1", metric: "QUANTITY", scope: "PRODUCTS", mode: "CONTEST", minSales: "10", managerOn: false });
     expect(f.prizes).toEqual([{ kind: "MONEY", amount: "", label: "" }]);
   });
 });
@@ -50,11 +50,20 @@ describe("validateChallengeForm", () => {
     expect(validateChallengeForm(valid({ endsOn: d("2026-10-05") })).endsOn).toBeUndefined();
   });
 
-  it("Produtos exige ao menos 1 produto; Categorias, ao menos 1 categoria", () => {
+  it("Produtos exige ao menos 1 produto; Categorias, ao menos 1 categoria; Tudo não exige nada", () => {
     expect(validateChallengeForm(valid({ products: [] })).products).toBe("Escolha ao menos 1 produto.");
-    const cat = validateChallengeForm(valid({ metric: "CATEGORIES", products: [], categories: [] }));
+    const cat = validateChallengeForm(valid({ scope: "CATEGORIES", products: [], categories: [] }));
     expect(cat.categories).toBe("Escolha ao menos 1 categoria.");
     expect(cat.products).toBeUndefined();
+    expect(validateChallengeForm(valid({ scope: "ALL", products: [] }))).toEqual({});
+    expect(validateChallengeForm(valid({ metric: "VALUE", scope: "PRODUCTS", products: [] })).products).toBe(
+      "Escolha ao menos 1 produto.",
+    );
+  });
+
+  it("Valor aceita centavos no mínimo", () => {
+    expect(validateChallengeForm(valid({ metric: "VALUE", mode: "MINIMUM", target: "1.500,50" })).target).toBeUndefined();
+    expect(challengeFormToInput(valid({ metric: "VALUE", mode: "MINIMUM", target: "1.500,50" })).target).toBe(1500.5);
   });
 
   it("P.A. e ticket exigem mínimo de vendas inteiro ≥ 1", () => {
@@ -144,7 +153,8 @@ describe("challengeFormToInput / challengeToForm", () => {
       name: "Body Splash",
       startsOn: "2026-10-05",
       endsOn: "2026-10-11",
-      metric: "PRODUCTS",
+      metric: "QUANTITY",
+      scope: "PRODUCTS",
       mode: "CONTEST",
       products: [{ code: "BS1", name: "BODY SPLASH 1" }],
       categories: [],
@@ -195,6 +205,7 @@ describe("challengeFormToInput / challengeToForm", () => {
       startsOn: "2026-10-05",
       endsOn: "2026-10-11",
       metric: "PA",
+      scope: "ALL",
       mode: "MINIMUM",
       products: [],
       categories: [],

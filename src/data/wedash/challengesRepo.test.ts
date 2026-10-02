@@ -7,7 +7,8 @@ const row = (over: Partial<ChallengeRow> = {}): ChallengeRow => ({
   name: "Body Splash — quem vender mais",
   starts_on: "2026-10-05",
   ends_on: "2026-10-11",
-  metric: "PRODUCTS",
+  metric: "QUANTITY",
+  scope: "PRODUCTS",
   mode: "CONTEST",
   products: [{ code: "BSPPAR-ATH-001", name: "BODY SPLASH PARIS" }],
   categories: [],
@@ -26,7 +27,8 @@ describe("challengeFromRow", () => {
       name: "Body Splash — quem vender mais",
       startsOn: "2026-10-05",
       endsOn: "2026-10-11",
-      metric: "PRODUCTS",
+      metric: "QUANTITY",
+      scope: "PRODUCTS",
       mode: "CONTEST",
       products: [{ code: "BSPPAR-ATH-001", name: "BODY SPLASH PARIS" }],
       categories: [],
@@ -81,10 +83,18 @@ describe("challengeFromRow", () => {
     ]);
   });
 
-  it("enum desconhecido cai no padrão seguro (Produtos · Disputa)", () => {
-    const c = challengeFromRow(row({ metric: "INDICE", mode: "???" }));
-    expect(c.metric).toBe("PRODUCTS");
+  it("enum desconhecido cai no padrão seguro (Quantidade · Quem fizer mais)", () => {
+    const c = challengeFromRow(row({ metric: "INDICE", scope: "???", mode: "???" }));
+    expect(c.metric).toBe("QUANTITY");
+    expect(c.scope).toBe("ALL");
     expect(c.mode).toBe("CONTEST");
+  });
+
+  it("formato antigo: metric PRODUCTS/CATEGORIES vira Quantidade com o mesmo escopo; P.A./ticket = ALL", () => {
+    expect(challengeFromRow(row({ metric: "PRODUCTS", scope: null }))).toMatchObject({ metric: "QUANTITY", scope: "PRODUCTS" });
+    expect(challengeFromRow(row({ metric: "CATEGORIES", scope: "ALL" }))).toMatchObject({ metric: "QUANTITY", scope: "CATEGORIES" });
+    expect(challengeFromRow(row({ metric: "PA", scope: "PRODUCTS" }))).toMatchObject({ metric: "PA", scope: "ALL" });
+    expect(challengeFromRow(row({ metric: "VALUE", scope: "CATEGORIES" }))).toMatchObject({ metric: "VALUE", scope: "CATEGORIES" });
   });
 
   it("prêmio da gerência: objeto válido vira prêmio; inválido vira null", () => {
@@ -110,6 +120,7 @@ describe("challengeToRow", () => {
     startsOn: "2026-10-05",
     endsOn: "2026-10-11",
     metric: "TICKET",
+    scope: "ALL",
     mode: "MINIMUM",
     products: [],
     categories: [],
@@ -127,6 +138,7 @@ describe("challengeToRow", () => {
       starts_on: "2026-10-05",
       ends_on: "2026-10-11",
       metric: "TICKET",
+      scope: "ALL",
       mode: "MINIMUM",
       products: [],
       categories: [],
@@ -144,7 +156,11 @@ describe("challengeToRow", () => {
   });
 
   it("métrica de itens grava o alvo inteiro; sem prêmio da gerência grava null", () => {
-    const r = challengeToRow({ ...input, metric: "PRODUCTS", products: [{ code: "WP002", name: "WP ULTRA" }], target: 15, managerPrize: null, managerTarget: null });
-    expect(r).toMatchObject({ target: 15, manager_prize: null, products: [{ code: "WP002", name: "WP ULTRA" }] });
+    const r = challengeToRow({ ...input, metric: "QUANTITY", scope: "PRODUCTS", products: [{ code: "WP002", name: "WP ULTRA" }], target: 15, managerPrize: null, managerTarget: null });
+    expect(r).toMatchObject({ scope: "PRODUCTS", target: 15, manager_prize: null, products: [{ code: "WP002", name: "WP ULTRA" }] });
+  });
+
+  it("P.A./ticket gravam escopo ALL mesmo se vier outro", () => {
+    expect(challengeToRow({ ...input, metric: "PA", scope: "CATEGORIES" }).scope).toBe("ALL");
   });
 });
