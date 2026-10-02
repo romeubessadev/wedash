@@ -3,7 +3,6 @@ import {
   challengeFormToInput,
   challengeToForm,
   emptyChallengeForm,
-  managerAvailable,
   validateChallengeForm,
   type ChallengeForm,
 } from "./challengeForm";
@@ -112,15 +111,14 @@ describe("validateChallengeForm", () => {
     expect(e.prizes).toEqual({ 2: "Campo obrigatório." });
   });
 
-  it("gerência ligada exige prêmio; Disputa sem piso desliga a gerência (sem erro)", () => {
+  it("gerência ligada exige prêmio e meta própria, mesmo na Disputa sem piso", () => {
     const vazio = { kind: "MONEY" as const, amount: "", label: "" };
-    expect(validateChallengeForm(valid({ mode: "MINIMUM", target: "10", managerOn: true, managerPrize: vazio })).managerPrize).toBe(
-      "Campo obrigatório.",
+    const e = validateChallengeForm(valid({ target: "", managerOn: true, managerPrize: vazio, managerTarget: "" }));
+    expect([e.managerPrize, e.managerTarget, e.target]).toEqual(["Campo obrigatório.", "Campo obrigatório.", undefined]);
+    expect(validateChallengeForm(valid({ managerOn: true, managerPrize: vazio, managerTarget: "0" })).managerTarget).toBe(
+      "Informe um número inteiro de itens maior que 0.",
     );
-    expect(validateChallengeForm(valid({ target: "", managerOn: true, managerPrize: vazio })).managerPrize).toBeUndefined();
-    expect(managerAvailable(valid({ target: "" }))).toBe(false);
-    expect(managerAvailable(valid({ target: "5" }))).toBe(true);
-    expect(managerAvailable(valid({ mode: "MINIMUM", target: "" }))).toBe(true);
+    expect(validateChallengeForm(valid({ managerOn: false, managerPrize: vazio, managerTarget: "" }))).toEqual({});
   });
 });
 
@@ -138,6 +136,7 @@ describe("challengeFormToInput / challengeToForm", () => {
         ],
         managerOn: true,
         managerPrize: { kind: "ITEM", amount: "", label: "Spa" },
+        managerTarget: "8",
       }),
     );
     expect(input).toEqual({
@@ -156,10 +155,11 @@ describe("challengeFormToInput / challengeToForm", () => {
         { kind: "ITEM", label: "Combo KFC" },
       ],
       managerPrize: { kind: "ITEM", label: "Spa" },
+      managerTarget: 8,
     });
   });
 
-  it("Mínimo grava só 1 prêmio; gerência indisponível vira null; ticket com R$", () => {
+  it("Mínimo grava só 1 prêmio; gerência desligada vira null; ticket com R$", () => {
     const input = challengeFormToInput(
       valid({
         metric: "TICKET",
@@ -173,8 +173,18 @@ describe("challengeFormToInput / challengeToForm", () => {
         ],
       }),
     );
-    expect(input).toMatchObject({ target: 120, minSales: 10, prizes: [{ kind: "MONEY", amount: 50 }], managerPrize: null, products: [] });
-    expect(challengeFormToInput(valid({ target: "", managerOn: true, managerPrize: { kind: "MONEY", amount: "10,00", label: "" } })).managerPrize).toBeNull();
+    expect(input).toMatchObject({
+      target: 120,
+      minSales: 10,
+      prizes: [{ kind: "MONEY", amount: 50 }],
+      managerPrize: null,
+      managerTarget: null,
+      products: [],
+    });
+    const desligada = challengeFormToInput(
+      valid({ managerOn: false, managerPrize: { kind: "MONEY", amount: "10,00", label: "" }, managerTarget: "5" }),
+    );
+    expect([desligada.managerPrize, desligada.managerTarget]).toEqual([null, null]);
   });
 
   it("ida e volta: registro → formulário → input", () => {
@@ -192,9 +202,11 @@ describe("challengeFormToInput / challengeToForm", () => {
       minSales: 10,
       prizes: [{ kind: "MONEY", amount: 50 }],
       managerPrize: { kind: "ITEM", label: "Spa" },
+      managerTarget: 2.1,
     };
     const form = challengeToForm(rec);
     expect(form.target).toBe("1,9");
+    expect(form.managerTarget).toBe("2,1");
     expect(form.prizes[0].amount).toBe("50,00");
     expect(form.managerOn).toBe(true);
     const { id: _id, ...rest } = rec;

@@ -34,8 +34,8 @@ O gestor cria desafios curtos para a equipe de vendas (em geral 4 por mês, 1 po
 | Vencedores na Disputa | Pódio: 1º obrigatório, 2º e 3º opcionais, cada posição com prêmio próprio | Decisão do dono | y |
 | Empate na Disputa | Empatadas levam o prêmio da posição; a seguinte pula (1, 1, 3) | Decisão do dono: sem critério escondido | y |
 | Participantes | Equipe de vendas ativa da loja (cargo VENDEDOR) ∪ quem vendeu na loja no período | Decisão do dono (equipe toda); "quem vendeu" = mesma regra do detalhe da Meta | y |
-| Prêmio da gerência | Opcional; gerência ganha quando o resultado da equipe toda bate o alvo, com a conta dos KPIs (P.A. = Σ itens ÷ Σ vendas; ticket = Σ faturamento ÷ Σ vendas; itens = Σ itens ÷ nº de participantes) | Decisão do dono | y |
-| Gerência na Disputa | Usa o piso mínimo como alvo; sem piso, não há prêmio de gerência | Decisão do dono | y |
+| Prêmio da gerência | Opcional; gerência ganha quando a média da equipe chega à **Meta da gerência**, com a conta dos KPIs (P.A. = Σ itens ÷ Σ vendas; ticket = Σ faturamento ÷ Σ vendas; itens = Σ itens ÷ nº de participantes) | Decisão do dono | y |
+| Meta da gerência | Campo próprio, obrigatório com a gerência ligada, independente do alvo/piso; ao ligar vem com o alvo/piso; vale também na Disputa sem piso (revisto 2026-10-02 — antes usava o alvo/piso e a Disputa sem piso não tinha gerência) | Decisão do dono | y |
 | Entrega | Produto, categoria, P.A. e ticket juntos na 1ª entrega | Decisão do dono: produto é o mais comum | y |
 | Prêmio | Valor em R$ (> 0) ou descrição livre (1–60 caracteres); fechamento soma só os R$ | Prêmios em espécie são comuns ("Combo KFC") | y |
 | Piso na Disputa | Opcional; abaixo do piso a pessoa não leva prêmio mesmo em 1º | Evita premiar resultado irrisório | y |
@@ -92,8 +92,8 @@ O gestor cria desafios curtos para a equipe de vendas (em geral 4 por mês, 1 po
 6. WHERE o modo é Disputa the system SHALL exigir o prêmio do 1º lugar e permitir 2º e 3º lugar opcionais, com o 3º só disponível depois do 2º.
 7. WHERE o modo é Disputa the system SHALL permitir um piso mínimo opcional na unidade da métrica.
 8. The system SHALL aceitar como prêmio um valor em R$ maior que 0 ou uma descrição de 1 a 60 caracteres.
-9. WHERE o prêmio da gerência está ligado the system SHALL exigir o prêmio da gerência (R$ ou descrição).
-10. WHILE o modo é Disputa sem piso the system SHALL manter o prêmio da gerência desligado e explicar que ele depende do piso mínimo.
+9. WHERE o prêmio da gerência está ligado the system SHALL exigir o prêmio da gerência (R$ ou descrição) e a Meta da gerência (na unidade da métrica, > 0; itens = inteiro).
+10. WHEN o usuário liga o prêmio da gerência com a Meta da gerência vazia the system SHALL preenchê-la com o alvo/piso atual, editável; a Disputa sem piso também permite ligar.
 11. IF a data de fim for anterior à data de início THEN the system SHALL marcar o campo e não gravar.
 12. IF algum campo obrigatório estiver vazio ou inválido ao salvar THEN the system SHALL destacar os campos e mostrar o toast "Revise os campos destacados." sem gravar nada.
 13. WHILE a gravação está em andamento the system SHALL desabilitar o botão e mostrar "Salvando…".
@@ -139,7 +139,7 @@ O gestor cria desafios curtos para a equipe de vendas (em geral 4 por mês, 1 po
 5. WHERE o modo é Disputa the system SHALL ordenar do maior para o menor resultado e atribuir posições com empate compartilhado (1, 1, 3).
 6. WHERE o modo é Disputa the system SHALL marcar como vencedora da posição N (N ≤ posições configuradas) só a pessoa com resultado maior que 0, maior ou igual ao piso (quando houver) e, em P.A./ticket, com vendas ≥ mínimo de vendas.
 7. WHERE o modo é Mínimo the system SHALL marcar como "Atingiu" toda pessoa com resultado ≥ alvo e, em P.A./ticket, com vendas ≥ mínimo de vendas.
-8. WHERE o prêmio da gerência está configurado the system SHALL mostrar o resultado da equipe toda (P.A. = Σ itens ÷ Σ vendas; ticket = Σ faturamento ÷ Σ vendas; itens = Σ itens ÷ nº de participantes) e se ele atinge o alvo (alvo no Mínimo, piso na Disputa).
+8. WHERE o prêmio da gerência está configurado the system SHALL mostrar o resultado da equipe toda (P.A. = Σ itens ÷ Σ vendas; ticket = Σ faturamento ÷ Σ vendas; itens = Σ itens ÷ nº de participantes) e se ele atinge a Meta da gerência.
 9. WHILE o desafio está Em andamento the system SHALL mostrar o que falta para cada pessoa chegar ao piso/alvo ou à posição de cima.
 10. IF algum dia do período até hoje tiver vendas da loja sem o dado de itens por pessoa THEN the system SHALL mostrar um alerta amarelo dizendo que o resultado está incompleto para esses dias.
 11. IF uma pessoa tiver P.A. sem itens gravados em algum dia com venda THEN the system SHALL mostrar "—" e não considerá-la vencedora.
@@ -227,7 +227,7 @@ O gestor cria desafios curtos para a equipe de vendas (em geral 4 por mês, 1 po
 | DESAF-12 | P1: Editor — pódio 1º/2º/3º | - | Pending |
 | DESAF-13 | P1: Editor — piso opcional na Disputa | - | Pending |
 | DESAF-14 | P1: Editor — prêmio R$ ou descrição | - | Pending |
-| DESAF-15 | P1: Editor — prêmio da gerência (e bloqueio sem piso) | - | Pending |
+| DESAF-15 | P1: Editor — prêmio e Meta da gerência | - | Pending |
 | DESAF-16 | P1: Editor — datas | - | Pending |
 | DESAF-17 | P1: Editor — validação e toast | - | Pending |
 | DESAF-18 | P1: Editor — "Salvando…" | - | Pending |

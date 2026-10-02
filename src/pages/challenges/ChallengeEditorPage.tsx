@@ -21,7 +21,6 @@ import {
   challengeToForm,
   emptyChallengeForm,
   emptyPrize,
-  managerAvailable,
   MAX_PODIUM,
   validateChallengeForm,
   type ChallengeForm,
@@ -58,6 +57,13 @@ const METRIC_HELP: Record<ChallengeMetric, string> = {
 const MODE_HELP: Record<ChallengeMode, string> = {
   CONTEST: "Quem fizer mais ganha. Empatadas levam o prêmio da posição e a posição seguinte é pulada.",
   MINIMUM: "Todas as pessoas que chegarem ao alvo ganham o prêmio.",
+};
+
+const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
+  PRODUCTS: "Média de itens por pessoa: total de itens da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
+  CATEGORIES: "Média de itens por pessoa: total de itens da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
+  PA: "P.A. da equipe toda: total de itens ÷ total de vendas.",
+  TICKET: "Ticket médio da equipe toda: faturamento ÷ total de vendas.",
 };
 
 const PODIUM_LABEL = ["Prêmio do 1º lugar", "Prêmio do 2º lugar", "Prêmio do 3º lugar"];
@@ -132,8 +138,6 @@ export default function ChallengeEditorPage() {
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
   const errors: ChallengeFormErrors = tried ? validateChallengeForm(form) : {};
-  const gerenciaDisponivel = managerAvailable(form);
-
   const submit = async () => {
     setTried(true);
     if (Object.keys(validateChallengeForm(form)).length > 0) {
@@ -155,7 +159,7 @@ export default function ChallengeEditorPage() {
     setForm((f) =>
       f.metric === metric
         ? f
-        : { ...f, metric, target: "", minSales: (metric === "PA" || metric === "TICKET") && !f.minSales.trim() ? "10" : f.minSales },
+        : { ...f, metric, target: "", managerTarget: "", minSales: (metric === "PA" || metric === "TICKET") && !f.minSales.trim() ? "10" : f.minSales },
     );
   const setPrize = (i: number, p: PrizeForm) => setForm((f) => ({ ...f, prizes: f.prizes.map((x, j) => (j === i ? p : x)) }));
 
@@ -400,17 +404,30 @@ export default function ChallengeEditorPage() {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12.5px] font-bold text-t0">Prêmio da gerência</p>
                 <Switch
-                  checked={form.managerOn && gerenciaDisponivel}
-                  onChange={(v) => gerenciaDisponivel && set({ managerOn: v })}
+                  checked={form.managerOn}
+                  onChange={(v) =>
+                    set(v && !form.managerTarget.trim() ? { managerOn: v, managerTarget: form.target } : { managerOn: v })
+                  }
                 />
               </div>
               <p className="mt-1.5 text-[11.5px] text-t2">
-                {gerenciaDisponivel
-                  ? `A gerência ganha se o resultado da equipe toda chegar ao ${form.mode === "MINIMUM" ? "alvo" : "piso mínimo"}.`
-                  : "Disponível quando a Disputa tem piso mínimo: a gerência ganha se o resultado da equipe toda chegar ao piso."}
+                A gerência ganha se a média da equipe chegar à meta da gerência, definida separadamente da meta das vendedoras.
               </p>
-              {form.managerOn && gerenciaDisponivel && (
-                <div className="mt-3">
+              {form.managerOn && (
+                <div className="mt-3 flex flex-col gap-4">
+                  <FormField
+                    label="Meta da gerência"
+                    required
+                    error={errors.managerTarget}
+                    hint={MANAGER_TARGET_HELP[form.metric]}
+                  >
+                    <TargetInput
+                      metric={form.metric}
+                      value={form.managerTarget}
+                      onChange={(managerTarget) => set({ managerTarget })}
+                      invalid={Boolean(errors.managerTarget)}
+                    />
+                  </FormField>
                   <FormField label="Prêmio da gerência" required error={errors.managerPrize}>
                     <PrizeField
                       prize={form.managerPrize}

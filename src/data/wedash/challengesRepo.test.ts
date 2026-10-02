@@ -37,6 +37,7 @@ describe("challengeFromRow", () => {
         { kind: "ITEM", label: "Combo KFC" },
       ],
       managerPrize: null,
+      managerTarget: null,
     });
   });
 
@@ -93,6 +94,13 @@ describe("challengeFromRow", () => {
     });
     expect(challengeFromRow(row({ manager_prize: { kind: "MONEY", cents: -5 } })).managerPrize).toBeNull();
   });
+
+  it("meta da gerência vem junto do prêmio; sem ela usa o alvo/piso; sem prêmio fica null", () => {
+    expect(challengeFromRow(row({ target: "10", manager_prize: { kind: "ITEM", label: "Spa", target: "15" } })).managerTarget).toBe(15);
+    expect(challengeFromRow(row({ target: "10", manager_prize: { kind: "ITEM", label: "Spa" } })).managerTarget).toBe(10);
+    expect(challengeFromRow(row({ target: "10", manager_prize: { kind: "ITEM", label: "Spa", target: 0 } })).managerTarget).toBe(10);
+    expect(challengeFromRow(row({ target: "10", manager_prize: null })).managerTarget).toBeNull();
+  });
 });
 
 describe("challengeToRow", () => {
@@ -109,6 +117,7 @@ describe("challengeToRow", () => {
     minSales: 10,
     prizes: [{ kind: "MONEY", amount: 50.1 }],
     managerPrize: { kind: "ITEM", label: " Combo KFC " },
+    managerTarget: 110.004,
   };
 
   it("grava reais como centavos, nome e descrição sem espaços nas pontas, alvo com 2 casas", () => {
@@ -124,18 +133,18 @@ describe("challengeToRow", () => {
       target: 92.35,
       min_sales: 10,
       prizes: [{ kind: "MONEY", cents: 5010 }],
-      manager_prize: { kind: "ITEM", label: "Combo KFC" },
+      manager_prize: { kind: "ITEM", label: "Combo KFC", target: 110 },
     });
   });
 
   it("ida e volta preserva o desafio", () => {
-    const toRow = challengeToRow({ ...input, name: "Ticket da semana", managerPrize: { kind: "ITEM", label: "Combo KFC" }, target: 92.35 });
-    const back = challengeFromRow({ ...toRow, id: "c9" } as ChallengeRow);
-    expect(back).toEqual({ ...input, id: "c9", name: "Ticket da semana", target: 92.35, managerPrize: { kind: "ITEM", label: "Combo KFC" } });
+    const limpo = { ...input, name: "Ticket da semana", managerPrize: { kind: "ITEM" as const, label: "Combo KFC" }, target: 92.35, managerTarget: 110 };
+    const back = challengeFromRow({ ...challengeToRow(limpo), id: "c9" } as ChallengeRow);
+    expect(back).toEqual({ ...limpo, id: "c9" });
   });
 
   it("métrica de itens grava o alvo inteiro; sem prêmio da gerência grava null", () => {
-    const r = challengeToRow({ ...input, metric: "PRODUCTS", products: [{ code: "WP002", name: "WP ULTRA" }], target: 15, managerPrize: null });
+    const r = challengeToRow({ ...input, metric: "PRODUCTS", products: [{ code: "WP002", name: "WP ULTRA" }], target: 15, managerPrize: null, managerTarget: null });
     expect(r).toMatchObject({ target: 15, manager_prize: null, products: [{ code: "WP002", name: "WP ULTRA" }] });
   });
 });

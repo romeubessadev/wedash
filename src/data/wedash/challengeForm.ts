@@ -37,6 +37,8 @@ export interface ChallengeForm {
   prizes: PrizeForm[];
   managerOn: boolean;
   managerPrize: PrizeForm;
+  /** Média da equipe que a gerência precisa alcançar, na unidade da métrica. */
+  managerTarget: string;
 }
 
 export interface ChallengeFormErrors {
@@ -51,6 +53,7 @@ export interface ChallengeFormErrors {
   /** Por posição do prêmio (0 = 1º). */
   prizes?: Record<number, string>;
   managerPrize?: string;
+  managerTarget?: string;
 }
 
 const REQUIRED = "Campo obrigatório.";
@@ -72,6 +75,7 @@ export function emptyChallengeForm(storeId: string): ChallengeForm {
     prizes: [emptyPrize()],
     managerOn: false,
     managerPrize: emptyPrize(),
+    managerTarget: "",
   };
 }
 
@@ -119,12 +123,6 @@ function prizeValue(p: PrizeForm): ChallengePrize {
 
 const activePrizes = (f: ChallengeForm) => (f.mode === "MINIMUM" ? f.prizes.slice(0, 1) : f.prizes.slice(0, MAX_PODIUM));
 
-/** Prêmio da gerência: Mínimo usa o alvo; Disputa precisa de piso válido. */
-export function managerAvailable(f: ChallengeForm): boolean {
-  if (f.mode === "MINIMUM") return true;
-  return targetValue(f.metric, f.target) != null && !targetError(f.metric, f.target, false);
-}
-
 /** Erros do formulário; objeto vazio = pode salvar. */
 export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   const e: ChallengeFormErrors = {};
@@ -154,9 +152,11 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   });
   if (Object.keys(prizes).length > 0) e.prizes = prizes;
 
-  if (f.managerOn && managerAvailable(f)) {
+  if (f.managerOn) {
     const me = prizeError(f.managerPrize);
     if (me) e.managerPrize = me;
+    const mt = targetError(f.metric, f.managerTarget, true);
+    if (mt) e.managerTarget = mt;
   }
   return e;
 }
@@ -175,7 +175,8 @@ export function challengeFormToInput(f: ChallengeForm): ChallengeInput {
     target: targetValue(f.metric, f.target),
     minSales: usesMinSales(f.metric) ? Math.round(parseNumber(f.minSales) ?? 1) : null,
     prizes: activePrizes(f).map(prizeValue),
-    managerPrize: f.managerOn && managerAvailable(f) ? prizeValue(f.managerPrize) : null,
+    managerPrize: f.managerOn ? prizeValue(f.managerPrize) : null,
+    managerTarget: f.managerOn ? targetValue(f.metric, f.managerTarget) : null,
   };
 }
 
@@ -207,5 +208,6 @@ export function challengeToForm(c: ChallengeRecord | ChallengeInput): ChallengeF
     prizes: c.prizes.length > 0 ? c.prizes.map(prizeToForm) : [emptyPrize()],
     managerOn: c.managerPrize != null,
     managerPrize: c.managerPrize ? prizeToForm(c.managerPrize) : emptyPrize(),
+    managerTarget: c.managerPrize ? targetToText(c.metric, c.managerTarget) : "",
   };
 }

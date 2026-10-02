@@ -183,7 +183,9 @@ function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeR
     {
       label: "Prêmios",
       value: prizesText(c),
-      sub: c.managerPrize ? `Gerência: ${prizeLabel(c.managerPrize)}` : undefined,
+      sub: c.managerPrize
+        ? `Gerência: ${prizeLabel(c.managerPrize)}${c.managerTarget != null ? ` · meta de ${metricValueLabel(c.metric, c.managerTarget)}` : ""}`
+        : undefined,
     },
     { label: destaque.label, value: destaque.value },
     { label: "Prazo", value: view.prazo },
@@ -246,11 +248,11 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
         <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-xl bg-bg-inset px-3.5 py-3 text-[12.5px]">
           <p className="font-bold text-t0">Gerência</p>
           <p className="text-t1">
-            <span className="text-t2">Resultado da equipe: </span>
+            <span className="text-t2">Média da equipe: </span>
             <span className="font-mono font-bold">{view.gerencia.resultado != null ? metricValueLabel(c.metric, view.gerencia.resultado) : "—"}</span>
           </p>
           <p className="text-t1">
-            <span className="text-t2">{disputa ? "Piso" : "Alvo"}: </span>
+            <span className="text-t2">Meta da gerência: </span>
             <span className="font-mono font-bold">{metricValueLabel(c.metric, view.gerencia.alvo)}</span>
           </p>
           <p className="text-t1">

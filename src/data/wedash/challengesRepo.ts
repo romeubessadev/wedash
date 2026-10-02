@@ -43,6 +43,8 @@ export interface ChallengeRecord {
   /** Disputa: 1º, 2º, 3º (1 a 3) · Mínimo: 1 (por pessoa que atingir). */
   prizes: ChallengePrize[];
   managerPrize: ChallengePrize | null;
+  /** Meta da gerência = média da equipe, na unidade da métrica. Só com `managerPrize`. */
+  managerTarget: number | null;
 }
 
 export type ChallengeInput = Omit<ChallengeRecord, "id">;
@@ -117,7 +119,14 @@ export type ChallengeRow = {
   manager_prize: unknown;
 };
 
+/** Meta guardada junto do prêmio da gerência; desafio antigo sem ela usa o alvo/piso. */
+function parseManagerTarget(raw: unknown, fallback: number | null): number | null {
+  const t = raw && typeof raw === "object" && !Array.isArray(raw) ? numOrNull((raw as { target?: unknown }).target) : null;
+  return t != null && t > 0 ? t : fallback;
+}
+
 export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
+  const managerPrize = parsePrize(r.manager_prize);
   return {
     id: r.id,
     storeId: r.store_id,
@@ -131,7 +140,8 @@ export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
     target: numOrNull(r.target),
     minSales: numOrNull(r.min_sales),
     prizes: parsePrizes(r.prizes),
-    managerPrize: parsePrize(r.manager_prize),
+    managerPrize,
+    managerTarget: managerPrize ? parseManagerTarget(r.manager_prize, numOrNull(r.target)) : null,
   };
 }
 
@@ -155,7 +165,9 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
     target: c.target == null ? null : Math.round(c.target * 100) / 100,
     min_sales: c.minSales,
     prizes: c.prizes.map(prizeToJson),
-    manager_prize: c.managerPrize ? prizeToJson(c.managerPrize) : null,
+    manager_prize: c.managerPrize
+      ? { ...prizeToJson(c.managerPrize), target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100 }
+      : null,
   };
 }
 

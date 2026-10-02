@@ -247,7 +247,8 @@ export function buildChallengeView(args: {
   });
 
   let gerencia: ChallengeManagerResult | null = null;
-  if (c.managerPrize && c.target != null) {
+  const metaGerencia = c.managerTarget;
+  if (c.managerPrize && metaGerencia != null) {
     let resultado: number | null = null;
     if (status !== "upcoming") {
       const todos = [...accs.values()];
@@ -264,7 +265,12 @@ export function buildChallengeView(args: {
         resultado = vendas > 0 ? round2(todos.reduce((s, a) => s + a.faturamentoCents, 0) / 100 / vendas) : 0;
       }
     }
-    gerencia = { resultado, alvo: c.target, atingiu: alcancaAlvo(resultado), premio: c.managerPrize };
+    gerencia = {
+      resultado,
+      alvo: metaGerencia,
+      atingiu: resultado != null && resultado > 0 && resultado >= metaGerencia - 1e-9,
+      premio: c.managerPrize,
+    };
   }
 
   const diasIncompletos: string[] = [];

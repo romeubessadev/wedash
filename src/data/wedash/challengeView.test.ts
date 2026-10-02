@@ -25,6 +25,7 @@ const challenge = (over: Partial<ChallengeRecord> = {}): ChallengeRecord => ({
   minSales: null,
   prizes: [{ kind: "MONEY", amount: 100 }],
   managerPrize: null,
+  managerTarget: null,
   ...over,
 });
 
@@ -295,25 +296,41 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
 });
 
 describe("buildChallengeView — gerência, incompleto e status", () => {
-  it("gerência em itens = Σ itens ÷ participantes, contra o alvo (Mínimo)", () => {
-    const v = build(
-      challenge({ mode: "MINIMUM", target: 3, prizes: [{ kind: "MONEY", amount: 20 }], managerPrize: { kind: "ITEM", label: "Spa" } }),
-      input({ sellerProducts: [item(1001, "BS1", 5), item(1002, "BS1", 4)] }),
-    );
-    expect(v.gerencia).toEqual({ resultado: 3, alvo: 3, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
+  it("gerência em itens = Σ itens ÷ participantes, contra a meta da gerência (não o alvo das vendedoras)", () => {
+    const c = (managerTarget: number) =>
+      challenge({
+        mode: "MINIMUM",
+        target: 3,
+        prizes: [{ kind: "MONEY", amount: 20 }],
+        managerPrize: { kind: "ITEM", label: "Spa" },
+        managerTarget,
+      });
+    const aggs = input({ sellerProducts: [item(1001, "BS1", 5), item(1002, "BS1", 4)] });
+    expect(build(c(3), aggs).gerencia).toEqual({ resultado: 3, alvo: 3, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
+    const v = build(c(4), aggs);
+    expect(v.gerencia).toMatchObject({ resultado: 3, alvo: 4, atingiu: false });
+    expect(v.atingiram).toBe(2);
   });
 
-  it("gerência em P.A. = Σ itens ÷ Σ vendas da equipe; na Disputa usa o piso", () => {
+  it("gerência em P.A. = Σ itens ÷ Σ vendas da equipe; na Disputa vale sem piso", () => {
     const v = build(
-      challenge({ metric: "PA", products: [], target: 2, minSales: 1, managerPrize: { kind: "MONEY", amount: 80 } }),
+      challenge({ metric: "PA", products: [], minSales: 1, managerPrize: { kind: "MONEY", amount: 80 }, managerTarget: 2 }),
       input({ sellerDays: [sellerDay(1, 10, 25, 100_000), sellerDay(2, 10, 15, 100_000)] }),
     );
     expect(v.gerencia).toMatchObject({ resultado: 2, alvo: 2, atingiu: true });
   });
 
-  it("gerência em ticket abaixo do alvo não atinge", () => {
+  it("gerência em ticket abaixo da meta não atinge", () => {
     const v = build(
-      challenge({ metric: "TICKET", mode: "MINIMUM", products: [], target: 100, minSales: 1, managerPrize: { kind: "MONEY", amount: 50 } }),
+      challenge({
+        metric: "TICKET",
+        mode: "MINIMUM",
+        products: [],
+        target: 80,
+        minSales: 1,
+        managerPrize: { kind: "MONEY", amount: 50 },
+        managerTarget: 100,
+      }),
       input({ sellerDays: [sellerDay(1, 10, 10, 120_000), sellerDay(2, 10, 10, 60_000)] }),
     );
     expect(v.gerencia).toMatchObject({ resultado: 90, alvo: 100, atingiu: false });
@@ -321,12 +338,12 @@ describe("buildChallengeView — gerência, incompleto e status", () => {
   });
 
   it("gerência em desafio a começar fica sem resultado", () => {
-    const v = build(challenge({ target: 2, managerPrize: { kind: "MONEY", amount: 50 } }), input(), "2026-10-01");
+    const v = build(challenge({ managerPrize: { kind: "MONEY", amount: 50 }, managerTarget: 2 }), input(), "2026-10-01");
     expect(v.gerencia).toMatchObject({ resultado: null, atingiu: false });
   });
 
-  it("gerência na Disputa sem piso não existe", () => {
-    const v = build(challenge({ managerPrize: { kind: "MONEY", amount: 80 } }), input());
+  it("gerência sem meta não existe", () => {
+    const v = build(challenge({ target: 5, managerPrize: { kind: "MONEY", amount: 80 } }), input());
     expect(v.gerencia).toBeNull();
   });
 
@@ -355,6 +372,7 @@ describe("fechamento, card e duplicar", () => {
       prizes: [{ kind: "MONEY", amount: 100 }, { kind: "ITEM", label: "Combo KFC" }],
       target: 1,
       managerPrize: { kind: "MONEY", amount: 30 },
+      managerTarget: 1,
     });
     const v = build(c, input({ sellerProducts: [item(1001, "BS1", 5), item(1002, "BS1", 5), item(1003, "BS1", 2)] }), "2026-10-15");
     const pay = challengePayout(v);
@@ -392,7 +410,7 @@ describe("fechamento, card e duplicar", () => {
   });
 
   it("duplicar: período seguinte com a mesma duração e nome \"(cópia)\"", () => {
-    const c = challenge({ target: 10, managerPrize: { kind: "ITEM", label: "Spa" } });
+    const c = challenge({ target: 10, managerPrize: { kind: "ITEM", label: "Spa" }, managerTarget: 15 });
     const { id: _id, ...rest } = c;
     expect(copyChallenge(c)).toEqual({ ...rest, name: "Body Splash — quem vender mais (cópia)", startsOn: "2026-10-12", endsOn: "2026-10-18" });
   });
