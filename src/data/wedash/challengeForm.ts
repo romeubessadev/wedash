@@ -210,7 +210,7 @@ export function challengeToForm(c: ChallengeRecord | ChallengeInput): ChallengeF
     endsOn: deIso(c.endsOn),
     storeId: c.storeId,
     metric: c.metric,
-    scope: usesScope(c.metric) ? c.scope : "PRODUCTS",
+    scope: usesScope(c.metric) && c.scope !== "ALL" ? c.scope : "PRODUCTS",
     mode: c.mode,
     products: c.products.map((p) => ({ ...p })),
     categories: c.categories.map((t) => ({ ...t })),

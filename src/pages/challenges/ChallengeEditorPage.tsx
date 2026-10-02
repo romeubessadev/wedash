@@ -57,10 +57,9 @@ const METRIC_HELP: Record<ChallengeMetric, string> = {
   TICKET: "Valor médio por venda (faturamento ÷ número de vendas) de cada pessoa no período.",
 };
 
-const SCOPE_HELP: Record<ChallengeScope, string> = {
+const SCOPE_HELP: Record<Exclude<ChallengeScope, "ALL">, string> = {
   PRODUCTS: "Só os produtos escolhidos (todas as cores e tamanhos de cada código).",
   CATEGORIES: "Só os produtos das categorias escolhidas.",
-  ALL: "Tudo o que a pessoa vender no período.",
 };
 
 const MODE_HELP: Record<ChallengeMode, string> = {
@@ -322,14 +321,13 @@ export default function ChallengeEditorPage() {
             <FormField label="O que conta" required>
               <Segmented<ChallengeScope>
                 options={[
-                  { value: "PRODUCTS", label: "Produtos escolhidos" },
-                  { value: "CATEGORIES", label: "Categorias escolhidas" },
-                  { value: "ALL", label: "Tudo o que vender" },
+                  { value: "PRODUCTS", label: "Produtos" },
+                  { value: "CATEGORIES", label: "Categorias" },
                 ]}
                 value={form.scope}
                 onChange={(v) => v && set({ scope: v })}
               />
-              <p className="mt-1.5 text-[11.5px] text-t2">{SCOPE_HELP[form.scope]}</p>
+              {form.scope !== "ALL" && <p className="mt-1.5 text-[11.5px] text-t2">{SCOPE_HELP[form.scope]}</p>}
             </FormField>
           )}
           {usaEscopo && form.scope === "PRODUCTS" && (
@@ -564,7 +562,7 @@ function PickerShell({ label, error, children }: { label: string; error?: string
   );
 }
 
-/** Multi-select com tags (padrão Select Components do Vela): escolhidos como tags + busca no catálogo por nome ou código. */
+/** Lista sempre aberta com busca (Searchable select do Vela): clicar marca/desmarca sem fechar; escolhidos viram tags abaixo. */
 function ProductPicker({
   catalog,
   selected,
@@ -578,82 +576,125 @@ function ProductPicker({
 }) {
   const [query, setQuery] = useState("");
   const escolhidos = useMemo(() => new Set(selected.map((p) => p.code)), [selected]);
-  const resultados = useMemo(() => {
+  const lista = useMemo(() => {
+    if (!catalog) return [];
     const q = semAcento(query.trim());
-    if (!catalog || !q) return [];
-    return catalog.products.filter((p) => !escolhidos.has(p.code) && (semAcento(p.name).includes(q) || semAcento(p.code).includes(q))).slice(0, 8);
-  }, [catalog, query, escolhidos]);
-  const adicionar = (p: { code: string; name: string }) => {
-    onChange([...selected, { code: p.code, name: p.name }]);
-    setQuery("");
+    if (!q) return catalog.products;
+    return catalog.products.filter((p) => semAcento(p.name).includes(q) || semAcento(p.code).includes(q));
+  }, [catalog, query]);
+  const alternar = (p: { code: string; name: string }) =>
+    onChange(escolhidos.has(p.code) ? selected.filter((x) => x.code !== p.code) : [...selected, { code: p.code, name: p.name }]);
+  const buscando = query.trim().length > 0;
+  const todosDaBusca = lista.length > 0 && lista.every((p) => escolhidos.has(p.code));
+  const alternarBusca = () => {
+    if (todosDaBusca) {
+      const daBusca = new Set(lista.map((p) => p.code));
+      onChange(selected.filter((x) => !daBusca.has(x.code)));
+    } else {
+      onChange([...selected, ...lista.filter((p) => !escolhidos.has(p.code)).map((p) => ({ code: p.code, name: p.name }))]);
+    }
   };
 
   return (
     <PickerShell label="Produtos" error={error}>
-      <div className="relative">
-        <div
-          className={cn(
-            "flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-[var(--radius-vela-md)] border bg-bg-inset px-2.5 py-1.5 transition-colors",
-            error ? "border-bad" : "border-line focus-within:border-acc",
-          )}
-        >
-          {selected.map((p) => (
-            <span
-              key={p.code}
-              title={`${p.code} · ${p.name}`}
-              className="flex max-w-full items-center gap-1.5 rounded-lg bg-acc-soft px-2.5 py-1 text-xs font-semibold text-acc"
-            >
-              <span className="truncate">{p.name}</span>
-              <button
-                type="button"
-                onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
-                aria-label={`Remover ${p.name}`}
-                className="shrink-0 cursor-pointer"
-              >
-                <Icon d={icons.x} size={11} />
-              </button>
-            </span>
-          ))}
+      <div
+        className={cn(
+          "overflow-hidden rounded-[var(--radius-vela-md)] border bg-bg-inset transition-colors",
+          error ? "border-bad" : "border-line focus-within:border-acc",
+        )}
+      >
+        <div className="flex h-[42px] items-center gap-2 border-b border-line px-3.5 text-t2">
+          <Icon d={icons.search} size={14} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && resultados[0]) {
-                e.preventDefault();
-                adicionar(resultados[0]);
-              } else if (e.key === "Backspace" && !query && selected.length > 0) {
-                onChange(selected.slice(0, -1));
-              }
-            }}
-            placeholder={!catalog ? "Carregando produtos…" : selected.length > 0 ? "Adicionar produto…" : "Buscar por produto ou código…"}
+            placeholder={catalog ? "Buscar por produto ou código…" : "Carregando produtos…"}
             disabled={!catalog}
             aria-label="Buscar produto"
-            className="h-7 min-w-[120px] flex-1 bg-transparent px-1 text-[13px] text-t0 outline-none placeholder:text-t2"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-t0 outline-none placeholder:text-t2"
           />
+          {buscando && (
+            <button type="button" onClick={() => setQuery("")} aria-label="Limpar busca" className="shrink-0 cursor-pointer hover:text-t0">
+              <Icon d={icons.x} size={13} />
+            </button>
+          )}
         </div>
-        {query.trim() && catalog && (
-          <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-bg-2 p-1 shadow-[var(--shadow-vela)]">
-            {resultados.length === 0 ? (
-              <p className="px-3 py-2.5 text-[12.5px] text-t2">Nenhum produto encontrado.</p>
-            ) : (
-              resultados.map((p, i) => (
+        {buscando && lista.length > 0 && (
+          <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2 text-[12px]">
+            <span className="text-t2">
+              {lista.length} {lista.length === 1 ? "produto encontrado" : "produtos encontrados"}
+            </span>
+            <button type="button" onClick={alternarBusca} className="cursor-pointer font-semibold text-acc hover:underline">
+              {todosDaBusca ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </div>
+        )}
+        <div className="max-h-72 overflow-y-auto p-1">
+          {!catalog ? (
+            <p className="px-2.5 py-2.5 text-[12.5px] text-t2">Carregando produtos…</p>
+          ) : lista.length === 0 ? (
+            <p className="px-2.5 py-2.5 text-[12.5px] text-t2">Nenhum produto encontrado.</p>
+          ) : (
+            lista.map((p, i) => {
+              const ativo = escolhidos.has(p.code);
+              return (
                 <button
                   key={p.code}
                   type="button"
-                  onClick={() => adicionar(p)}
-                  className="flex w-full items-center rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-3"
+                  aria-pressed={ativo}
+                  onClick={() => alternar(p)}
+                  className={cn(
+                    "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                    ativo ? "bg-acc-soft" : "hover:bg-bg-3",
+                  )}
                 >
-                  <ProductNameCell nome={p.name} idx={i} sub={[p.code, p.category].filter(Boolean).join(" · ")} />
+                  <span
+                    className={cn(
+                      "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
+                      ativo ? "border-acc bg-acc text-white" : "border-line",
+                    )}
+                  >
+                    {ativo && <Icon d={icons.check} size={12} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <ProductNameCell nome={p.name} idx={i} sub={[p.code, p.category].filter(Boolean).join(" · ")} />
+                  </span>
                 </button>
-              ))
-            )}
-          </div>
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
       {selected.length > 0 && (
-        <p className="mt-1.5 text-[11.5px] text-t2">
-          {selected.length} {selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}
-        </p>
+        <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-[11.5px]">
+            <span className="text-t2">
+              {selected.length} {selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}
+            </span>
+            <button type="button" onClick={() => onChange([])} className="cursor-pointer font-semibold text-t2 hover:text-bad">
+              Limpar
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {selected.map((p) => (
+              <span
+                key={p.code}
+                title={`${p.code} · ${p.name}`}
+                className="flex max-w-full items-center gap-1.5 rounded-lg bg-acc-soft px-2.5 py-1 text-xs font-semibold text-acc"
+              >
+                <span className="truncate">{p.name}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
+                  aria-label={`Remover ${p.name}`}
+                  className="shrink-0 cursor-pointer"
+                >
+                  <Icon d={icons.x} size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </PickerShell>
   );
