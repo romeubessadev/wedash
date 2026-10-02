@@ -30,6 +30,7 @@ import {
 import {
   fetchChallenge,
   fetchChallengeCatalog,
+  isIndexMetric,
   PRIZE_LABEL_MAX,
   saveChallenge,
   usesScope,
@@ -55,6 +56,8 @@ const METRIC_HELP: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento de cada pessoa no período.",
   PA: "Média de itens por venda de cada pessoa no período.",
   TICKET: "Valor médio das vendas de cada pessoa no período.",
+  INDEX:
+    "Combina faturamento (50%), ticket médio (25%) e P.A. (25%) de cada pessoa, comparados com a média da equipe no período. 100 é a média da equipe; 120 é 20% acima.",
 };
 
 const SCOPE_HELP: Record<Exclude<ChallengeScope, "ALL">, string> = {
@@ -67,6 +70,7 @@ const MIN_LABEL: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento mínimo",
   PA: "P.A. mínimo",
   TICKET: "Ticket médio mínimo",
+  INDEX: "Índice mínimo",
 };
 
 const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
@@ -74,6 +78,7 @@ const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento médio por pessoa: faturamento da equipe ÷ pessoas do desafio, incluindo quem não vendeu.",
   PA: "P.A. da equipe: total de itens ÷ total de vendas.",
   TICKET: "Ticket médio da equipe: faturamento ÷ total de vendas.",
+  INDEX: "",
 };
 
 const PODIUM_LABEL = ["Prêmio do 1º lugar", "Prêmio do 2º lugar", "Prêmio do 3º lugar"];
@@ -229,7 +234,9 @@ export default function ChallengeEditorPage() {
 
   const usaVendas = usesMinSales(form.metric);
   const usaEscopo = usesScope(form.metric);
-  const podio = form.mode === "CONTEST" ? form.prizes.slice(0, MAX_PODIUM) : form.prizes.slice(0, 1);
+  const indice = isIndexMetric(form.metric);
+  const modo: ChallengeMode = indice ? "CONTEST" : form.mode;
+  const podio = modo === "CONTEST" ? form.prizes.slice(0, MAX_PODIUM) : form.prizes.slice(0, 1);
 
   return (
     <div>
@@ -302,6 +309,7 @@ export default function ChallengeEditorPage() {
                 { value: "VALUE", label: CHALLENGE_METRIC_LABEL.VALUE },
                 { value: "PA", label: "P.A." },
                 { value: "TICKET", label: "Ticket médio" },
+                { value: "INDEX", label: CHALLENGE_METRIC_LABEL.INDEX },
               ]}
               value={form.metric}
               onChange={(v) => v && setMetric(v)}
@@ -349,20 +357,22 @@ export default function ChallengeEditorPage() {
             <Segmented<ChallengeMode>
               options={[
                 { value: "CONTEST", label: CHALLENGE_MODE_LABEL.CONTEST },
-                { value: "MINIMUM", label: CHALLENGE_MODE_LABEL.MINIMUM },
+                ...(indice ? [] : [{ value: "MINIMUM" as const, label: CHALLENGE_MODE_LABEL.MINIMUM }]),
               ]}
-              value={form.mode}
+              value={modo}
               onChange={(v) => v && set({ mode: v })}
             />
-            <p className="mt-1.5 text-[11.5px] text-t2">{CHALLENGE_MODE_HELP[form.mode]}</p>
+            <p className="mt-1.5 text-[11.5px] text-t2">
+              {indice ? "No Índice de desempenho, ganha quem tiver o maior índice. Em caso de empate, as pessoas empatadas recebem o prêmio da posição e a posição seguinte é pulada." : CHALLENGE_MODE_HELP[modo]}
+            </p>
           </FormField>
           <div className="flex flex-col gap-4">
             <FormField
               label={MIN_LABEL[form.metric]}
-              required={form.mode === "MINIMUM"}
+              required={modo === "MINIMUM"}
               error={errors.target}
               hint={
-                form.mode === "MINIMUM"
+                modo === "MINIMUM"
                   ? "Quem atingir esse valor no período ganha o prêmio."
                   : "Opcional. Quem ficar abaixo deste valor não recebe prêmio, mesmo que esteja entre as primeiras posições."
               }
@@ -390,13 +400,13 @@ export default function ChallengeEditorPage() {
           {podio.map((p, i) => (
             <FormField
               key={i}
-              label={form.mode === "MINIMUM" ? "Prêmio por pessoa" : PODIUM_LABEL[i]}
+              label={modo === "MINIMUM" ? "Prêmio por pessoa" : PODIUM_LABEL[i]}
               required
               error={errors.prizes?.[i]}
             >
               <div className="flex items-start gap-2">
                 <PrizeField prize={p} onChange={(np) => setPrize(i, np)} invalid={Boolean(errors.prizes?.[i])} />
-                {form.mode === "CONTEST" && i > 0 && i === podio.length - 1 && (
+                {modo === "CONTEST" && i > 0 && i === podio.length - 1 && (
                   <button
                     type="button"
                     onClick={() => set({ prizes: form.prizes.slice(0, i) })}
@@ -409,7 +419,7 @@ export default function ChallengeEditorPage() {
               </div>
             </FormField>
           ))}
-          {form.mode === "CONTEST" && podio.length < MAX_PODIUM && (
+          {modo === "CONTEST" && podio.length < MAX_PODIUM && (
             <div>
               <Button
                 variant="secondary"
@@ -422,6 +432,8 @@ export default function ChallengeEditorPage() {
             </div>
           )}
 
+          {!indice && (
+          <>
           <Divider />
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -459,6 +471,8 @@ export default function ChallengeEditorPage() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       </Card>
       </div>
@@ -500,15 +514,16 @@ function TargetInput({
       />
     );
   const itens = metric === "QUANTITY";
+  const indice = metric === "INDEX";
   return (
     <div className="relative">
       <Input
         inputMode={itens ? "numeric" : "decimal"}
-        placeholder={itens ? "0" : "0,00"}
+        placeholder={itens ? "0" : indice ? "0,0" : "0,00"}
         value={value}
         onChange={(e) => onChange(itens ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value.replace(/[^\d,]/g, "").slice(0, 6))}
         className={cn(itens && "pr-12", invalid && "border-bad!")}
-        aria-label={itens ? "Itens vendidos" : "P.A."}
+        aria-label={itens ? "Itens vendidos" : indice ? "Índice de desempenho" : "P.A."}
       />
       {itens && (
         <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-t2">itens</span>

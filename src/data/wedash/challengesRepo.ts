@@ -6,8 +6,8 @@ import type { GoalTeamMember } from "./goalsRepo";
 import type { NonSalesPeople } from "./salesRepo";
 import type { SalesSellerDayAgg, SalesSellerProductDayAgg } from "./salesTypes";
 
-/** Tipo do desafio: Quantidade (itens) · Valor (R$ vendido) · P.A. · Ticket médio. */
-export type ChallengeMetric = "QUANTITY" | "VALUE" | "PA" | "TICKET";
+/** Tipo do desafio: Itens vendidos · Faturamento · P.A. · Ticket médio · Índice de desempenho. */
+export type ChallengeMetric = "QUANTITY" | "VALUE" | "PA" | "TICKET" | "INDEX";
 /** O que conta em Quantidade/Valor: produtos escolhidos · categorias escolhidas · tudo o que a pessoa vender. */
 export type ChallengeScope = "PRODUCTS" | "CATEGORIES" | "ALL";
 /** CONTEST = Quem fizer mais (pódio) · MINIMUM = Quem chegar ao mínimo (todos que chegarem). */
@@ -55,11 +55,13 @@ export type ChallengeInput = Omit<ChallengeRecord, "id">;
 
 export const PRIZE_LABEL_MAX = 60;
 
-const METRICS: readonly ChallengeMetric[] = ["QUANTITY", "VALUE", "PA", "TICKET"];
+const METRICS: readonly ChallengeMetric[] = ["QUANTITY", "VALUE", "PA", "TICKET", "INDEX"];
 const SCOPES: readonly ChallengeScope[] = ["PRODUCTS", "CATEGORIES", "ALL"];
 const MODES: readonly ChallengeMode[] = ["CONTEST", "MINIMUM"];
 
 export const usesScope = (m: ChallengeMetric) => m === "QUANTITY" || m === "VALUE";
+/** Índice de desempenho: só "Quem fizer mais" e sem prêmio da gerência (a média da equipe é sempre 100). */
+export const isIndexMetric = (m: ChallengeMetric) => m === "INDEX";
 
 /** Tipo + escopo da linha; aceita o formato antigo (metric PRODUCTS/CATEGORIES = Quantidade). */
 function parseMetricScope(metric: string, scope: string | null | undefined): { metric: ChallengeMetric; scope: ChallengeScope } {
@@ -142,15 +144,17 @@ function parseManagerTarget(raw: unknown, fallback: number | null): number | nul
 }
 
 export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
-  const managerPrize = parsePrize(r.manager_prize);
+  const metricScope = parseMetricScope(r.metric, r.scope);
+  const indice = isIndexMetric(metricScope.metric);
+  const managerPrize = indice ? null : parsePrize(r.manager_prize);
   return {
     id: r.id,
     storeId: r.store_id,
     name: r.name,
     startsOn: r.starts_on,
     endsOn: r.ends_on,
-    ...parseMetricScope(r.metric, r.scope),
-    mode: MODES.includes(r.mode as ChallengeMode) ? (r.mode as ChallengeMode) : "CONTEST",
+    ...metricScope,
+    mode: indice ? "CONTEST" : MODES.includes(r.mode as ChallengeMode) ? (r.mode as ChallengeMode) : "CONTEST",
     products: parseProducts(r.products),
     categories: parseCategories(r.categories),
     target: numOrNull(r.target),
@@ -169,6 +173,7 @@ function prizeToJson(p: ChallengePrize): { kind: "MONEY"; cents: number } | { ki
 
 /** Linha para insert/update (sem tenant e sem id). */
 export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
+  const indice = isIndexMetric(c.metric);
   return {
     store_id: c.storeId,
     name: c.name.trim(),
@@ -176,13 +181,13 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
     ends_on: c.endsOn,
     metric: c.metric,
     scope: usesScope(c.metric) ? c.scope : "ALL",
-    mode: c.mode,
+    mode: indice ? "CONTEST" : c.mode,
     products: c.products.map((p) => ({ code: p.code, name: p.name })),
     categories: c.categories.map((x) => ({ typeId: x.typeId, name: x.name })),
     target: c.target == null ? null : Math.round(c.target * 100) / 100,
     min_sales: c.minSales,
     prizes: c.prizes.map(prizeToJson),
-    manager_prize: c.managerPrize
+    manager_prize: c.managerPrize && !indice
       ? { ...prizeToJson(c.managerPrize), target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100 }
       : null,
   };

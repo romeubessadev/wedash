@@ -56,6 +56,7 @@ const GERENCIA_RESULTADO: Record<ChallengeRecord["metric"], string> = {
   VALUE: "Faturamento médio por pessoa",
   PA: "P.A. da equipe",
   TICKET: "Ticket médio da equipe",
+  INDEX: "Índice da equipe",
 };
 
 const ORDINAL = ["1º", "2º", "3º"];

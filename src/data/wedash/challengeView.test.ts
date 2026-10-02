@@ -5,6 +5,7 @@ import {
   challengePayout,
   copyChallenge,
   metricValueLabel,
+  performanceIndex,
   prizeLabel,
 } from "./challengeView";
 import { emptyChallengeAggInput, type ChallengeAggInput, type ChallengeRecord } from "./challengesRepo";
@@ -165,6 +166,34 @@ describe("buildChallengeView — participantes e resultado", () => {
     expect(pa.BIA.resultado).toBe(2);
     const ticket = byName(build(challenge({ metric: "TICKET", products: [], minSales: 1 }), aggs));
     expect(ticket.ANA.resultado).toBe(88.2);
+  });
+
+  it("Índice de desempenho: 50% faturamento + 25% ticket + 25% P.A., comparados com a média de quem vendeu", () => {
+    const v = build(
+      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1 }),
+      input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 10, 15, 80_000)] }),
+    );
+    const p = byName(v);
+    expect(p.ANA.resultado).toBe(111.9);
+    expect(p.BIA.resultado).toBe(88.1);
+    expect(p.CAROL.resultado).toBe(0);
+    expect(p.ANA.vencedor).toBe(true);
+    expect(metricValueLabel("INDEX", 111.9)).toBe("111,9");
+  });
+
+  it("Índice de desempenho = \"—\" para todos se alguém que vendeu tem dia sem itens", () => {
+    const v = build(
+      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1 }),
+      input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 5, 0, 40_000)] }),
+    );
+    expect(byName(v).ANA.resultado).toBeNull();
+    expect(byName(v).BIA.resultado).toBeNull();
+    expect(v.participantes.some((x) => x.vencedor)).toBe(false);
+  });
+
+  it("performanceIndex: na média da equipe = 100", () => {
+    expect(performanceIndex({ faturamento: 90_000, vendas: 10, itens: 17.5 }, { faturamentoMedio: 90_000, ticket: 9_000, pa: 1.75 })).toBeCloseTo(100);
+    expect(performanceIndex({ faturamento: 0, vendas: 0, itens: 0 }, { faturamentoMedio: 1, ticket: 1, pa: 1 })).toBe(0);
   });
 
   it("P.A. sem itens gravados em algum dia com venda = \"—\" e não concorre", () => {

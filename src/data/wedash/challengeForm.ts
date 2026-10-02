@@ -1,5 +1,6 @@
 import { paraIso, deIso } from "@/lib/format";
 import {
+  isIndexMetric,
   PRIZE_LABEL_MAX,
   usesScope,
   type ChallengeCategory,
@@ -93,7 +94,10 @@ function parseNumber(txt: string): number | null {
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
-export const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET";
+export const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET" || m === "INDEX";
+/** Índice de desempenho é sempre "Quem fizer mais". */
+const modeOf = (f: { metric: ChallengeMetric; mode: ChallengeMode }): ChallengeMode => (isIndexMetric(f.metric) ? "CONTEST" : f.mode);
+const managerOn = (f: ChallengeForm) => f.managerOn && !isIndexMetric(f.metric);
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /** Erro do mínimo; undefined = válido (ou vazio quando opcional). */
@@ -128,7 +132,7 @@ function prizeValue(p: PrizeForm): ChallengePrize {
   return p.kind === "MONEY" ? { kind: "MONEY", amount: round2(parseNumber(p.amount) ?? 0) } : { kind: "ITEM", label: p.label.trim() };
 }
 
-const activePrizes = (f: ChallengeForm) => (f.mode === "MINIMUM" ? f.prizes.slice(0, 1) : f.prizes.slice(0, MAX_PODIUM));
+const activePrizes = (f: ChallengeForm) => (modeOf(f) === "MINIMUM" ? f.prizes.slice(0, 1) : f.prizes.slice(0, MAX_PODIUM));
 
 /** Erros do formulário; objeto vazio = pode salvar. */
 export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
@@ -150,7 +154,7 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
     else if (!Number.isInteger(v) || v < 1) e.minSales = "Informe um número inteiro a partir de 1.";
   }
 
-  const target = targetError(f.metric, f.target, f.mode === "MINIMUM");
+  const target = targetError(f.metric, f.target, modeOf(f) === "MINIMUM");
   if (target) e.target = target;
 
   const prizes: Record<number, string> = {};
@@ -160,7 +164,7 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   });
   if (Object.keys(prizes).length > 0) e.prizes = prizes;
 
-  if (f.managerOn) {
+  if (managerOn(f)) {
     const me = prizeError(f.managerPrize);
     if (me) e.managerPrize = me;
     const mt = targetError(f.metric, f.managerTarget, true);
@@ -179,14 +183,14 @@ export function challengeFormToInput(f: ChallengeForm): ChallengeInput {
     endsOn: paraIso(f.endsOn!),
     metric: f.metric,
     scope,
-    mode: f.mode,
+    mode: modeOf(f),
     products: scope === "PRODUCTS" ? f.products : [],
     categories: scope === "CATEGORIES" ? f.categories : [],
     target: targetValue(f.metric, f.target),
     minSales: usesMinSales(f.metric) ? Math.round(parseNumber(f.minSales) ?? 1) : null,
     prizes: activePrizes(f).map(prizeValue),
-    managerPrize: f.managerOn ? prizeValue(f.managerPrize) : null,
-    managerTarget: f.managerOn ? targetValue(f.metric, f.managerTarget) : null,
+    managerPrize: managerOn(f) ? prizeValue(f.managerPrize) : null,
+    managerTarget: managerOn(f) ? targetValue(f.metric, f.managerTarget) : null,
   };
 }
 

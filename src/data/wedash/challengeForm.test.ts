@@ -197,6 +197,30 @@ describe("challengeFormToInput / challengeToForm", () => {
     expect([desligada.managerPrize, desligada.managerTarget]).toEqual([null, null]);
   });
 
+  it("Índice de desempenho é sempre Quem fizer mais, sem gerência e com mínimo de vendas", () => {
+    const f = valid({
+      metric: "INDEX",
+      mode: "MINIMUM",
+      products: [],
+      target: "",
+      minSales: "10",
+      managerOn: true,
+      managerPrize: { kind: "MONEY", amount: "", label: "" },
+      managerTarget: "",
+    });
+    expect(validateChallengeForm(f)).toEqual({});
+    expect(challengeFormToInput({ ...f, target: "110,5" })).toMatchObject({
+      metric: "INDEX",
+      scope: "ALL",
+      mode: "CONTEST",
+      target: 110.5,
+      minSales: 10,
+      managerPrize: null,
+      managerTarget: null,
+      products: [],
+    });
+  });
+
   it("ida e volta: registro → formulário → input", () => {
     const rec: ChallengeRecord = {
       id: "c1",

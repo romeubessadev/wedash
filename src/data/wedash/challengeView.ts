@@ -25,7 +25,33 @@ export const CHALLENGE_METRIC_LABEL: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento",
   PA: "P.A.",
   TICKET: "Ticket médio",
+  INDEX: "Índice de desempenho",
 };
+
+/** Pesos do Índice de desempenho (somam 1). */
+export const INDEX_WEIGHTS = { faturamento: 0.5, ticket: 0.25, pa: 0.25 } as const;
+
+export interface IndexTeamBase {
+  /** Faturamento médio por pessoa (só quem vendeu). */
+  faturamentoMedio: number;
+  /** Faturamento ÷ vendas da equipe. */
+  ticket: number;
+  /** Itens ÷ vendas da equipe. */
+  pa: number;
+}
+
+/** 100 = média da equipe em tudo. Faturamento em R$ (ou centavos — só precisa ser a mesma unidade da base). */
+export function performanceIndex(p: { faturamento: number; vendas: number; itens: number }, base: IndexTeamBase): number {
+  if (p.vendas <= 0) return 0;
+  const parte = (v: number, ref: number) => (ref > 0 ? v / ref : 0);
+  const w = INDEX_WEIGHTS;
+  return (
+    100 *
+    (w.faturamento * parte(p.faturamento, base.faturamentoMedio) +
+      w.ticket * parte(p.faturamento / p.vendas, base.ticket) +
+      w.pa * parte(p.itens / p.vendas, base.pa))
+  );
+}
 
 export const CHALLENGE_SCOPE_LABEL: Record<ChallengeScope, string> = {
   PRODUCTS: "Produtos escolhidos",
@@ -75,16 +101,17 @@ export interface ChallengeView {
   diasIncompletos: string[];
 }
 
-const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET";
+const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET" || m === "INDEX";
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 function diasEntre(inicio: string, fim: string): number {
   return Math.round((deIso(fim).getTime() - deIso(inicio).getTime()) / 86_400_000) + 1;
 }
 
-/** 12 itens · 1 item · 7,5 itens · 1,85 · R$ 92,30 */
+/** 12 itens · 1 item · 7,5 itens · 1,85 · R$ 92,30 · 112,4 (índice) */
 export function metricValueLabel(metric: ChallengeMetric, value: number): string {
   if (metric === "PA") return num(value, 2);
+  if (metric === "INDEX") return num(value, 1);
   if (metric === "TICKET" || metric === "VALUE") return brlCent(value);
   const inteiro = Number.isInteger(value);
   return `${num(value, inteiro ? 0 : 1)} ${value === 1 ? "item" : "itens"}`;
@@ -96,6 +123,10 @@ export function prizeLabel(p: ChallengePrize): string {
 
 function faltaLabel(metric: ChallengeMetric, diff: number): string {
   if (metric === "PA") return `Falta ${num(diff, 2)} de P.A.`;
+  if (metric === "INDEX") {
+    const pontos = Math.max(0.1, Math.ceil(diff * 10 - 1e-9) / 10);
+    return pontos === 1 ? "Falta 1,0 ponto de índice" : `Faltam ${num(pontos, 1)} pontos de índice`;
+  }
   if (metric === "TICKET") return `Faltam ${brlCent(diff)} de ticket médio`;
   if (metric === "VALUE") return `Faltam ${brlCent(diff)}`;
   const n = Math.ceil(diff - 1e-9);
@@ -188,8 +219,26 @@ export function buildChallengeView(args: {
     }
   }
 
+  const comVenda = [...accs.values()].filter((a) => a.vendas > 0);
+  const vendasEquipe = comVenda.reduce((s, a) => s + a.vendas, 0);
+  const fatEquipe = comVenda.reduce((s, a) => s + a.faturamentoCents, 0);
+  const indexBase: IndexTeamBase | null =
+    comVenda.length > 0 && vendasEquipe > 0 && !comVenda.some((a) => a.semItens)
+      ? {
+          faturamentoMedio: fatEquipe / comVenda.length,
+          ticket: fatEquipe / vendasEquipe,
+          pa: comVenda.reduce((s, a) => s + a.itensVendas, 0) / vendasEquipe,
+        }
+      : null;
+
   const resultadoDe = (a: Acc): number | null => {
     if (status === "upcoming") return null;
+    if (c.metric === "INDEX") {
+      if (a.vendas <= 0) return 0;
+      return indexBase
+        ? round2(performanceIndex({ faturamento: a.faturamentoCents, vendas: a.vendas, itens: a.itensVendas }, indexBase))
+        : null;
+    }
     if (c.metric === "QUANTITY") return porProduto ? a.itens : a.semItens ? null : a.itensVendas;
     if (c.metric === "VALUE") return round2((porProduto ? a.valorCents : a.faturamentoCents) / 100);
     if (a.vendas <= 0) return 0;

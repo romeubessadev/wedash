@@ -25,6 +25,7 @@ const MAIOR: Record<ChallengeMetric, string> = {
   VALUE: "Maior faturamento",
   PA: "Maior P.A.",
   TICKET: "Maior ticket médio",
+  INDEX: "Maior índice de desempenho",
 };
 
 /** "Maior faturamento" / "Mínimo de 15 itens" — o critério do desafio em uma linha. */

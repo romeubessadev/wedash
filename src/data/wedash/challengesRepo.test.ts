@@ -160,6 +160,14 @@ describe("challengeToRow", () => {
     expect(r).toMatchObject({ scope: "PRODUCTS", target: 15, manager_prize: null, products: [{ code: "WP002", name: "WP ULTRA" }] });
   });
 
+  it("Índice de desempenho: lê e grava sempre como Quem fizer mais, escopo ALL e sem gerência", () => {
+    expect(
+      challengeFromRow(row({ metric: "INDEX", scope: "PRODUCTS", mode: "MINIMUM", manager_prize: { kind: "MONEY", cents: 5_000 } })),
+    ).toMatchObject({ metric: "INDEX", scope: "ALL", mode: "CONTEST", managerPrize: null });
+    const r = challengeToRow({ ...input, metric: "INDEX", mode: "MINIMUM", target: 110.55, managerPrize: { kind: "MONEY", amount: 50 }, managerTarget: 100 });
+    expect([r.metric, r.scope, r.mode, r.target, r.manager_prize]).toEqual(["INDEX", "ALL", "CONTEST", 110.55, null]);
+  });
+
   it("P.A./ticket gravam escopo ALL mesmo se vier outro", () => {
     expect(challengeToRow({ ...input, metric: "PA", scope: "CATEGORIES" }).scope).toBe("ALL");
   });
