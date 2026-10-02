@@ -1,7 +1,7 @@
 import type { ChallengeRecord } from "@/data/wedash/challengesRepo";
 import type { ChallengeView } from "@/data/wedash/challengeView";
 import { dataCurta } from "@/lib/format";
-import { challengeHeadline, mainPrizeLabel } from "@/pages/challenges/shared";
+import { challengeHeadline, HeadlineText, mainPrizeLabel } from "@/pages/challenges/shared";
 import { FlameIcon, TrophyIcon } from "@/pages/dashboards/icons";
 
 /** Desafio em andamento na aba Desafios da Equipe: só leitura, clique abre o detalhe. */
@@ -39,8 +39,7 @@ export function ChallengeMiniCard({
         </span>
         <span className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span className="min-w-0 truncate text-[13px] text-t1">
-            <span className="text-t2">{destaque.label}: </span>
-            <span className="font-bold text-t0">{destaque.value}</span>
+            <HeadlineText headline={destaque} />
           </span>
           {premio && (
             <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-t1">

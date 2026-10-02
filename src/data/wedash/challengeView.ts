@@ -21,8 +21,8 @@ export const CHALLENGE_STATUS_LABEL: Record<ChallengeStatus, string> = {
 };
 
 export const CHALLENGE_METRIC_LABEL: Record<ChallengeMetric, string> = {
-  QUANTITY: "Quantidade",
-  VALUE: "Valor",
+  QUANTITY: "Itens vendidos",
+  VALUE: "Faturamento",
   PA: "P.A.",
   TICKET: "Ticket médio",
 };
@@ -35,7 +35,7 @@ export const CHALLENGE_SCOPE_LABEL: Record<ChallengeScope, string> = {
 
 export const CHALLENGE_MODE_LABEL: Record<ChallengeMode, string> = {
   CONTEST: "Quem fizer mais",
-  MINIMUM: "Quem chegar ao mínimo",
+  MINIMUM: "Quem atingir o mínimo",
 };
 
 export interface ChallengeParticipant {
@@ -96,12 +96,13 @@ export function prizeLabel(p: ChallengePrize): string {
 
 function faltaLabel(metric: ChallengeMetric, diff: number): string {
   if (metric === "PA") return `Falta ${num(diff, 2)} de P.A.`;
-  if (metric === "TICKET" || metric === "VALUE") return `Faltam ${brlCent(diff)}`;
+  if (metric === "TICKET") return `Faltam ${brlCent(diff)} de ticket médio`;
+  if (metric === "VALUE") return `Faltam ${brlCent(diff)}`;
   const n = Math.ceil(diff - 1e-9);
   return n === 1 ? "Falta 1 item" : `Faltam ${num(n)} itens`;
 }
 
-const faltaVendas = (n: number) => (n === 1 ? "Falta 1 venda" : `Faltam ${num(n)} vendas`);
+const faltaVendas = (n: number) => (n === 1 ? "Falta 1 venda para participar" : `Faltam ${num(n)} vendas para participar`);
 
 interface Acc {
   key: string;
@@ -233,7 +234,7 @@ export function buildChallengeView(args: {
     if (status === "active" && resultado != null) {
       if (a.vendas < minVendas) falta = faltaVendas(minVendas - a.vendas);
       else if (c.mode === "MINIMUM") {
-        if (!vencedor && c.target != null) falta = faltaLabel(c.metric, c.target - resultado);
+        if (!vencedor && c.target != null) falta = `${faltaLabel(c.metric, c.target - resultado)} para o mínimo`;
       } else if (c.target != null && resultado < c.target - 1e-9) {
         falta = `${faltaLabel(c.metric, c.target - resultado)} para o mínimo`;
       } else {
@@ -333,7 +334,7 @@ export interface ChallengePayout {
   gerencia: ChallengePrize | null;
   /** Σ prêmios em R$ (pessoas + gerência). */
   totalReais: number;
-  /** Prêmios em espécie, um por vencedor (+ gerência). */
+  /** Outros prêmios (texto livre), um por vencedor (+ gerência). */
   especie: string[];
 }
 

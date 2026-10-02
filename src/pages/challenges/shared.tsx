@@ -14,45 +14,69 @@ export const CHALLENGE_STATUS_VARIANT: Record<ChallengeStatus, "success" | "info
   ended: "neutral",
 };
 
+export const CHALLENGE_MODE_HELP: Record<ChallengeRecord["mode"], string> = {
+  CONTEST:
+    "Ganha quem tiver o melhor resultado. Em caso de empate, as pessoas empatadas recebem o prêmio da posição e a posição seguinte é pulada.",
+  MINIMUM: "Todas as pessoas que atingirem o mínimo ganham o prêmio.",
+};
+
 const MAIOR: Record<ChallengeMetric, string> = {
-  QUANTITY: "Quem vender mais itens",
-  VALUE: "Quem vender mais",
+  QUANTITY: "Mais itens vendidos",
+  VALUE: "Maior faturamento",
   PA: "Maior P.A.",
   TICKET: "Maior ticket médio",
 };
 
-/** "Quem vender mais" / "Mínimo: 15 itens" — o critério do desafio em uma linha. */
+/** "Maior faturamento" / "Mínimo de 15 itens" — o critério do desafio em uma linha. */
 export function challengeCriterion(c: ChallengeRecord): string {
-  if (c.mode === "MINIMUM") return c.target != null ? `Mínimo: ${metricValueLabel(c.metric, c.target)}` : "Mínimo não definido";
+  if (c.mode === "MINIMUM") return c.target != null ? `Mínimo de ${metricValueLabel(c.metric, c.target)}` : "Mínimo não definido";
   const quem = MAIOR[c.metric];
   return c.target != null ? `${quem} · mínimo de ${metricValueLabel(c.metric, c.target)}` : quem;
 }
 
+/** Destaque do card: `label` null = a frase já é completa ("Ainda não há líder"). */
+export interface ChallengeHeadline {
+  label: string | null;
+  value: string;
+}
+
 /** Linha de destaque do card: líder(es) / vencedor(es) na Disputa, quantas atingiram no Mínimo. */
-export function challengeHeadline(c: ChallengeRecord, view: ChallengeView): { label: string; value: string } {
+export function challengeHeadline(c: ChallengeRecord, view: ChallengeView): ChallengeHeadline {
   if (view.status === "upcoming") return { label: "Critério", value: challengeCriterion(c) };
   const encerrado = view.status === "ended";
   if (c.mode === "MINIMUM") {
     const n = view.atingiram;
     const alvo = c.target != null ? ` · mínimo de ${metricValueLabel(c.metric, c.target)}` : "";
-    if (n === 0) return { label: "Atingiram", value: `${encerrado ? "Ninguém atingiu" : "Ninguém atingiu ainda"}${alvo}` };
-    return { label: "Atingiram", value: `${n} ${n === 1 ? "pessoa" : "pessoas"}${alvo}` };
+    if (n === 0) return { label: null, value: encerrado ? "Ninguém atingiu" : "Ninguém atingiu ainda" };
+    if (n === 1) return { label: null, value: `1 pessoa atingiu${alvo}` };
+    return { label: "Atingiram", value: `${n} pessoas${alvo}` };
   }
   const { lider } = challengeCardSummary(view);
   const primeiros = view.participantes.filter((p) => p.posicao === 1);
-  if (!lider || primeiros.length === 0) {
-    return { label: encerrado ? "Vencedor" : "Líder", value: encerrado ? "Nenhum vencedor" : "Ninguém pontuou ainda" };
+  if (!lider || primeiros.length === 0 || (encerrado && !primeiros[0].vencedor)) {
+    return { label: null, value: encerrado ? "Nenhum vencedor" : "Ainda não há líder" };
   }
   const valor = primeiros[0].resultado != null ? ` · ${metricValueLabel(c.metric, primeiros[0].resultado)}` : "";
   const varios = primeiros.length > 1;
-  if (encerrado && !primeiros[0].vencedor) return { label: "Vencedor", value: "Nenhum vencedor" };
   const label = encerrado ? (varios ? "Vencedores" : "Vencedor") : varios ? "Líderes" : "Líder";
   return { label, value: `${lider}${valor}` };
+}
+
+/** "Líder: ANA · 12 itens" ou a frase inteira quando não há rótulo. */
+export function HeadlineText({ headline }: { headline: ChallengeHeadline }) {
+  return headline.label ? (
+    <>
+      <span className="text-t2">{headline.label}: </span>
+      <span className="font-bold text-t0">{headline.value}</span>
+    </>
+  ) : (
+    <span className="font-bold text-t0">{headline.value}</span>
+  );
 }
 
 /** Prêmio principal: 1º lugar (Disputa) ou o prêmio por pessoa (Mínimo). */
 export function mainPrizeLabel(c: ChallengeRecord): string | null {
   const p = c.prizes[0];
   if (!p) return null;
-  return c.mode === "MINIMUM" ? `${prizeLabel(p)} por pessoa` : `1º: ${prizeLabel(p)}`;
+  return c.mode === "MINIMUM" ? `${prizeLabel(p)} por pessoa` : `1º lugar: ${prizeLabel(p)}`;
 }

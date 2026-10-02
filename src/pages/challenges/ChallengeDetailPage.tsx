@@ -28,7 +28,12 @@ import { storesForSession } from "@/data/wedash/stores";
 import { brlCent, dataCompleta, dataCurta, deIso, num, paraIso } from "@/lib/format";
 import { exportPdf } from "@/lib/printMode";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
-import { CHALLENGE_STATUS_VARIANT, challengeCriterion, challengeHeadline } from "@/pages/challenges/shared";
+import {
+  CHALLENGE_MODE_HELP,
+  CHALLENGE_STATUS_VARIANT,
+  challengeCriterion,
+  challengeHeadline,
+} from "@/pages/challenges/shared";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { FlameIcon } from "@/pages/dashboards/icons";
@@ -46,9 +51,11 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-const AJUDA_MODO: Record<ChallengeRecord["mode"], string> = {
-  CONTEST: "Ganha quem fizer mais. Empate leva o prêmio da posição e a posição seguinte é pulada.",
-  MINIMUM: "Ganha todo mundo que chegar ao mínimo.",
+const GERENCIA_RESULTADO: Record<ChallengeRecord["metric"], string> = {
+  QUANTITY: "Média por pessoa",
+  VALUE: "Faturamento médio por pessoa",
+  PA: "P.A. da equipe",
+  TICKET: "Ticket médio da equipe",
 };
 
 const ORDINAL = ["1º", "2º", "3º"];
@@ -138,8 +145,8 @@ export default function ChallengeDetailPage() {
           {view.diasIncompletos.length > 0 && (
             <div className="mb-5 print:hidden">
               <Alert variant="warning" title="Resultado incompleto">
-                Os itens por pessoa ainda não foram carregados para {diasTexto(view.diasIncompletos)}. O resultado pode mudar quando
-                esses dias forem atualizados.
+                Os itens por pessoa ainda não foram carregados para {diasTexto(view.diasIncompletos)}. O resultado pode mudar quando{" "}
+                {view.diasIncompletos.length === 1 ? "esse dia for atualizado." : "esses dias forem atualizados."}
               </Alert>
             </div>
           )}
@@ -159,9 +166,9 @@ export default function ChallengeDetailPage() {
 }
 
 function diasTexto(dias: string[]): string {
-  if (dias.length === 1) return `o dia ${dataCurta(dias[0]!)}`;
+  if (dias.length === 1) return dataCurta(dias[0]!);
   const lista = dias.map(dataCurta);
-  return `os dias ${lista.slice(0, -1).join(", ")} e ${lista[lista.length - 1]}`;
+  return `${lista.slice(0, -1).join(", ")} e ${lista[lista.length - 1]}`;
 }
 
 function prizesText(c: ChallengeRecord): string {
@@ -169,14 +176,14 @@ function prizesText(c: ChallengeRecord): string {
   return c.prizes.map((p, i) => `${ORDINAL[i]}: ${prizeLabel(p)}`).join(" · ") || "—";
 }
 
-/** "Body Splash VF Golden, Desod Col Obsessed e mais 2" — itens do desafio em uma linha. */
+/** "Body Splash VF Golden · Desod Col Obsessed · +2" — itens do desafio em uma linha. */
 function itemsText(c: ChallengeRecord): string | null {
   if (!usesScope(c.metric)) return null;
   if (c.scope === "ALL") return CHALLENGE_SCOPE_LABEL.ALL;
   const nomes = c.scope === "PRODUCTS" ? c.products.map((p) => p.name) : c.categories.map((t) => t.name);
   if (nomes.length === 0) return null;
-  if (nomes.length <= 3) return nomes.length === 1 ? nomes[0]! : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
-  return `${nomes.slice(0, 3).join(", ")} e mais ${nomes.length - 3}`;
+  if (nomes.length <= 3) return nomes.join(" · ");
+  return `${nomes.slice(0, 2).join(" · ")} · +${nomes.length - 2}`;
 }
 
 function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeRecord; view: ChallengeView; lojaNome?: string }) {
@@ -197,7 +204,7 @@ function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeR
         ? `Gerência: ${prizeLabel(c.managerPrize)}${c.managerTarget != null ? ` · meta de ${metricValueLabel(c.metric, c.managerTarget)}` : ""}`
         : undefined,
     },
-    { label: destaque.label, value: destaque.value },
+    { label: destaque.label ?? "Resultado", value: destaque.value },
     { label: "Prazo", value: view.prazo },
   ];
 
@@ -215,7 +222,7 @@ function ChallengeHero({ challenge: c, view, lojaNome }: { challenge: ChallengeR
           <p className="flex flex-wrap items-center gap-x-1.5 text-[13.5px] leading-relaxed text-t1">
             {dataCompleta(c.startsOn)} a {dataCompleta(c.endsOn)}
             {lojaNome ? ` · ${lojaNome}` : ""} · {CHALLENGE_MODE_LABEL[c.mode]}
-            <TipHelp label={AJUDA_MODO[c.mode]} />
+            <TipHelp label={CHALLENGE_MODE_HELP[c.mode]} />
           </p>
         </div>
       </div>
@@ -245,8 +252,8 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
           <CardTitle>Participantes</CardTitle>
           <p className="mt-0.5 text-[12px] text-t2">
             {aComecar
-              ? "O resultado aparece quando o desafio começar."
-              : "Resultado de cada pessoa na loja do desafio, sem vendas sem vendedor identificado ou realizadas pela gerência."}
+              ? "Os resultados aparecerão quando o desafio começar."
+              : "Acompanhe o resultado de cada pessoa participante. Vendas sem vendedor identificado ou realizadas pela gerência não entram no ranking."}
           </p>
         </div>
         <span className="text-[12px] font-semibold text-t2">
@@ -258,7 +265,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
         <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-xl bg-bg-inset px-3.5 py-3 text-[12.5px]">
           <p className="font-bold text-t0">Gerência</p>
           <p className="text-t1">
-            <span className="text-t2">{usesScope(c.metric) ? "Média da equipe: " : "Equipe: "}</span>
+            <span className="text-t2">{GERENCIA_RESULTADO[c.metric]}: </span>
             <span className="font-mono font-bold">{view.gerencia.resultado != null ? metricValueLabel(c.metric, view.gerencia.resultado) : "—"}</span>
           </p>
           <p className="text-t1">
@@ -276,7 +283,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
       )}
 
       {n === 0 ? (
-        <EmptyBlock icon="👤" title="Nenhuma pessoa no desafio" description="A loja ainda não tem equipe de vendas ativa nem vendas no período." />
+        <EmptyBlock icon="👤" title="Nenhuma pessoa no desafio" description="Não há vendedores ativos nem vendas atribuídas à equipe no período." />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[12.5px]" style={{ minWidth: 620 }}>
@@ -323,7 +330,7 @@ function ParticipantsCard({ challenge: c, view }: { challenge: ChallengeRecord; 
 }
 
 const SemItens = () => (
-  <Tooltip label="Resultado indisponível: faltam os itens de algum dia com venda.">
+  <Tooltip label="Resultado indisponível porque faltam dados de itens em pelo menos um dia com vendas.">
     <span className="cursor-help">—</span>
   </Tooltip>
 );
@@ -359,7 +366,7 @@ function PayoutReportHeader({ challenge: c, lojaNome }: { challenge: ChallengeRe
   );
 }
 
-/** Desafio encerrado: quem ganhou o quê. Prêmio em espécie aparece pelo nome e não entra no total em R$. */
+/** Desafio encerrado: quem ganhou o quê. Outro prêmio (texto livre) aparece pelo nome e não entra no total em R$. */
 function ChallengePayoutCard({ challenge: c, view, onExport }: { challenge: ChallengeRecord; view: ChallengeView; onExport: () => void }) {
   const payout = challengePayout(view);
   const fimMais1 = deIso(c.endsOn);
@@ -396,7 +403,7 @@ function ChallengePayoutCard({ challenge: c, view, onExport }: { challenge: Chal
       </div>
 
       {linhas.length === 0 ? (
-        <EmptyBlock icon="🏁" title="Nenhum vencedor neste desafio." description="Ninguém chegou ao resultado necessário para ganhar o prêmio." />
+        <EmptyBlock icon="🏁" title="Nenhum vencedor neste desafio" description="Ninguém atingiu o resultado necessário para receber o prêmio." />
       ) : (
         <>
           <div className="mb-4 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
@@ -410,7 +417,7 @@ function ChallengePayoutCard({ challenge: c, view, onExport }: { challenge: Chal
             </div>
             {especie.length > 0 && (
               <div className="col-span-2 rounded-xl bg-bg-inset px-3.5 py-3 sm:col-span-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-t2">Prêmios em espécie</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-t2">Outros prêmios</p>
                 <p className="mt-1 text-[13px] font-bold leading-snug text-t0">{especie.join(" · ")}</p>
               </div>
             )}

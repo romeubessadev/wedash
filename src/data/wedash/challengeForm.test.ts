@@ -50,14 +50,14 @@ describe("validateChallengeForm", () => {
     expect(validateChallengeForm(valid({ endsOn: d("2026-10-05") })).endsOn).toBeUndefined();
   });
 
-  it("Produtos exige ao menos 1 produto; Categorias, ao menos 1 categoria; Tudo não exige nada", () => {
-    expect(validateChallengeForm(valid({ products: [] })).products).toBe("Escolha ao menos 1 produto.");
+  it("Produtos exige pelo menos 1 produto; Categorias, pelo menos 1 categoria; Tudo não exige nada", () => {
+    expect(validateChallengeForm(valid({ products: [] })).products).toBe("Escolha pelo menos 1 produto.");
     const cat = validateChallengeForm(valid({ scope: "CATEGORIES", products: [], categories: [] }));
-    expect(cat.categories).toBe("Escolha ao menos 1 categoria.");
+    expect(cat.categories).toBe("Escolha pelo menos 1 categoria.");
     expect(cat.products).toBeUndefined();
     expect(validateChallengeForm(valid({ scope: "ALL", products: [] }))).toEqual({});
     expect(validateChallengeForm(valid({ metric: "VALUE", scope: "PRODUCTS", products: [] })).products).toBe(
-      "Escolha ao menos 1 produto.",
+      "Escolha pelo menos 1 produto.",
     );
   });
 

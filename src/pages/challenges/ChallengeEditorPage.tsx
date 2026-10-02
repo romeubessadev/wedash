@@ -38,10 +38,11 @@ import {
   type ChallengeMode,
   type ChallengeScope,
 } from "@/data/wedash/challengesRepo";
-import { copyChallenge } from "@/data/wedash/challengeView";
+import { CHALLENGE_METRIC_LABEL, CHALLENGE_MODE_LABEL, copyChallenge } from "@/data/wedash/challengeView";
 import { storesForSession } from "@/data/wedash/stores";
 import { cn } from "@/lib/cn";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
+import { CHALLENGE_MODE_HELP } from "@/pages/challenges/shared";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { useScope } from "@/pages/dashboard/useScope";
 import { NumberInput, SAVE_ERROR_MSG } from "@/pages/operation/shared";
@@ -51,33 +52,28 @@ import { useActiveSession } from "@/session/SessionProvider";
 
 const METRIC_HELP: Record<ChallengeMetric, string> = {
   QUANTITY: "Itens vendidos por cada pessoa no período.",
-  VALUE: "Valor vendido por cada pessoa no período.",
-  PA: "Itens por venda de cada pessoa no período.",
-  TICKET: "Valor médio por venda (faturamento ÷ número de vendas) de cada pessoa no período.",
+  VALUE: "Faturamento de cada pessoa no período.",
+  PA: "Média de itens por venda de cada pessoa no período.",
+  TICKET: "Valor médio das vendas de cada pessoa no período.",
 };
 
 const SCOPE_HELP: Record<Exclude<ChallengeScope, "ALL">, string> = {
-  PRODUCTS: "Só os produtos escolhidos (todas as cores e tamanhos de cada código).",
-  CATEGORIES: "Só os produtos das categorias escolhidas.",
-};
-
-const MODE_HELP: Record<ChallengeMode, string> = {
-  CONTEST: "Ganha quem fizer mais. Empate leva o prêmio da posição e a posição seguinte é pulada.",
-  MINIMUM: "Ganha todo mundo que chegar ao mínimo.",
+  PRODUCTS: "Considera somente os produtos escolhidos, incluindo todas as variações vinculadas ao mesmo código.",
+  CATEGORIES: "Considera somente os produtos das categorias escolhidas.",
 };
 
 const MIN_LABEL: Record<ChallengeMetric, string> = {
-  QUANTITY: "Quantidade mínima",
-  VALUE: "Valor mínimo",
+  QUANTITY: "Mínimo de itens",
+  VALUE: "Faturamento mínimo",
   PA: "P.A. mínimo",
   TICKET: "Ticket médio mínimo",
 };
 
 const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
-  QUANTITY: "Média de itens por pessoa: total da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
-  VALUE: "Média vendida por pessoa: total da equipe ÷ pessoas do desafio (inclui quem não vendeu).",
-  PA: "P.A. da equipe toda: total de itens ÷ total de vendas.",
-  TICKET: "Ticket médio da equipe toda: faturamento ÷ total de vendas.",
+  QUANTITY: "Média de itens por pessoa: total de itens da equipe ÷ pessoas do desafio, incluindo quem não vendeu.",
+  VALUE: "Faturamento médio por pessoa: faturamento da equipe ÷ pessoas do desafio, incluindo quem não vendeu.",
+  PA: "P.A. da equipe: total de itens ÷ total de vendas.",
+  TICKET: "Ticket médio da equipe: faturamento ÷ total de vendas.",
 };
 
 const PODIUM_LABEL = ["Prêmio do 1º lugar", "Prêmio do 2º lugar", "Prêmio do 3º lugar"];
@@ -114,7 +110,7 @@ export default function ChallengeEditorPage() {
   const lojaHint = id
     ? "A loja não pode ser alterada depois que o desafio é criado."
     : lojaFiltro && lojas.length > 1
-      ? "Para escolher outra loja, selecione Todas as lojas no topo."
+      ? "Para escolher outra loja, selecione Todas as lojas no filtro do topo."
       : undefined;
 
   const sourceId = id ?? copyId;
@@ -210,7 +206,7 @@ export default function ChallengeEditorPage() {
           <EmptyBlock
             icon="🔍"
             title="Desafio não encontrado"
-            description="O desafio pode ter sido excluído."
+            description="O desafio pode ter sido excluído ou não pertencer às suas lojas."
             action={
               <Button size="sm" variant="outline" onClick={() => navigate(paths.management.challenges)}>
                 Voltar para Desafios
@@ -248,7 +244,7 @@ export default function ChallengeEditorPage() {
             <Input
               value={form.name}
               onChange={(e) => set({ name: e.target.value })}
-              placeholder="Ex.: Body Splash — quem vender mais"
+              placeholder="Ex.: Semana do Body Splash"
               maxLength={80}
               className={errors.name ? "border-bad!" : undefined}
             />
@@ -302,8 +298,8 @@ export default function ChallengeEditorPage() {
           <FormField label="Tipo" required>
             <Segmented<ChallengeMetric>
               options={[
-                { value: "QUANTITY", label: "Quantidade" },
-                { value: "VALUE", label: "Valor" },
+                { value: "QUANTITY", label: CHALLENGE_METRIC_LABEL.QUANTITY },
+                { value: "VALUE", label: CHALLENGE_METRIC_LABEL.VALUE },
                 { value: "PA", label: "P.A." },
                 { value: "TICKET", label: "Ticket médio" },
               ]}
@@ -352,13 +348,13 @@ export default function ChallengeEditorPage() {
           <FormField label="Quem ganha" required>
             <Segmented<ChallengeMode>
               options={[
-                { value: "CONTEST", label: "Quem fizer mais" },
-                { value: "MINIMUM", label: "Quem chegar ao mínimo" },
+                { value: "CONTEST", label: CHALLENGE_MODE_LABEL.CONTEST },
+                { value: "MINIMUM", label: CHALLENGE_MODE_LABEL.MINIMUM },
               ]}
               value={form.mode}
               onChange={(v) => v && set({ mode: v })}
             />
-            <p className="mt-1.5 text-[11.5px] text-t2">{MODE_HELP[form.mode]}</p>
+            <p className="mt-1.5 text-[11.5px] text-t2">{CHALLENGE_MODE_HELP[form.mode]}</p>
           </FormField>
           <div className="flex flex-col gap-4">
             <FormField
@@ -367,8 +363,8 @@ export default function ChallengeEditorPage() {
               error={errors.target}
               hint={
                 form.mode === "MINIMUM"
-                  ? "Quem chegar a esse valor no período ganha o prêmio."
-                  : "Opcional. Abaixo dele a pessoa não leva prêmio, mesmo em 1º lugar."
+                  ? "Quem atingir esse valor no período ganha o prêmio."
+                  : "Opcional. Quem ficar abaixo deste valor não recebe prêmio, mesmo que esteja entre as primeiras posições."
               }
             >
               <TargetInput metric={form.metric} value={form.target} onChange={(target) => set({ target })} invalid={Boolean(errors.target)} />
@@ -378,7 +374,7 @@ export default function ChallengeEditorPage() {
                 label="Vendas mínimas para participar"
                 required
                 error={errors.minSales}
-                hint="Quem tiver menos vendas no período não concorre ao prêmio."
+                hint="Define o número mínimo de vendas necessário para concorrer ao prêmio."
               >
                 <Input
                   inputMode="numeric"
@@ -437,7 +433,7 @@ export default function ChallengeEditorPage() {
                 }
               />
             </div>
-            <p className="mt-1.5 text-[11.5px] text-t2">A gerência ganha se a equipe chegar à meta da gerência.</p>
+            <p className="mt-1.5 text-[11.5px] text-t2">A gerência recebe o prêmio quando a equipe atinge a meta definida abaixo.</p>
             {form.managerOn && (
               <div className="mt-3 flex flex-col gap-4">
                 <FormField
@@ -500,7 +496,7 @@ function TargetInput({
         onChange={onChange}
         unit="R$"
         invalid={invalid}
-        aria-label={metric === "TICKET" ? "Valor do ticket médio" : "Valor vendido"}
+        aria-label={metric === "TICKET" ? "Ticket médio" : "Faturamento"}
       />
     );
   const itens = metric === "QUANTITY";
@@ -512,7 +508,7 @@ function TargetInput({
         value={value}
         onChange={(e) => onChange(itens ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value.replace(/[^\d,]/g, "").slice(0, 6))}
         className={cn(itens && "pr-12", invalid && "border-bad!")}
-        aria-label={itens ? "Quantidade de itens" : "P.A."}
+        aria-label={itens ? "Itens vendidos" : "P.A."}
       />
       {itens && (
         <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-t2">itens</span>
@@ -528,7 +524,7 @@ function PrizeField({ prize, onChange, invalid }: { prize: PrizeForm; onChange: 
       <Segmented<PrizeForm["kind"]>
         options={[
           { value: "MONEY", label: "Valor em R$" },
-          { value: "ITEM", label: "Prêmio" },
+          { value: "ITEM", label: "Outro prêmio" },
         ]}
         value={prize.kind}
         onChange={(v) => v && onChange({ ...prize, kind: v })}
@@ -732,7 +728,7 @@ function ProductPicker({
                       soEscolhidos === t.v ? "border-acc bg-acc-soft text-acc" : "border-transparent text-t2 hover:text-t0",
                     )}
                   >
-                    {t.label} <span className="font-mono">{t.n}</span>
+                    {t.label} <span className="font-mono">({t.n})</span>
                   </button>
                 ))}
               </div>
@@ -786,7 +782,7 @@ function ProductPicker({
 
             <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-2">
               <span className="text-[11.5px] text-t2">
-                {selected.length} {selected.length === 1 ? "escolhido" : "escolhidos"}
+                {selected.length} {selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}
               </span>
               <div className="flex items-center gap-1.5">
                 <button

@@ -142,8 +142,8 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   if (!f.storeId) e.storeId = REQUIRED;
 
   const scope = scopeOf(f);
-  if (scope === "PRODUCTS" && f.products.length === 0) e.products = "Escolha ao menos 1 produto.";
-  if (scope === "CATEGORIES" && f.categories.length === 0) e.categories = "Escolha ao menos 1 categoria.";
+  if (scope === "PRODUCTS" && f.products.length === 0) e.products = "Escolha pelo menos 1 produto.";
+  if (scope === "CATEGORIES" && f.categories.length === 0) e.categories = "Escolha pelo menos 1 categoria.";
   if (usesMinSales(f.metric)) {
     const v = parseNumber(f.minSales);
     if (v == null) e.minSales = REQUIRED;

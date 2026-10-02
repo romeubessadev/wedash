@@ -28,6 +28,7 @@ import {
   CHALLENGE_STATUS_ORDER,
   CHALLENGE_STATUS_VARIANT,
   challengeHeadline,
+  HeadlineText,
   mainPrizeLabel,
 } from "@/pages/challenges/shared";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
@@ -138,7 +139,7 @@ export function ChallengesPage() {
       <SectionHeader
         section="Gestão"
         title="Desafios"
-        subtitle="Crie objetivos curtos para engajar a equipe e acompanhe quem está ganhando."
+        subtitle="Crie desafios de curto prazo para engajar a equipe e acompanhar resultados."
         actions={
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             <DateRangePicker
@@ -163,7 +164,7 @@ export function ChallengesPage() {
             <EmptyBlock
               icon="🔥"
               title="Nenhum desafio no período"
-              description="Crie um desafio curto para engajar a equipe, como vender mais de um produto na semana."
+              description="Crie um desafio para engajar a equipe e acompanhar resultados em um período curto."
               action={
                 <Button size="sm" onClick={() => navigate(paths.management.challengeNew)}>
                   Criar desafio
@@ -293,8 +294,7 @@ function ChallengeCard({
 
       <div className="flex items-baseline justify-between gap-3">
         <p className="min-w-0 truncate text-[13px] text-t1">
-          <span className="text-t2">{destaque.label}: </span>
-          <span className="font-bold text-t0">{destaque.value}</span>
+          <HeadlineText headline={destaque} />
         </p>
         {premio && (
           <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-t1">

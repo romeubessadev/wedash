@@ -475,7 +475,7 @@ function UserModal({
         <FormField label="Tipo de acesso" required hint={ROLE_HINT[role]}>
           <Segmented options={ROLE_OPTIONS} value={role} onChange={(v) => v && setRole(v)} />
         </FormField>
-        <FormField label="Lojas" required hint={!allStores && picked.size === 0 ? "Escolha ao menos uma loja." : undefined}>
+        <FormField label="Lojas" required hint={!allStores && picked.size === 0 ? "Escolha pelo menos uma loja." : undefined}>
           <div className="overflow-hidden rounded-[var(--radius-vela-md)] border border-line">
             <Checkbox
               className="flex w-full cursor-pointer px-3.5 py-3"

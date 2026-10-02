@@ -276,7 +276,7 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
     const p = byName(v);
     expect(p.ANA.posicao).toBeNull();
     expect(p.ANA.vencedor).toBe(false);
-    expect(p.ANA.falta).toBe("Faltam 8 vendas");
+    expect(p.ANA.falta).toBe("Faltam 8 vendas para participar");
     expect(p.BIA.posicao).toBe(1);
     expect(p.BIA.vencedor).toBe(true);
   });
@@ -288,7 +288,7 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
     );
     const p = byName(v);
     expect(p.ANA.vencedor).toBe(false);
-    expect(p.ANA.falta).toBe("Faltam 2 vendas");
+    expect(p.ANA.falta).toBe("Faltam 2 vendas para participar");
     expect(p.BIA.vencedor).toBe(true);
     expect(p.BIA.premio).toEqual({ kind: "MONEY", amount: 50 });
     expect(v.atingiram).toBe(1);
@@ -302,8 +302,8 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
         input({ sellerProducts: [item(1001, "BS1", 12), item(1002, "BS1", 14)] }),
       ),
     );
-    expect(minimo.ANA.falta).toBe("Faltam 3 itens");
-    expect(minimo.BIA.falta).toBe("Falta 1 item");
+    expect(minimo.ANA.falta).toBe("Faltam 3 itens para o mínimo");
+    expect(minimo.BIA.falta).toBe("Falta 1 item para o mínimo");
 
     const disputa = byName(build(challenge(), input({ sellerProducts: [item(1001, "BS1", 10), item(1002, "BS1", 7)] })));
     expect(disputa.ANA.falta).toBeNull();
@@ -319,7 +319,7 @@ describe("buildChallengeView — Disputa e Mínimo", () => {
         input({ sellerDays: [sellerDay(1, 4, 4, 35_000)] }),
       ),
     );
-    expect(ticket.ANA.falta).toBe(`Faltam R$\u00a012,50`);
+    expect(ticket.ANA.falta).toBe(`Faltam R$\u00a012,50 de ticket médio para o mínimo`);
   });
 
   it("encerrado não mostra o que falta", () => {
