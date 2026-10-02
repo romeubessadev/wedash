@@ -28,6 +28,7 @@ const challenge = (over: Partial<ChallengeRecord> = {}): ChallengeRecord => ({
   prizes: [{ kind: "MONEY", amount: 100 }],
   managerPrize: null,
   managerTarget: null,
+  managerMinPeople: null,
   ...over,
 });
 
@@ -198,6 +199,16 @@ describe("buildChallengeView — participantes e resultado", () => {
     expect(byName(v).ANA.resultado).toBeNull();
     expect(byName(v).BIA.resultado).toBeNull();
     expect(v.participantes.some((x) => x.vencedor)).toBe(false);
+  });
+
+  it("Índice: gerência ganha quando pelo menos N pessoas atingem o índice mínimo da gerência", () => {
+    const aggs = input({ sellerDays: [sellerDay(1, 10, 20, 100_000), sellerDay(2, 20, 30, 120_000)] });
+    const c = (people: number) =>
+      challenge({ metric: "INDEX", scope: "ALL", products: [], minSales: 1, managerPrize: { kind: "MONEY", amount: 80 }, managerTarget: 100, managerMinPeople: people });
+    expect(build(c(1), aggs).gerencia).toMatchObject({ resultado: 1, alvo: 1, indiceMinimo: 100, atingiu: true });
+    expect(build(c(2), aggs).gerencia).toMatchObject({ resultado: 1, alvo: 2, atingiu: false });
+    const semMinVendas = build({ ...c(1), minSales: 15 }, aggs).gerencia;
+    expect(semMinVendas).toMatchObject({ resultado: 0, atingiu: false });
   });
 
   it("performanceIndex: na média da equipe = 100", () => {
@@ -377,7 +388,7 @@ describe("buildChallengeView — gerência, incompleto e status", () => {
         managerTarget,
       });
     const aggs = input({ sellerProducts: [item(1001, "BS1", 5), item(1002, "BS1", 4)] });
-    expect(build(c(3), aggs).gerencia).toEqual({ resultado: 3, alvo: 3, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
+    expect(build(c(3), aggs).gerencia).toEqual({ resultado: 3, alvo: 3, indiceMinimo: null, atingiu: true, premio: { kind: "ITEM", label: "Spa" } });
     const v = build(c(4), aggs);
     expect(v.gerencia).toMatchObject({ resultado: 3, alvo: 4, atingiu: false });
     expect(v.atingiram).toBe(2);

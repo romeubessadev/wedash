@@ -1005,6 +1005,7 @@ function TierField({
   unit,
   onChange,
   required = false,
+  optional = false,
   error,
 }: {
   label: string;
@@ -1012,13 +1013,15 @@ function TierField({
   unit: "%" | "R$";
   onChange: (v: string) => void;
   required?: boolean;
+  optional?: boolean;
   error?: string;
 }) {
   return (
-    <div className="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+    <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
       <span className="text-[12px] font-semibold text-t1">
         {label}
         {required && <span className="text-bad"> *</span>}
+        {optional && !required && <span className="font-normal text-t2"> (opcional)</span>}
       </span>
       <NumberInput
         value={value}
@@ -1132,6 +1135,7 @@ function TiersEditor({
               unit="R$"
               value={t.bonus}
               onChange={(bonus) => update(t.key, { bonus })}
+              optional
             />
             {r.atingir != null && (
               <InfoLine
@@ -1171,6 +1175,7 @@ function TiersEditor({
                   unit="R$"
                   value={t.mgrBonus}
                   onChange={(mgrBonus) => update(t.key, { mgrBonus })}
+                  optional
                 />
                 {mgr && (positive(t.mgrCommission) != null || mgr.bonusTotal > 0) && (
                   <InfoLine

@@ -58,12 +58,28 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function FormField({ label, hint, error, required, children }: { label: string; hint?: string; error?: string; required?: boolean; children: ReactNode }) {
+export function FormField({
+  label,
+  hint,
+  error,
+  required,
+  optional,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  required?: boolean;
+  /** Mostra "(opcional)" na frente do rótulo. */
+  optional?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div>
       <label className="mb-1.5 block text-[12.5px] font-bold text-t0">
         {label}
         {required && <span className="text-bad"> *</span>}
+        {optional && !required && <span className="font-normal text-t2"> (opcional)</span>}
       </label>
       {children}
       {hint && !error && <p className="mt-1.5 text-[11.5px] text-t2">{hint}</p>}

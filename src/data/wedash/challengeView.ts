@@ -93,8 +93,12 @@ export interface ChallengeParticipant {
 }
 
 export interface ChallengeManagerResult {
+  /** Índice: pessoas que atingiram `indiceMinimo`. */
   resultado: number | null;
+  /** Índice: pessoas necessárias. */
   alvo: number;
+  /** Só no Índice: índice que cada pessoa precisa atingir para contar. */
+  indiceMinimo: number | null;
   atingiu: boolean;
   premio: ChallengePrize;
 }
@@ -317,7 +321,20 @@ export function buildChallengeView(args: {
 
   let gerencia: ChallengeManagerResult | null = null;
   const metaGerencia = c.managerTarget;
-  if (c.managerPrize && metaGerencia != null) {
+  if (c.managerPrize && metaGerencia != null && c.metric === "INDEX") {
+    const pessoas = c.managerMinPeople ?? 1;
+    const atingiram =
+      status === "upcoming" || indexBase == null
+        ? null
+        : base.filter((x) => concorre(x) && (x.resultado ?? 0) >= metaGerencia - 1e-9).length;
+    gerencia = {
+      resultado: atingiram,
+      alvo: pessoas,
+      indiceMinimo: metaGerencia,
+      atingiu: atingiram != null && atingiram >= pessoas,
+      premio: c.managerPrize,
+    };
+  } else if (c.managerPrize && metaGerencia != null) {
     let resultado: number | null = null;
     if (status !== "upcoming") {
       const todos = [...accs.values()];
@@ -342,6 +359,7 @@ export function buildChallengeView(args: {
     gerencia = {
       resultado,
       alvo: metaGerencia,
+      indiceMinimo: null,
       atingiu: resultado != null && resultado > 0 && resultado >= metaGerencia - 1e-9,
       premio: c.managerPrize,
     };

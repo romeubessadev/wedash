@@ -40,6 +40,7 @@ describe("challengeFromRow", () => {
       ],
       managerPrize: null,
       managerTarget: null,
+      managerMinPeople: null,
     });
   });
 
@@ -129,6 +130,7 @@ describe("challengeToRow", () => {
     prizes: [{ kind: "MONEY", amount: 50.1 }],
     managerPrize: { kind: "ITEM", label: " Combo KFC " },
     managerTarget: 110.004,
+    managerMinPeople: null,
   };
 
   it("grava reais como centavos, nome e descrição sem espaços nas pontas, alvo com 2 casas", () => {
@@ -160,12 +162,18 @@ describe("challengeToRow", () => {
     expect(r).toMatchObject({ scope: "PRODUCTS", target: 15, manager_prize: null, products: [{ code: "WP002", name: "WP ULTRA" }] });
   });
 
-  it("Índice de desempenho: lê e grava sempre como Quem fizer mais, escopo ALL e sem gerência", () => {
+  it("Índice de desempenho: sempre Quem fizer mais e escopo ALL; gerência = índice mínimo + nº de pessoas", () => {
     expect(
-      challengeFromRow(row({ metric: "INDEX", scope: "PRODUCTS", mode: "MINIMUM", manager_prize: { kind: "MONEY", cents: 5_000 } })),
-    ).toMatchObject({ metric: "INDEX", scope: "ALL", mode: "CONTEST", managerPrize: null });
-    const r = challengeToRow({ ...input, metric: "INDEX", mode: "MINIMUM", target: 110.55, managerPrize: { kind: "MONEY", amount: 50 }, managerTarget: 100 });
-    expect([r.metric, r.scope, r.mode, r.target, r.manager_prize]).toEqual(["INDEX", "ALL", "CONTEST", 110.55, null]);
+      challengeFromRow(row({ metric: "INDEX", scope: "PRODUCTS", mode: "MINIMUM", target: "90", manager_prize: { kind: "MONEY", cents: 5_000 } })),
+    ).toMatchObject({ metric: "INDEX", scope: "ALL", mode: "CONTEST", managerPrize: null, managerMinPeople: null });
+    const r = challengeToRow({ ...input, metric: "INDEX", mode: "MINIMUM", target: 110.55, managerPrize: { kind: "MONEY", amount: 50 }, managerTarget: 110, managerMinPeople: 3 });
+    expect([r.metric, r.scope, r.mode, r.target]).toEqual(["INDEX", "ALL", "CONTEST", 110.55]);
+    expect(r.manager_prize).toEqual({ kind: "MONEY", cents: 5_000, target: 110, people: 3 });
+    expect(challengeFromRow({ ...r, id: "c1" } as ChallengeRow)).toMatchObject({
+      managerPrize: { kind: "MONEY", amount: 50 },
+      managerTarget: 110,
+      managerMinPeople: 3,
+    });
   });
 
   it("P.A./ticket gravam escopo ALL mesmo se vier outro", () => {

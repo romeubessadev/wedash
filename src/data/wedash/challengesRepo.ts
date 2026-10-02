@@ -47,8 +47,10 @@ export interface ChallengeRecord {
   /** Disputa: 1º, 2º, 3º (1 a 3) · Mínimo: 1 (por pessoa que atingir). */
   prizes: ChallengePrize[];
   managerPrize: ChallengePrize | null;
-  /** Meta da gerência = média da equipe, na unidade da métrica. Só com `managerPrize`. */
+  /** Meta da gerência = média da equipe, na unidade da métrica (Índice: índice mínimo da gerência). Só com `managerPrize`. */
   managerTarget: number | null;
+  /** Índice: quantas pessoas precisam atingir `managerTarget` para a gerência ganhar. */
+  managerMinPeople: number | null;
 }
 
 export type ChallengeInput = Omit<ChallengeRecord, "id">;
@@ -60,7 +62,7 @@ const SCOPES: readonly ChallengeScope[] = ["PRODUCTS", "CATEGORIES", "ALL"];
 const MODES: readonly ChallengeMode[] = ["CONTEST", "MINIMUM"];
 
 export const usesScope = (m: ChallengeMetric) => m === "QUANTITY" || m === "VALUE";
-/** Índice de desempenho: só "Quem fizer mais" e sem prêmio da gerência (a média da equipe é sempre 100). */
+/** Índice de desempenho: só "Quem fizer mais"; gerência ganha por nº de pessoas no índice mínimo (a média da equipe é sempre 100). */
 export const isIndexMetric = (m: ChallengeMetric) => m === "INDEX";
 
 /** Tipo + escopo da linha; aceita o formato antigo (metric PRODUCTS/CATEGORIES = Quantidade). */
@@ -143,10 +145,18 @@ function parseManagerTarget(raw: unknown, fallback: number | null): number | nul
   return t != null && t > 0 ? t : fallback;
 }
 
+function parseManagerPeople(raw: unknown): number | null {
+  const n = raw && typeof raw === "object" && !Array.isArray(raw) ? numOrNull((raw as { people?: unknown }).people) : null;
+  return n != null && Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
   const metricScope = parseMetricScope(r.metric, r.scope);
   const indice = isIndexMetric(metricScope.metric);
-  const managerPrize = indice ? null : parsePrize(r.manager_prize);
+  const managerPeople = indice ? parseManagerPeople(r.manager_prize) : null;
+  const managerTargetRaw = parseManagerTarget(r.manager_prize, indice ? null : numOrNull(r.target));
+  // Índice sem índice mínimo ou sem nº de pessoas = gerência incompleta → sem prêmio.
+  const managerPrize = indice && (managerPeople == null || managerTargetRaw == null) ? null : parsePrize(r.manager_prize);
   return {
     id: r.id,
     storeId: r.store_id,
@@ -161,7 +171,8 @@ export function challengeFromRow(r: ChallengeRow): ChallengeRecord {
     minSales: numOrNull(r.min_sales),
     prizes: parsePrizes(r.prizes),
     managerPrize,
-    managerTarget: managerPrize ? parseManagerTarget(r.manager_prize, numOrNull(r.target)) : null,
+    managerTarget: managerPrize ? managerTargetRaw : null,
+    managerMinPeople: managerPrize ? managerPeople : null,
   };
 }
 
@@ -187,8 +198,12 @@ export function challengeToRow(c: ChallengeInput): Omit<ChallengeRow, "id"> {
     target: c.target == null ? null : Math.round(c.target * 100) / 100,
     min_sales: c.minSales,
     prizes: c.prizes.map(prizeToJson),
-    manager_prize: c.managerPrize && !indice
-      ? { ...prizeToJson(c.managerPrize), target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100 }
+    manager_prize: c.managerPrize
+      ? {
+          ...prizeToJson(c.managerPrize),
+          target: c.managerTarget == null ? null : Math.round(c.managerTarget * 100) / 100,
+          ...(indice ? { people: c.managerMinPeople } : {}),
+        }
       : null,
   };
 }

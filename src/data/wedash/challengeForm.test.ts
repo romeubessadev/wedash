@@ -166,6 +166,7 @@ describe("challengeFormToInput / challengeToForm", () => {
       ],
       managerPrize: { kind: "ITEM", label: "Spa" },
       managerTarget: 8,
+      managerMinPeople: null,
     });
   });
 
@@ -197,7 +198,7 @@ describe("challengeFormToInput / challengeToForm", () => {
     expect([desligada.managerPrize, desligada.managerTarget]).toEqual([null, null]);
   });
 
-  it("Índice de desempenho é sempre Quem fizer mais, sem gerência e com mínimo de vendas", () => {
+  it("Índice de desempenho é sempre Quem fizer mais; gerência exige índice mínimo e nº de pessoas", () => {
     const f = valid({
       metric: "INDEX",
       mode: "MINIMUM",
@@ -207,18 +208,26 @@ describe("challengeFormToInput / challengeToForm", () => {
       managerOn: true,
       managerPrize: { kind: "MONEY", amount: "", label: "" },
       managerTarget: "",
+      managerPeople: "",
     });
-    expect(validateChallengeForm(f)).toEqual({});
-    expect(challengeFormToInput({ ...f, target: "110,5" })).toMatchObject({
+    expect(validateChallengeForm(f)).toEqual({ managerPrize: "Campo obrigatório.", managerTarget: "Campo obrigatório.", managerPeople: "Campo obrigatório." });
+    expect(validateChallengeForm({ ...f, managerPrize: { kind: "MONEY", amount: "80", label: "" }, managerTarget: "110", managerPeople: "0" })).toEqual({
+      managerPeople: "Informe um número inteiro a partir de 1.",
+    });
+    const ok = { ...f, target: "110,5", managerPrize: { kind: "MONEY" as const, amount: "80", label: "" }, managerTarget: "110", managerPeople: "3" };
+    expect(validateChallengeForm(ok)).toEqual({});
+    expect(challengeFormToInput(ok)).toMatchObject({
       metric: "INDEX",
       scope: "ALL",
       mode: "CONTEST",
       target: 110.5,
       minSales: 10,
-      managerPrize: null,
-      managerTarget: null,
+      managerPrize: { kind: "MONEY", amount: 80 },
+      managerTarget: 110,
+      managerMinPeople: 3,
       products: [],
     });
+    expect(challengeFormToInput({ ...ok, metric: "TICKET" }).managerMinPeople).toBeNull();
   });
 
   it("ida e volta: registro → formulário → input", () => {
@@ -238,6 +247,7 @@ describe("challengeFormToInput / challengeToForm", () => {
       prizes: [{ kind: "MONEY", amount: 50 }],
       managerPrize: { kind: "ITEM", label: "Spa" },
       managerTarget: 2.1,
+      managerMinPeople: null,
     };
     const form = challengeToForm(rec);
     expect(form.target).toBe("1,9");

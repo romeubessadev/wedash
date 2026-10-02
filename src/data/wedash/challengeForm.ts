@@ -42,8 +42,10 @@ export interface ChallengeForm {
   prizes: PrizeForm[];
   managerOn: boolean;
   managerPrize: PrizeForm;
-  /** Média da equipe que a gerência precisa alcançar, na unidade da métrica. */
+  /** Média da equipe que a gerência precisa alcançar, na unidade da métrica (Índice: índice mínimo da gerência). */
   managerTarget: string;
+  /** Índice: quantas pessoas precisam atingir o índice mínimo da gerência. */
+  managerPeople: string;
 }
 
 export interface ChallengeFormErrors {
@@ -59,6 +61,7 @@ export interface ChallengeFormErrors {
   prizes?: Record<number, string>;
   managerPrize?: string;
   managerTarget?: string;
+  managerPeople?: string;
 }
 
 const REQUIRED = "Campo obrigatório.";
@@ -82,6 +85,7 @@ export function emptyChallengeForm(storeId: string): ChallengeForm {
     managerOn: false,
     managerPrize: emptyPrize(),
     managerTarget: "",
+    managerPeople: "",
   };
 }
 
@@ -97,7 +101,6 @@ function parseNumber(txt: string): number | null {
 export const usesMinSales = (m: ChallengeMetric) => m === "PA" || m === "TICKET" || m === "INDEX";
 /** Índice de desempenho é sempre "Quem fizer mais". */
 const modeOf = (f: { metric: ChallengeMetric; mode: ChallengeMode }): ChallengeMode => (isIndexMetric(f.metric) ? "CONTEST" : f.mode);
-const managerOn = (f: ChallengeForm) => f.managerOn && !isIndexMetric(f.metric);
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /** Erro do mínimo; undefined = válido (ou vazio quando opcional). */
@@ -164,11 +167,16 @@ export function validateChallengeForm(f: ChallengeForm): ChallengeFormErrors {
   });
   if (Object.keys(prizes).length > 0) e.prizes = prizes;
 
-  if (managerOn(f)) {
+  if (f.managerOn) {
     const me = prizeError(f.managerPrize);
     if (me) e.managerPrize = me;
     const mt = targetError(f.metric, f.managerTarget, true);
     if (mt) e.managerTarget = mt;
+    if (isIndexMetric(f.metric)) {
+      const n = parseNumber(f.managerPeople);
+      if (n == null) e.managerPeople = REQUIRED;
+      else if (!Number.isInteger(n) || n < 1) e.managerPeople = "Informe um número inteiro a partir de 1.";
+    }
   }
   return e;
 }
@@ -189,8 +197,9 @@ export function challengeFormToInput(f: ChallengeForm): ChallengeInput {
     target: targetValue(f.metric, f.target),
     minSales: usesMinSales(f.metric) ? Math.round(parseNumber(f.minSales) ?? 1) : null,
     prizes: activePrizes(f).map(prizeValue),
-    managerPrize: managerOn(f) ? prizeValue(f.managerPrize) : null,
-    managerTarget: managerOn(f) ? targetValue(f.metric, f.managerTarget) : null,
+    managerPrize: f.managerOn ? prizeValue(f.managerPrize) : null,
+    managerTarget: f.managerOn ? targetValue(f.metric, f.managerTarget) : null,
+    managerMinPeople: f.managerOn && isIndexMetric(f.metric) ? Math.round(parseNumber(f.managerPeople) ?? 1) : null,
   };
 }
 
@@ -224,5 +233,6 @@ export function challengeToForm(c: ChallengeRecord | ChallengeInput): ChallengeF
     managerOn: c.managerPrize != null,
     managerPrize: c.managerPrize ? prizeToForm(c.managerPrize) : emptyPrize(),
     managerTarget: c.managerPrize ? targetToText(c.metric, c.managerTarget) : "",
+    managerPeople: c.managerPrize && c.managerMinPeople != null ? String(c.managerMinPeople) : "",
   };
 }

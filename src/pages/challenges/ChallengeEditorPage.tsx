@@ -78,7 +78,7 @@ const MANAGER_TARGET_HELP: Record<ChallengeMetric, string> = {
   VALUE: "Faturamento médio por pessoa: faturamento da equipe ÷ pessoas do desafio, incluindo quem não vendeu.",
   PA: "P.A. da equipe: total de itens ÷ total de vendas.",
   TICKET: "Ticket médio da equipe: faturamento ÷ total de vendas.",
-  INDEX: "",
+  INDEX: "Cada pessoa precisa chegar a este índice para contar para a gerência.",
 };
 
 const PODIUM_LABEL = ["Prêmio do 1º lugar", "Prêmio do 2º lugar", "Prêmio do 3º lugar"];
@@ -372,11 +372,12 @@ export default function ChallengeEditorPage() {
             <FormField
               label={MIN_LABEL[form.metric]}
               required={modo === "MINIMUM"}
+              optional={modo === "CONTEST"}
               error={errors.target}
               hint={
                 modo === "MINIMUM"
                   ? "Quem atingir esse valor no período ganha o prêmio."
-                  : `Opcional. Quem ficar abaixo deste ${indice ? "índice" : "valor"} não recebe prêmio, mesmo que esteja entre as primeiras posições.`
+                  : `Quem ficar abaixo deste ${indice ? "índice" : "valor"} não recebe prêmio, mesmo que esteja entre as primeiras posições.`
               }
             >
               <TargetInput metric={form.metric} value={form.target} onChange={(target) => set({ target })} invalid={Boolean(errors.target)} />
@@ -434,8 +435,6 @@ export default function ChallengeEditorPage() {
             </div>
           )}
 
-          {!indice && (
-          <>
           <Divider />
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -447,11 +446,15 @@ export default function ChallengeEditorPage() {
                 }
               />
             </div>
-            <p className="mt-1.5 text-[11.5px] text-t2">A gerência recebe o prêmio quando a equipe atinge a meta definida abaixo.</p>
+            <p className="mt-1.5 text-[11.5px] text-t2">
+              {indice
+                ? "A gerência recebe o prêmio quando pelo menos o número de pessoas definido abaixo atingir o índice mínimo da gerência."
+                : "A gerência recebe o prêmio quando a equipe atinge a meta definida abaixo."}
+            </p>
             {form.managerOn && (
               <div className="mt-3 flex flex-col gap-4">
                 <FormField
-                  label="Meta da gerência"
+                  label={indice ? "Índice mínimo da gerência" : "Meta da gerência"}
                   required
                   error={errors.managerTarget}
                   hint={MANAGER_TARGET_HELP[form.metric]}
@@ -463,6 +466,23 @@ export default function ChallengeEditorPage() {
                     invalid={Boolean(errors.managerTarget)}
                   />
                 </FormField>
+                {indice && (
+                  <FormField
+                    label="Pessoas que precisam atingir"
+                    required
+                    error={errors.managerPeople}
+                    hint="Número mínimo de pessoas com o índice mínimo da gerência para a gerência ganhar o prêmio."
+                  >
+                    <Input
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={form.managerPeople}
+                      onChange={(e) => set({ managerPeople: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                      className={errors.managerPeople ? "border-bad!" : undefined}
+                      aria-label="Pessoas que precisam atingir"
+                    />
+                  </FormField>
+                )}
                 <FormField label="Prêmio da gerência" required error={errors.managerPrize}>
                   <PrizeField
                     prize={form.managerPrize}
@@ -473,8 +493,6 @@ export default function ChallengeEditorPage() {
               </div>
             )}
           </div>
-          </>
-          )}
         </div>
       </Card>
       </div>
