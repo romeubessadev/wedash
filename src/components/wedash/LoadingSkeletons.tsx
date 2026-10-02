@@ -693,7 +693,7 @@ export function ChallengeEditorSkeleton() {
     <Busy>
       <Card>
         <div className="flex flex-col gap-4">
-          {[3, 2, 2, 2].map((campos, i) => (
+          {[3, 6, 2].map((campos, i) => (
             <div key={i} className={cn("flex flex-col gap-4", i > 0 && "border-t border-line pt-4")}>
               {Array.from({ length: campos }, (_, j) => (
                 <div key={j}>

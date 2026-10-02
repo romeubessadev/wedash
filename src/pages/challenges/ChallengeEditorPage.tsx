@@ -337,7 +337,6 @@ export default function ChallengeEditorPage() {
             />
           )}
 
-          <Divider />
           <FormField label="Quem ganha" required>
             <Segmented<ChallengeMode>
               options={[
@@ -380,7 +379,6 @@ export default function ChallengeEditorPage() {
             )}
           </div>
 
-          <Divider />
           {podio.map((p, i) => (
             <FormField
               key={i}
