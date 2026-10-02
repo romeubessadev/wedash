@@ -4,6 +4,8 @@ import {
   Breadcrumbs,
   Button,
   Card,
+  CardHeader,
+  CardTitle,
   DatePicker,
   FormField,
   Input,
@@ -231,7 +233,7 @@ export default function ChallengeEditorPage() {
 
   if (showSkeleton) {
     return (
-      <div className="max-w-[720px]">
+      <div>
         {header}
         <ChallengeEditorSkeleton />
       </div>
@@ -243,9 +245,13 @@ export default function ChallengeEditorPage() {
   const podio = form.mode === "CONTEST" ? form.prizes.slice(0, MAX_PODIUM) : form.prizes.slice(0, 1);
 
   return (
-    <div className="max-w-[720px]">
+    <div>
       {header}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
       <Card>
+        <CardHeader>
+          <CardTitle>Informações gerais</CardTitle>
+        </CardHeader>
         <div className="flex flex-col gap-4">
           <FormField label="Nome do desafio" required error={errors.name}>
             <Input
@@ -291,9 +297,15 @@ export default function ChallengeEditorPage() {
               </Select>
             </FormField>
           )}
+        </div>
+      </Card>
 
-          <Divider />
-          <FormField label="Tipo de desafio" required>
+      <Card>
+        <CardHeader>
+          <CardTitle>Tipo de desafio</CardTitle>
+        </CardHeader>
+        <div className="flex flex-col gap-4">
+          <FormField label="Tipo" required>
             <Segmented<ChallengeMetric>
               options={[
                 { value: "QUANTITY", label: "Quantidade" },
@@ -336,7 +348,14 @@ export default function ChallengeEditorPage() {
               error={errors.categories}
             />
           )}
+        </div>
+      </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Premiação</CardTitle>
+        </CardHeader>
+        <div className="flex flex-col gap-4">
           <FormField label="Quem ganha" required>
             <Segmented<ChallengeMode>
               options={[
@@ -348,7 +367,7 @@ export default function ChallengeEditorPage() {
             />
             <p className="mt-1.5 text-[11.5px] text-t2">{MODE_HELP[form.mode]}</p>
           </FormField>
-          <div className={cn("grid grid-cols-1 gap-3", usaVendas && "sm:grid-cols-2")}>
+          <div className="flex flex-col gap-4">
             <FormField
               label={MIN_LABEL[form.metric]}
               required={form.mode === "MINIMUM"}
@@ -453,6 +472,7 @@ export default function ChallengeEditorPage() {
           </div>
         </div>
       </Card>
+      </div>
 
       <div className="mt-5 flex justify-end gap-2.5">
         <Button variant="outline" onClick={voltar}>
@@ -544,7 +564,7 @@ function PickerShell({ label, error, children }: { label: string; error?: string
   );
 }
 
-/** Busca no catálogo (nome ou código) e lista dos produtos escolhidos. */
+/** Multi-select com tags (padrão Select Components do Vela): escolhidos como tags + busca no catálogo por nome ou código. */
 function ProductPicker({
   catalog,
   selected,
@@ -563,19 +583,54 @@ function ProductPicker({
     if (!catalog || !q) return [];
     return catalog.products.filter((p) => !escolhidos.has(p.code) && (semAcento(p.name).includes(q) || semAcento(p.code).includes(q))).slice(0, 8);
   }, [catalog, query, escolhidos]);
-  const categoriaDe = useMemo(() => new Map((catalog?.products ?? []).map((p) => [p.code, p.category])), [catalog]);
+  const adicionar = (p: { code: string; name: string }) => {
+    onChange([...selected, { code: p.code, name: p.name }]);
+    setQuery("");
+  };
 
   return (
     <PickerShell label="Produtos" error={error}>
       <div className="relative">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={catalog ? "Buscar por produto ou código…" : "Carregando produtos…"}
-          disabled={!catalog}
-          className={error ? "border-bad!" : undefined}
-          aria-label="Buscar produto"
-        />
+        <div
+          className={cn(
+            "flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-[var(--radius-vela-md)] border bg-bg-inset px-2.5 py-1.5 transition-colors",
+            error ? "border-bad" : "border-line focus-within:border-acc",
+          )}
+        >
+          {selected.map((p) => (
+            <span
+              key={p.code}
+              title={`${p.code} · ${p.name}`}
+              className="flex max-w-full items-center gap-1.5 rounded-lg bg-acc-soft px-2.5 py-1 text-xs font-semibold text-acc"
+            >
+              <span className="truncate">{p.name}</span>
+              <button
+                type="button"
+                onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
+                aria-label={`Remover ${p.name}`}
+                className="shrink-0 cursor-pointer"
+              >
+                <Icon d={icons.x} size={11} />
+              </button>
+            </span>
+          ))}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && resultados[0]) {
+                e.preventDefault();
+                adicionar(resultados[0]);
+              } else if (e.key === "Backspace" && !query && selected.length > 0) {
+                onChange(selected.slice(0, -1));
+              }
+            }}
+            placeholder={!catalog ? "Carregando produtos…" : selected.length > 0 ? "Adicionar produto…" : "Buscar por produto ou código…"}
+            disabled={!catalog}
+            aria-label="Buscar produto"
+            className="h-7 min-w-[120px] flex-1 bg-transparent px-1 text-[13px] text-t0 outline-none placeholder:text-t2"
+          />
+        </div>
         {query.trim() && catalog && (
           <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-bg-2 p-1 shadow-[var(--shadow-vela)]">
             {resultados.length === 0 ? (
@@ -585,10 +640,7 @@ function ProductPicker({
                 <button
                   key={p.code}
                   type="button"
-                  onClick={() => {
-                    onChange([...selected, { code: p.code, name: p.name }]);
-                    setQuery("");
-                  }}
+                  onClick={() => adicionar(p)}
                   className="flex w-full items-center rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-3"
                 >
                   <ProductNameCell nome={p.name} idx={i} sub={[p.code, p.category].filter(Boolean).join(" · ")} />
@@ -599,21 +651,9 @@ function ProductPicker({
         )}
       </div>
       {selected.length > 0 && (
-        <div className="mt-3 flex flex-col gap-2">
-          {selected.map((p, i) => (
-            <div key={p.code} className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2">
-              <ProductNameCell nome={p.name} idx={i} sub={[p.code, categoriaDe.get(p.code)].filter(Boolean).join(" · ")} />
-              <button
-                type="button"
-                onClick={() => onChange(selected.filter((x) => x.code !== p.code))}
-                aria-label={`Remover ${p.name}`}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-vela-md)] text-t2 transition-colors hover:bg-bad-soft hover:text-bad"
-              >
-                <Icon d={icons.trash} size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <p className="mt-1.5 text-[11.5px] text-t2">
+          {selected.length} {selected.length === 1 ? "produto escolhido" : "produtos escolhidos"}
+        </p>
       )}
     </PickerShell>
   );
