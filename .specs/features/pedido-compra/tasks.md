@@ -348,8 +348,12 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Item descreve tabelas, Edge, regra da quantidade, formato do arquivo e 50 por página
-- [ ] Gate: `npm run build && npm run lint && npm test` passa
+- [x] Item descreve tabelas, Edge, regra da quantidade, formato do arquivo e 50 por página (#50; o #47 aponta para ele)
+- [x] Gate: build e lint passam; `npm test` = 592 passando + as 4 falhas antigas de `dashboard.test.ts`
+
+**Status**: ✅ Complete
+
+> O #47 e os itens #47–#49 do `CLAUDE.md` são alterações não commitadas de outras sessões: o commit leva só o bloco do #50 (inserido no fim da lista do HEAD); o ajuste do #47 fica no arquivo de trabalho junto com elas.
 
 **Tests**: none
 **Gate**: build
