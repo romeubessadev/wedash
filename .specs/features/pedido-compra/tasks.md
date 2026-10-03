@@ -259,11 +259,13 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Linha do banco → `PurchaseStockRow` (numéricos de texto viram número)
-- [ ] Vendidos 30 dias = Σ `item_count` por `product_code`
-- [ ] `savePurchaseMin(null)` apaga; número faz upsert
-- [ ] Erros da Edge → "Não foi possível buscar o saldo no Millennium. Tente novamente." (sessão em outro local com o texto do Estoque)
-- [ ] Gate: `npx vitest run src/data/wedash/purchaseRepo.test.ts` passa (≥ 5 testes)
+- [x] Linha do banco → `PurchaseStockRow` (numéricos de texto viram número)
+- [x] Vendidos 30 dias = Σ `item_count` por `product_code` (`sales_product_day_agg` = 1 linha por loja × dia × produto; somar marcas não duplica)
+- [x] `savePurchaseMin(null)` apaga; número faz upsert
+- [x] Erros da Edge → "Não foi possível buscar o saldo no Millennium. Tente novamente." (sessão em outro local com o texto do Estoque)
+- [x] Gate: `npx vitest run src/data/wedash/purchaseRepo.test.ts` passa (6 testes); `tsc` sem erro nos arquivos da feature (o único erro do build é `teamViews.ts`, alteração não commitada de outra sessão)
+
+**Status**: ✅ Complete
 
 **Tests**: unit
 **Gate**: quick
