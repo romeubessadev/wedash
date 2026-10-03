@@ -112,11 +112,13 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Cabeçalho `COD_PRODUTO, Cod_Cor, Cod_Estampa, Tamanho, Quantidade, Total em Estoque, Descricao`
-- [ ] `526` vira número; `0526`, `BSPPAR-ATH-001` ficam texto; cor/estampa/tamanho sempre texto
-- [ ] Ordem pela posição do relatório; lista vazia quando nada a pedir
-- [ ] Nome `ddMMyyyyHHmmss.xlsx` com zero à esquerda (ex.: 03/10/2026 07:38:38 → `03102026073838.xlsx`)
-- [ ] Gate: `npx vitest run src/data/wedash/purchaseOrder.test.ts` passa (≥ 24 testes no total)
+- [x] Cabeçalho `COD_PRODUTO, Cod_Cor, Cod_Estampa, Tamanho, Quantidade, Total em Estoque, Descricao`
+- [x] `526` vira número; `0526`, `BSPPAR-ATH-001` ficam texto; cor/estampa/tamanho sempre texto
+- [x] Ordem pela posição do relatório; lista vazia quando nada a pedir
+- [x] Nome `ddMMyyyyHHmmss.xlsx` com zero à esquerda (ex.: 03/10/2026 07:38:38 → `03102026073838.xlsx`)
+- [x] Gate: `npx vitest run src/data/wedash/purchaseOrder.test.ts` passa (40 testes no total)
+
+**Status**: ✅ Complete
 
 **Tests**: unit
 **Gate**: quick

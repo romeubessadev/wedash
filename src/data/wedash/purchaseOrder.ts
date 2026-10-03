@@ -137,6 +137,29 @@ export function buildPurchaseOrderView(input: {
   };
 }
 
+export const PURCHASE_FILE_HEADER = ["COD_PRODUTO", "Cod_Cor", "Cod_Estampa", "Tamanho", "Quantidade", "Total em Estoque", "Descricao"] as const;
+
+/** Colunas gravadas como texto no XLSX (índices de PURCHASE_FILE_HEADER): Cod_Cor, Cod_Estampa, Tamanho. */
+export const PURCHASE_FILE_TEXT_COLUMNS = [1, 2, 3];
+
+export type PurchaseFileRow = [string | number, string, string, string, number, number, string];
+
+/** Linhas do arquivo de importação, na ordem do relatório; COD numérico sem zero à esquerda vai como número (igual ao exemplo). */
+export function purchaseOrderFileRows(view: PurchaseOrderView): PurchaseFileRow[] {
+  return view.rows
+    .filter((r) => r.noPedido)
+    .sort((a, b) => a.position - b.position)
+    .map((r) => {
+      const v = r.variantes[0];
+      return [/^[1-9]\d*$/.test(r.code) ? Number(r.code) : r.code, v.color, v.print, v.size, r.aPedir ?? 0, Math.max(0, r.total), v.description];
+    });
+}
+
+export function purchaseOrderFileName(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}${p(d.getMonth() + 1)}${d.getFullYear()}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.xlsx`;
+}
+
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 export function filterPurchaseRows(rows: PurchaseOrderRow[], opts: { busca: string; filtro: PurchaseFilter }): PurchaseOrderRow[] {

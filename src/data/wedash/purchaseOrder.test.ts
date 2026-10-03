@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  PURCHASE_FILE_HEADER,
   buildPurchaseOrderView,
   filterPurchaseRows,
+  purchaseOrderFileName,
+  purchaseOrderFileRows,
   isEligible,
   isNewProduct,
   parseMinInput,
@@ -182,6 +185,66 @@ describe("buildPurchaseOrderView", () => {
     const dobrado = view(rows, mins, 2);
     expect(dobrado.resumo).toEqual({ produtos: 2, itens: 144 + 24 });
     expect(dobrado.contagens).toEqual({ noPedido: 2, semMinimo: 1, novos: 1 });
+  });
+});
+
+describe("purchaseOrderFileRows (PC-10, PC-11 AC 8)", () => {
+  it("cabeçalho igual ao exemplo do Millennium (AC 3)", () => {
+    expect(PURCHASE_FILE_HEADER).toEqual(["COD_PRODUTO", "Cod_Cor", "Cod_Estampa", "Tamanho", "Quantidade", "Total em Estoque", "Descricao"]);
+  });
+
+  it("1 linha por produto com quantidade > 0, com cor/estampa/tamanho, quantidade, total e descrição (AC 3, 6)", () => {
+    const v = view([stock({ total: 2 }), stock({ code: "OK", total: 100, position: 1 })], { "BSPPAR-ATH-001": 72, OK: 12 });
+    expect(purchaseOrderFileRows(v)).toEqual([["BSPPAR-ATH-001", "000", "000", "U", 72, 2, "BODY SPLASH PARIS 200ML"]]);
+  });
+
+  it("Total em Estoque negativo vai como 0 (AC 6)", () => {
+    const v = view([stock({ total: -5 })], { "BSPPAR-ATH-001": 24 });
+    expect(purchaseOrderFileRows(v)[0][5]).toBe(0);
+  });
+
+  it("COD só com dígitos e sem zero à esquerda vira número; o resto fica texto (AC 5)", () => {
+    const v = view(
+      [stock({ code: "526", total: 0 }), stock({ code: "0526", total: 0, position: 1 }), stock({ code: "BS-1", total: 0, position: 2 })],
+      { "526": 1, "0526": 1, "BS-1": 1 },
+    );
+    expect(purchaseOrderFileRows(v).map((r) => r[0])).toEqual([526, "0526", "BS-1"]);
+  });
+
+  it("cor, estampa e tamanho sempre texto, mesmo numéricos (AC 5)", () => {
+    const [row] = purchaseOrderFileRows(view([stock({ total: 0 })], { "BSPPAR-ATH-001": 1 }));
+    expect(row.slice(1, 4)).toEqual(["000", "000", "U"]);
+    expect(typeof row[4]).toBe("number");
+  });
+
+  it("segue a ordem do relatório (AC 7)", () => {
+    const v = view(
+      [stock({ code: "Z", total: 0, position: 0 }), stock({ code: "A", total: 0, position: 1 }), stock({ code: "M", total: 0, position: 2 })],
+      { A: 1, M: 1, Z: 1 },
+    );
+    expect(purchaseOrderFileRows(v).map((r) => r[0])).toEqual(["Z", "A", "M"]);
+  });
+
+  it("exclui produto com mais de uma variante elegível (AC 10)", () => {
+    const v = view([stock({ code: "41228", size: "P", total: 0 }), stock({ code: "41228", size: "M", total: 0, position: 1 })], { "41228": 12 });
+    expect(purchaseOrderFileRows(v)).toEqual([]);
+  });
+
+  it("nada abaixo do mínimo → nenhuma linha (PC-11 AC 8)", () => {
+    expect(purchaseOrderFileRows(view([stock({ total: 100 })], { "BSPPAR-ATH-001": 12 }))).toEqual([]);
+  });
+
+  it("usa o multiplicador do view (AC 2)", () => {
+    expect(purchaseOrderFileRows(view([stock({ total: 2 })], { "BSPPAR-ATH-001": 72 }, 2))[0][4]).toBe(144);
+  });
+});
+
+describe("purchaseOrderFileName (PC-10 AC 4)", () => {
+  it("ddMMyyyyHHmmss.xlsx com o horário do aparelho", () => {
+    expect(purchaseOrderFileName(new Date(2026, 9, 3, 7, 38, 38))).toBe("03102026073838.xlsx");
+  });
+  it("completa com zero à esquerda", () => {
+    expect(purchaseOrderFileName(new Date(2026, 0, 5, 9, 4, 1))).toBe("05012026090401.xlsx");
   });
 });
 
