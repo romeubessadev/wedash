@@ -7,6 +7,7 @@
  */
 import { baseUrl } from "./millennium.ts";
 import { MillenniumHttpError } from "./millenniumSellers.ts";
+import { parsePurchaseStock, type PurchaseStockRow } from "./purchaseStock.ts";
 
 export type ProductType = { typeId: number; description: string };
 export type CatalogProduct = { erpProductId: number; code: string; description: string; typeId: number };
@@ -268,4 +269,26 @@ export async function fetchStoreStock(session: string, millenniumStoreId: number
     out.set(code, item);
   }
   return out;
+}
+
+/** Saldo Atual e Futuro da loja (Pedido de compra), sem período: saldo, pedidos em aberto, múltipla, bloqueio e cadastro. */
+export async function fetchPurchaseStock(session: string, millenniumStoreId: number): Promise<PurchaseStockRow[]> {
+  const payload = await call(
+    `${baseUrl()}/MILLENIUM!FRANQUIAS.RELATORIOS.ESTOQUEEMCOMPRA?$top=5000`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json",
+        "WTS-Session": session,
+        "X-DateFormat": "ISOTZ",
+        "X-HTTP-Method": "GET",
+        "X-IdentifierCase": "upper",
+      },
+      body: JSON.stringify({ FILIAL: millenniumStoreId, DESC: null, TIPO: null, DATAI: null, DATAF: null }),
+      signal: AbortSignal.timeout(120_000),
+    },
+    `saldo atual e futuro filial ${millenniumStoreId}`,
+  );
+  return parsePurchaseStock(payload);
 }

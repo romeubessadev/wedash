@@ -188,7 +188,7 @@ T8 → T9 → T10
 ### T5: Parser do Saldo Atual e Futuro
 
 **What**: `parsePurchaseStock(payload)` (puro) e `fetchPurchaseStock(session, millenniumStoreId)` chamando `ESTOQUEEMCOMPRA` sem período; `vitest.config.ts` passa a incluir `supabase/functions/**/*.test.ts`.
-**Where**: `supabase/functions/_shared/purchaseStock.ts`
+**Where**: `supabase/functions/_shared/purchaseStock.ts` (parser puro, sem imports, + `purchaseRegistry`); `fetchPurchaseStock` em `_shared/millenniumProducts.ts` (precisa de `call`/`baseUrl`, que dependem do Deno)
 **Depends on**: T4
 **Reuses**: `call`/`rowsOf` de `_shared/millenniumProducts.ts`; `parseProductRegistry`/`brDate` de `workers/millennium-sync/src/millenniumCatalog.ts`
 **Requirement**: PC-07
@@ -200,10 +200,12 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] `SALDO`/`QUANTIDADE_PEDIDO`/`TOTAL` nulos = 0; múltipla ≤ 0 ou nula = null; `BLOQUEADO_COMPRA` booleano
-- [ ] `DATA_CADASTRO` `2024-06-05T03:00:00.000Z` → `2024-06-05`; nula/inválida = null
-- [ ] `position` = ordem do retorno; linhas com mesmo código+cor+estampa+tamanho somadas (mantém a 1ª posição)
-- [ ] Gate: `npx vitest run supabase/functions/_shared/purchaseStock.test.ts` passa (≥ 6 testes)
+- [x] `SALDO`/`QUANTIDADE_PEDIDO`/`TOTAL` nulos = 0 (`TOTAL` ausente = saldo + pedido); múltipla ≤ 0 ou nula = null; `BLOQUEADO_COMPRA` booleano
+- [x] `DATA_CADASTRO` `2024-06-05T03:00:00.000Z` → `2024-06-05`; nula/inválida = null
+- [x] `position` = ordem do retorno; linhas com mesmo código+cor+estampa+tamanho somadas (mantém a 1ª posição)
+- [x] Gate: `npx vitest run supabase/functions/_shared/purchaseStock.test.ts` passa (9 testes); `tsc` nos arquivos da Edge sem erro novo
+
+**Status**: ✅ Complete
 
 **Tests**: unit
 **Gate**: quick
