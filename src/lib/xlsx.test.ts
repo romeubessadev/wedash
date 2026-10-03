@@ -1,0 +1,98 @@
+import { crc32 } from "node:zlib";
+import { describe, expect, it } from "vitest";
+import { buildXlsx } from "./xlsx";
+
+type Entry = { name: string; data: Uint8Array; crc: number; method: number };
+
+/** Lê um ZIP pelo diretório central (independente do escritor). */
+function readZip(buf: Uint8Array): Entry[] {
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let eocd = buf.length - 22;
+  while (eocd >= 0 && dv.getUint32(eocd, true) !== 0x06054b50) eocd--;
+  if (eocd < 0) throw new Error("sem EOCD");
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const out: Entry[] = [];
+  for (let i = 0; i < count; i++) {
+    expect(dv.getUint32(p, true)).toBe(0x02014b50);
+    const method = dv.getUint16(p + 10, true);
+    const crc = dv.getUint32(p + 16, true);
+    const size = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const commentLen = dv.getUint16(p + 32, true);
+    const local = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nameLen));
+    expect(dv.getUint32(local, true)).toBe(0x04034b50);
+    const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+    out.push({ name, data: buf.subarray(start, start + size), crc, method });
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+
+const text = (entries: Entry[], name: string) => new TextDecoder().decode(entries.find((e) => e.name === name)!.data);
+
+const ROWS: Array<Array<string | number>> = [
+  ["COD_PRODUTO", "Cod_Cor", "Cod_Estampa", "Tamanho", "Quantidade", "Total em Estoque", "Descricao"],
+  ["OLEBOS-ATH-001", "000", "000", "U", 120, 1, "ÓLEO BOOSTER REPAIR 30ML - WEPINK"],
+  [526, "000", "000", "U", 24, 0, "A & B <C> \"D\""],
+];
+
+describe("buildXlsx", () => {
+  const entries = readZip(buildXlsx(ROWS, { textColumns: [1, 2, 3] }));
+
+  it("gera as 7 partes do pacote com CRC-32 correto", () => {
+    expect(entries.map((e) => e.name).sort()).toEqual(
+      [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "xl/_rels/workbook.xml.rels",
+        "xl/sharedStrings.xml",
+        "xl/styles.xml",
+        "xl/workbook.xml",
+        "xl/worksheets/sheet1.xml",
+      ].sort(),
+    );
+    for (const e of entries) expect(e.crc).toBe(crc32(e.data));
+  });
+
+  it("strings vão para sharedStrings (t=\"s\") e números como valor", () => {
+    const sheet = text(entries, "xl/worksheets/sheet1.xml");
+    const sst = text(entries, "xl/sharedStrings.xml");
+    const strings = [...sst.matchAll(/<si><t[^>]*>([\s\S]*?)<\/t><\/si>/g)].map((m) => m[1]);
+    const cell = (ref: string) => sheet.match(new RegExp(`<c r="${ref}"([^>]*)>(?:<v>([^<]*)</v>)?</c>`))!;
+    const a2 = cell("A2");
+    expect(a2[1]).toContain('t="s"');
+    expect(strings[Number(a2[2])]).toBe("OLEBOS-ATH-001");
+    const a3 = cell("A3");
+    expect(a3[1]).not.toContain('t="s"');
+    expect(a3[2]).toBe("526");
+    expect(cell("E2")[2]).toBe("120");
+    expect(cell("E2")[1]).not.toContain('t="s"');
+  });
+
+  it("colunas de texto usam o estilo com formato Texto (numFmt 49), inclusive \"000\"", () => {
+    const styles = text(entries, "xl/styles.xml");
+    const xfs = [...styles.match(/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/)![1].matchAll(/<xf [^>]*>/g)].map((m) => m[0]);
+    const sheet = text(entries, "xl/worksheets/sheet1.xml");
+    const styleOf = (ref: string) => Number(sheet.match(new RegExp(`<c r="${ref}" s="(\\d+)"`))?.[1] ?? 0);
+    for (const ref of ["B2", "C2", "D2", "B3"]) expect(xfs[styleOf(ref)]).toContain('numFmtId="49"');
+    for (const ref of ["A2", "E2", "G2"]) expect(xfs[styleOf(ref)]).not.toContain('numFmtId="49"');
+  });
+
+  it("escapa &, <, > e aspas e mantém acentos em UTF-8", () => {
+    const sst = text(entries, "xl/sharedStrings.xml");
+    expect(sst).toContain("A &amp; B &lt;C&gt; &quot;D&quot;");
+    expect(sst).toContain("ÓLEO BOOSTER REPAIR 30ML - WEPINK");
+  });
+
+  it("aba e partes ligadas (workbook → sheet1, styles, sharedStrings)", () => {
+    expect(text(entries, "xl/workbook.xml")).toContain('<sheet name="Página1" sheetId="1" r:id="rId1"/>');
+    const rels = text(entries, "xl/_rels/workbook.xml.rels");
+    expect(rels).toContain('Target="worksheets/sheet1.xml"');
+    expect(rels).toContain('Target="styles.xml"');
+    expect(rels).toContain('Target="sharedStrings.xml"');
+    expect(text(entries, "[Content_Types].xml")).toContain('PartName="/xl/worksheets/sheet1.xml"');
+  });
+});

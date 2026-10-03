@@ -142,10 +142,12 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Teste lê o ZIP gerado (diretório central) e encontra as 7 entradas com CRC correto
-- [ ] Célula string = `t="s"` apontando para `sharedStrings`; número = `<v>`; colunas de texto com estilo numFmt 49 (inclusive `000`)
-- [ ] `&`, `<`, `>`, `"` escapados; acentos em UTF-8
-- [ ] Gate: `npx vitest run src/lib/xlsx.test.ts` passa (≥ 5 testes)
+- [x] Teste lê o ZIP gerado (diretório central) e encontra as 7 entradas com CRC correto
+- [x] Célula string = `t="s"` apontando para `sharedStrings`; número = `<v>`; colunas de texto com estilo numFmt 49 (inclusive `000`)
+- [x] `&`, `<`, `>`, `"` escapados; acentos em UTF-8
+- [x] Gate: `npx vitest run src/lib/xlsx.test.ts` passa (5 testes); `zipfile.testzip` do Python sem erro
+
+**Status**: ✅ Complete
 
 **Tests**: unit
 **Gate**: quick
