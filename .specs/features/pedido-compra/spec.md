@@ -175,18 +175,18 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 
 | Requirement ID | Story | Tasks | Status |
 | --- | --- | --- | --- |
-| PC-01 | P1: Ver o pedido — lista de elegíveis (AC 1, 2) | T1, T9, T10 | In Progress |
-| PC-02 | P1: Ver o pedido — selo Novo (AC 3) | T1, T9 | In Progress |
-| PC-03 | P1: Ver o pedido — destaque e A pedir (AC 4, 5) | T1, T9 | In Progress |
-| PC-04 | P1: Ver o pedido — loja, busca e filtros (AC 6, 7, 8) | T1, T9 | In Progress |
-| PC-05 | P1: Ver o pedido — variantes e carregamento (AC 9, 10) | T1, T9 | In Progress |
-| PC-06 | P1: Mínimo — gravar, validar, por loja, permissões (AC 1–8) | T1, T4, T7, T8 | In Progress |
-| PC-07 | P1: Saldo — quando buscar e horário (AC 1–4) | T4, T5, T6, T7, T8 | Pending |
-| PC-08 | P1: Saldo — falha, desconectado, saldo velho, gerente (AC 5–8) | T6, T7, T8 | Pending |
-| PC-09 | P1: Gerar — multiplicador e regra da quantidade (AC 1, 2) | T1, T9 | In Progress |
-| PC-10 | P1: Gerar — arquivo, nome, formatos, ordem (AC 3–7, 10) | T2, T3, T9 | Pending |
-| PC-11 | P1: Gerar — vazio, toast, desabilitado (AC 8, 9, 11) | T2, T9 | Pending |
-| PC-12 | P2: Resumo do pedido (AC 1, 2) | T1, T9 | In Progress |
+| PC-01 | P1: Ver o pedido — lista de elegíveis (AC 1, 2) | T1, T9, T10 | Verified |
+| PC-02 | P1: Ver o pedido — selo Novo (AC 3) | T1, T9 | Verified |
+| PC-03 | P1: Ver o pedido — destaque e A pedir (AC 4, 5) | T1, T9 | Verified |
+| PC-04 | P1: Ver o pedido — loja, busca e filtros (AC 6, 7, 8) | T1, T9 | Verified |
+| PC-05 | P1: Ver o pedido — variantes e carregamento (AC 9, 10) | T1, T9 | Verified |
+| PC-06 | P1: Mínimo — gravar, validar, por loja, permissões (AC 1–8) | T1, T4, T7, T8 | Verified (UAT pendente do deploy) |
+| PC-07 | P1: Saldo — quando buscar e horário (AC 1–4) | T4, T5, T6, T7, T8 | Verified (UAT pendente do deploy) |
+| PC-08 | P1: Saldo — falha, desconectado, saldo velho, gerente (AC 5–8) | T6, T7, T8 | Verified (UAT pendente do deploy) |
+| PC-09 | P1: Gerar — multiplicador e regra da quantidade (AC 1, 2) | T1, T9 | Verified |
+| PC-10 | P1: Gerar — arquivo, nome, formatos, ordem (AC 3–7, 10) | T2, T3, T9 | Verified (UAT pendente do deploy) |
+| PC-11 | P1: Gerar — vazio, toast, desabilitado (AC 8, 9, 11) | T2, T9 | Verified |
+| PC-12 | P2: Resumo do pedido (AC 1, 2) | T1, T9 | Verified |
 
 **Coverage:** 12 total, 12 mapped to tasks, 0 unmapped
 

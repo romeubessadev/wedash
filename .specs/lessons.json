@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 2,
+  "next_id": 4,
   "lessons": [
     {
       "id": "L-001",
@@ -22,6 +22,42 @@
       ],
       "created": "2026-09-21T13:52:03Z",
       "last_seen": "2026-09-21T13:52:03Z"
+    },
+    {
+      "id": "L-002",
+      "key": "surviving_mutant::exported constants that the ui passes into file writers must be asserted directly not re typed in the writer s test",
+      "text": "Exported constants that the UI passes into file writers must be asserted directly, not re-typed in the writer's test.",
+      "signal": "surviving_mutant",
+      "scope": "src/data",
+      "status": "candidate",
+      "features": [
+        "pedido-compra"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M6 src/data/wedash/purchaseOrder.ts:143 (src/data)"
+      ],
+      "created": "2026-10-03T11:18:11Z",
+      "last_seen": "2026-10-03T11:18:11Z"
+    },
+    {
+      "id": "L-003",
+      "key": "ac_gap::when an ac treats empty or 0 as one case put a zero valued fixture in the tests",
+      "text": "When an AC treats 'empty or 0' as one case, put a zero-valued fixture in the tests.",
+      "signal": "ac_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "pedido-compra"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "PC-04 AC 8 (tests)"
+      ],
+      "created": "2026-10-03T11:18:11Z",
+      "last_seen": "2026-10-03T11:18:11Z"
     }
   ]
 }

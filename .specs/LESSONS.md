@@ -20,6 +20,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: SYNC-05 (dashboard-read)
 - last seen: 2026-09-21T13:52:03Z
 
+### L-002 - Exported constants that the UI passes into file writers must be asserted directly, not re-typed in the writer's test.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `src/data` · harmful: 0
+- features: pedido-compra
+- evidence: M6 src/data/wedash/purchaseOrder.ts:143 (src/data)
+- last seen: 2026-10-03T11:18:11Z
+
+### L-003 - When an AC treats 'empty or 0' as one case, put a zero-valued fixture in the tests.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: pedido-compra
+- evidence: PC-04 AC 8 (tests)
+- last seen: 2026-10-03T11:18:11Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
