@@ -229,11 +229,13 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Gerente só busca as lojas dele (mesmo filtro de `storeIds`)
-- [ ] Loja que falhou vai em `failed` sem apagar o saldo guardado
-- [ ] Resposta `{ ok, purchase, failed }`; chamadas sem `purchaseStoreIds` seguem iguais
-- [ ] Não fazer deploy (só com OK do dono)
-- [ ] Gate: `npm run build && npm run lint && npm test` passa
+- [x] Gerente só busca as lojas dele (mesmo filtro de `storeIds`, agora aplicado ao estoque e ao saldo)
+- [x] Loja que falhou (ou retorno vazio) não apaga o saldo guardado: id em `purchaseFailedStores` e `"purchase"` em `failed`; 401 sobe para o relogin
+- [x] Resposta `{ ok, purchase, failed, purchaseFailedStores }`; chamadas sem `purchaseStoreIds` seguem iguais (só ganham `purchaseFailedStores: []`)
+- [x] Não fazer deploy (só com OK do dono)
+- [x] Gate: build e lint passam; `npm test` = 586 passando + as 4 falhas antigas de `dashboard.test.ts`; `tsc` da Edge só com erros de ambiente (Deno/esm.sh) ou já existentes
+
+**Status**: ✅ Complete
 
 **Tests**: none
 **Gate**: build

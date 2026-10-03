@@ -4,14 +4,18 @@
  * - `saleTables: true` → lista de tabelas de preço de venda (`tabela_venda.TABELA`, 1 chamada).
  * - `salePriceTableIds: number[]` → preços de venda de cada tabela (wtsreports {24B9BF6D}, ~3,5s cada).
  * - `stockStoreIds: string[]` → estoque atual de cada loja por local (ESTOQUEPORLOCAL; total = soma dos locais; 2 por vez).
- * Gerente só busca estoque das lojas dele (membership_store vazio = todas).
+ * - `purchaseStoreIds: string[]` → Saldo Atual e Futuro de cada loja (ESTOQUEEMCOMPRA, Pedido de compra; 2 por vez).
+ *   Loja que falhou mantém o saldo guardado e volta em `purchaseFailedStores`; o cadastro (data, múltipla,
+ *   bloqueado) do mesmo retorno atualiza o catálogo (best-effort).
+ * Gerente só busca estoque/saldo das lojas dele (membership_store vazio = todas).
  * Reusa o token salvo em erp_credential; 401 → login com a senha cifrada e persiste o token novo.
  */
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { loginMillennium } from "../_shared/millennium.ts";
 import { MillenniumHttpError } from "../_shared/millenniumSellers.ts";
-import { fetchSalePrices, fetchSaleTables, fetchStoreStock } from "../_shared/millenniumProducts.ts";
+import { fetchPurchaseStock, fetchSalePrices, fetchSaleTables, fetchStoreStock } from "../_shared/millenniumProducts.ts";
+import { purchaseRegistry, type PurchaseRegistry } from "../_shared/purchaseStock.ts";
 
 const MAX_PRICE_TABLES = 20;
 const STOCK_CONCURRENCY = 2;
@@ -43,9 +47,9 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-type Request = { saleTables: boolean; salePriceTableIds: number[]; stockStoreIds: string[] };
+type Request = { saleTables: boolean; salePriceTableIds: number[]; stockStoreIds: string[]; purchaseStoreIds: string[] };
 type StoreRow = { id: string; code: string | null; millennium_store_id: number | null; cost_table_id: number | null };
-type Part = "saleTables" | "salePrices" | "stock";
+type Part = "saleTables" | "salePrices" | "stock" | "purchase";
 
 async function replaceRows(
   admin: SupabaseClient,
@@ -128,6 +132,76 @@ async function refreshStock(
   return done;
 }
 
+/** `failedStores` é preenchido aqui (zerado a cada tentativa). 401 sobe para o relogin; nenhuma loja ok = erro. */
+async function refreshPurchase(
+  admin: SupabaseClient,
+  session: string,
+  tenantId: string,
+  stores: StoreRow[],
+  failedStores: string[],
+): Promise<number> {
+  failedStores.length = 0;
+  const registry = new Map<string, PurchaseRegistry>();
+  let done = 0;
+  for (const group of chunk(stores, STOCK_CONCURRENCY)) {
+    await Promise.all(
+      group.map(async (s) => {
+        try {
+          const rows = await fetchPurchaseStock(session, s.millennium_store_id!);
+          if (rows.length === 0) throw new Error("saldo atual e futuro voltou vazio");
+          await replaceRows(
+            admin,
+            "store_purchase_stock",
+            { store_id: s.id },
+            rows.map((r) => ({
+              tenant_id: tenantId,
+              store_id: s.id,
+              product_code: r.code,
+              color: r.color,
+              print: r.print,
+              size: r.size,
+              description: r.description,
+              balance: r.balance,
+              open_order: r.openOrder,
+              total: r.total,
+              purchase_multiple: r.multiple,
+              purchase_blocked: r.blocked,
+              registered_at: r.registeredAt,
+              position: r.position,
+            })),
+            "store_id,product_code,color,print,size",
+          );
+          const { error } = await admin.from("store").update({ purchase_synced_at: new Date().toISOString() }).eq("id", s.id);
+          if (error) throw error;
+          for (const reg of purchaseRegistry(rows)) if (!registry.has(reg.code)) registry.set(reg.code, reg);
+          done++;
+        } catch (e) {
+          if (e instanceof MillenniumHttpError && e.status === 401) throw e;
+          console.error("erp-stock-sync purchase", s.code, e instanceof Error ? e.message : e);
+          failedStores.push(s.id);
+        }
+      }),
+    );
+  }
+  if (done === 0) throw new Error("saldo atual e futuro: nenhuma loja");
+  try {
+    for (const part of chunk([...registry.values()], 500)) {
+      const { error } = await admin.rpc("set_product_catalog_registry", {
+        items: part.map((i) => ({
+          product_code: i.code,
+          registered_at: i.registeredAt,
+          purchase_multiple: i.purchaseMultiple,
+          purchase_blocked: i.purchaseBlocked,
+        })),
+      });
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error("erp-stock-sync purchase registry", e instanceof Error ? e.message : e);
+  }
+  return done;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -146,7 +220,7 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return json({ error: "unauthorized" }, 401);
 
-  let body: Request = { saleTables: false, salePriceTableIds: [], stockStoreIds: [] };
+  let body: Request = { saleTables: false, salePriceTableIds: [], stockStoreIds: [], purchaseStoreIds: [] };
   try {
     const raw = await req.json();
     body = {
@@ -155,11 +229,17 @@ Deno.serve(async (req) => {
         ? [...new Set<number>(raw.salePriceTableIds.map(Number).filter((n: number) => Number.isFinite(n) && n > 0))].slice(0, MAX_PRICE_TABLES)
         : [],
       stockStoreIds: Array.isArray(raw?.stockStoreIds) ? raw.stockStoreIds.map(String) : [],
+      purchaseStoreIds: Array.isArray(raw?.purchaseStoreIds) ? raw.purchaseStoreIds.map(String) : [],
     };
   } catch {
     return json({ ok: false, error: "invalid_request" }, 400);
   }
-  if (!body.saleTables && body.salePriceTableIds.length === 0 && body.stockStoreIds.length === 0) {
+  if (
+    !body.saleTables &&
+    body.salePriceTableIds.length === 0 &&
+    body.stockStoreIds.length === 0 &&
+    body.purchaseStoreIds.length === 0
+  ) {
     return json({ ok: false, error: "invalid_request" }, 400);
   }
 
@@ -178,22 +258,25 @@ Deno.serve(async (req) => {
   if (!membership) return json({ error: "forbidden" }, 403);
   const tenantId = membership.tenant_id as string;
 
-  let stores: StoreRow[] = [];
-  if (body.stockStoreIds.length > 0) {
+  let allStores: StoreRow[] = [];
+  const requestedStoreIds = [...new Set([...body.stockStoreIds, ...body.purchaseStoreIds])];
+  if (requestedStoreIds.length > 0) {
     const { data, error } = await admin
       .from("store")
       .select("id, code, millennium_store_id, cost_table_id")
       .eq("tenant_id", tenantId)
       .eq("active", true)
-      .in("id", body.stockStoreIds);
+      .in("id", requestedStoreIds);
     if (error) return json({ ok: false, error: "erp_request_failed" });
-    stores = ((data ?? []) as StoreRow[]).filter((s) => s.millennium_store_id != null);
+    allStores = ((data ?? []) as StoreRow[]).filter((s) => s.millennium_store_id != null);
     if (membership.role === "MANAGER") {
       const { data: allowed } = await admin.from("membership_store").select("store_id").eq("membership_id", membership.id);
       const ids = new Set((allowed ?? []).map((r) => r.store_id as string));
-      if (ids.size > 0) stores = stores.filter((s) => ids.has(s.id));
+      if (ids.size > 0) allStores = allStores.filter((s) => ids.has(s.id));
     }
   }
+  const stores = allStores.filter((s) => body.stockStoreIds.includes(s.id));
+  const purchaseStores = allStores.filter((s) => body.purchaseStoreIds.includes(s.id));
 
   const { data: anyCostTable } = await admin.from("product_cost_table").select("table_id").order("table_id").limit(1).maybeSingle();
   const tenantCostTable = stores.find((s) => s.cost_table_id != null)?.cost_table_id;
@@ -243,6 +326,10 @@ Deno.serve(async (req) => {
     parts.push({ part: "salePrices", run: (s) => refreshSalePrices(admin, s, body.salePriceTableIds, fallbackCostTable!) });
   }
   if (stores.length > 0) parts.push({ part: "stock", run: (s) => refreshStock(admin, s, tenantId, stores) });
+  const purchaseFailedStores: string[] = [];
+  if (purchaseStores.length > 0) {
+    parts.push({ part: "purchase", run: (s) => refreshPurchase(admin, s, tenantId, purchaseStores, purchaseFailedStores) });
+  }
   if (parts.length === 0) return json({ ok: true, stores: 0 });
 
   let session = (cred.millennium_session as string | null)?.trim() || null;
@@ -276,6 +363,9 @@ Deno.serve(async (req) => {
       failed.push(part);
     }
   }
-  if (failed.length === parts.length) return json({ ok: false, error: "erp_request_failed", failed });
-  return json({ ok: true, ...result, failed });
+  if (parts.every(({ part }) => result[part] === undefined)) {
+    return json({ ok: false, error: "erp_request_failed", failed, purchaseFailedStores });
+  }
+  if (purchaseFailedStores.length > 0 && !failed.includes("purchase")) failed.push("purchase");
+  return json({ ok: true, ...result, failed, purchaseFailedStores });
 });
