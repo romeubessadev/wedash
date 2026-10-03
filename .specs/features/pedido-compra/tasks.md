@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/pedido-compra/design.md`
-**Status**: Approved
+**Status**: In Progress
 
 ---
 
@@ -78,15 +78,17 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] `filterPurchaseRows`: busca por nome ou código sem diferenciar maiúsculas e acentos; filtros "Vai para o pedido", "Sem mínimo", "Novos"
-- [ ] Elegível = código sem `WP` (qualquer caixa), não bloqueado, múltipla > 0
-- [ ] Novo = 0 ≤ dias desde o cadastro < 30 (data nula = não novo)
-- [ ] `purchaseQuantity`: alvo = mín × fator; Total negativo = 0; Total ≥ alvo ou mín 0/nulo = 0; senão (alvo − Total) arredondado para cima ao múltiplo (múltipla 1 = diferença exata)
-- [ ] `parseMinInput`: vazio = null; inteiro 0..99999 = número; resto = inválido
-- [ ] Produto com > 1 variante elegível: `variasVariantes`, A pedir null, não entra no resumo nem em `noPedido`
-- [ ] Mínimo de código que não está no relatório não gera linha
-- [ ] Resumo = nº de produtos e Σ itens que vão para o arquivo; contagens de "Vai para o pedido", "Sem mínimo", "Novos"
-- [ ] Gate: `npx vitest run src/data/wedash/purchaseOrder.test.ts` passa (≥ 18 testes)
+- [x] `filterPurchaseRows`: busca por nome ou código sem diferenciar maiúsculas e acentos; filtros "Vai para o pedido", "Sem mínimo", "Novos"
+- [x] Elegível = código sem `WP` (qualquer caixa), não bloqueado, múltipla > 0
+- [x] Novo = 0 ≤ dias desde o cadastro < 30 (data nula = não novo)
+- [x] `purchaseQuantity`: alvo = mín × fator; Total negativo = 0; Total ≥ alvo ou mín 0/nulo = 0; senão (alvo − Total) arredondado para cima ao múltiplo (múltipla 1 = diferença exata)
+- [x] `parseMinInput`: vazio = null; inteiro 0..99999 = número; resto = inválido
+- [x] Produto com > 1 variante elegível: `variasVariantes`, A pedir null, não entra no resumo nem em `noPedido`
+- [x] Mínimo de código que não está no relatório não gera linha
+- [x] Resumo = nº de produtos e Σ itens que vão para o arquivo; contagens de "Vai para o pedido", "Sem mínimo", "Novos"
+- [x] Gate: `npx vitest run src/data/wedash/purchaseOrder.test.ts` passa (29 testes)
+
+**Status**: ✅ Complete
 
 **Tests**: unit
 **Gate**: quick
