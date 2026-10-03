@@ -171,10 +171,12 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Esquema igual ao Data Models do design (PK com cor/estampa/tamanho; `min_qty` 0..99999)
-- [ ] Política de escrita do mínimo: OWNER/ADMIN_GLOBAL do tenant, ou MANAGER sem `membership_store` ou com a loja vinculada
-- [ ] Não aplicar no banco remoto (`supabase db push` só com OK do dono)
-- [ ] Gate: `npm run build && npm run lint && npm test` passa
+- [x] Esquema igual ao Data Models do design (PK com cor/estampa/tamanho; `min_qty` 0..99999)
+- [x] Política de escrita do mínimo: OWNER/ADMIN_GLOBAL do tenant, ou MANAGER sem `membership_store` ou com a loja vinculada
+- [x] Não aplicar no banco remoto (`supabase db push` só com OK do dono)
+- [x] Gate: build e lint passam; `npm test` = 577 passando + 4 falhas antigas em `dashboard.test.ts` (já falhavam no commit 9ada26f, antes desta feature)
+
+**Status**: ✅ Complete
 
 **Tests**: none
 **Gate**: build
