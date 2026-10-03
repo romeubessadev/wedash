@@ -197,7 +197,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
     view,
     catalog: current?.catalog ?? null,
     mins: current?.mins ?? null,
-    loading: loading || (storeId != null && current == null),
+    loading: storeId != null && (loading || current == null),
     syncing,
     syncError,
     syncedAt,
