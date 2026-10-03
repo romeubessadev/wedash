@@ -115,9 +115,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Engine file has no imports outside `engine/` and uses relative `.ts` imports only
-- [ ] All existing imports of `@/lib/format` keep compiling
-- [ ] Gate passes: `npm test` (existing count, no deletions)
+- [x] Engine file has no imports outside `engine/` and uses relative `.ts` imports only
+- [x] All existing imports of `@/lib/format` keep compiling
+- [x] Gate passes: `npm test` (existing count, no deletions)
 
 **Tests**: unit
 **Gate**: quick

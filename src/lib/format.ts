@@ -1,7 +1,21 @@
 /** Formatação pt-BR usada em todas as telas do produto. */
 
+import { deIso, num } from "../data/wedash/engine/format.ts";
+
+export {
+  brlCent,
+  collaboratorName,
+  deIso,
+  fimDoMes,
+  inicioDoMes,
+  intervaloDias,
+  num,
+  paraIso,
+  shiftName,
+  somarDias,
+} from "../data/wedash/engine/format.ts";
+
 const brlInteiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const brlCentavos = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** R$ 84.210 — sem centavos, para painéis. */
 export function brl(v: number): string {
@@ -16,11 +30,6 @@ export function brlK(v: number): string {
   return brlInteiro.format(v);
 }
 
-/** R$ 84.210,37 — com centavos, para conferência. */
-export function brlCent(v: number): string {
-  return brlCentavos.format(v);
-}
-
 /** LOJA / CATEGORIA / PRODUTO — rótulos de catálogo em caixa alta (pt-BR). */
 export function labelUpper(s: string): string {
   return s.trim().toLocaleUpperCase("pt-BR");
@@ -30,16 +39,6 @@ const NAME_PARTICLES = new Set(["de", "da", "do", "das", "dos", "e"]);
 
 /** Nome da empresa (tenant): caixa alta, igual ao nome das lojas vindo do ERP. */
 export function companyNameCase(s: string | null | undefined): string {
-  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
-}
-
-/** Nome de vendedor (equipe vinda do Millennium): caixa alta em todo o app. */
-export function collaboratorName(s: string | null | undefined): string {
-  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
-}
-
-/** Nome do turno: caixa alta (gravado e exibido). */
-export function shiftName(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
 
@@ -71,11 +70,6 @@ export function labelCase(s: string | null | undefined): string {
     .join(" ");
 }
 
-/** 2,3 · 184,5 — número com casas decimais em pt-BR. */
-export function num(v: number, casas = 0): string {
-  return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
-}
-
 /** 48% · 48,3% */
 export function pct(v: number, casas = 0): string {
   return `${num(v, casas)}%`;
@@ -91,19 +85,6 @@ const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julh
 const MESES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const DIAS_SEMANA_CURTO = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-
-/** Converte "2026-09-15" em Date local (meia-noite), sem armadilha de fuso. */
-export function deIso(iso: string): Date {
-  const [a, m, d] = iso.split("-").map(Number);
-  return new Date(a, m - 1, d);
-}
-
-/** Converte Date em "2026-09-15" no fuso local. */
-export function paraIso(d: Date): string {
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
 
 /** 15/09 */
 export function dataCurta(iso: string): string {
@@ -158,36 +139,6 @@ export function horaCurta(h: number): string {
 /** Faixa de 1 hora para tooltip: "21h às 22h"; hora em andamento = "14h até agora". */
 export function faixaHora(h: number, emAndamento = false): string {
   return emAndamento ? `${h}h até agora` : `${h}h às ${h + 1}h`;
-}
-
-/** Adiciona dias a um ISO. */
-export function somarDias(iso: string, dias: number): string {
-  const d = deIso(iso);
-  d.setDate(d.getDate() + dias);
-  return paraIso(d);
-}
-
-/** Primeiro dia do mês do ISO. */
-export function inicioDoMes(iso: string): string {
-  const d = deIso(iso);
-  return paraIso(new Date(d.getFullYear(), d.getMonth(), 1));
-}
-
-/** Último dia do mês do ISO. */
-export function fimDoMes(iso: string): string {
-  const d = deIso(iso);
-  return paraIso(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-}
-
-/** Lista de ISOs entre início e fim, inclusive. */
-export function intervaloDias(inicio: string, fim: string): string[] {
-  const out: string[] = [];
-  let atual = inicio;
-  while (atual <= fim) {
-    out.push(atual);
-    atual = somarDias(atual, 1);
-  }
-  return out;
 }
 
 /** Tooltip de delta: "Em relação ao mês passado." / "Em relação aos 7 dias anteriores." */
