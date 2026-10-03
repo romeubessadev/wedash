@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PURCHASE_FILE_HEADER,
+  PURCHASE_FILE_TEXT_COLUMNS,
   buildPurchaseOrderView,
   filterPurchaseRows,
   purchaseOrderFileName,
@@ -193,6 +194,10 @@ describe("purchaseOrderFileRows (PC-10, PC-11 AC 8)", () => {
     expect(PURCHASE_FILE_HEADER).toEqual(["COD_PRODUTO", "Cod_Cor", "Cod_Estampa", "Tamanho", "Quantidade", "Total em Estoque", "Descricao"]);
   });
 
+  it("colunas gravadas como texto no XLSX = Cod_Cor, Cod_Estampa e Tamanho (AC 5)", () => {
+    expect(PURCHASE_FILE_TEXT_COLUMNS.map((i) => PURCHASE_FILE_HEADER[i])).toEqual(["Cod_Cor", "Cod_Estampa", "Tamanho"]);
+  });
+
   it("1 linha por produto com quantidade > 0, com cor/estampa/tamanho, quantidade, total e descrição (AC 3, 6)", () => {
     const v = view([stock({ total: 2 }), stock({ code: "OK", total: 100, position: 1 })], { "BSPPAR-ATH-001": 72, OK: 12 });
     expect(purchaseOrderFileRows(v)).toEqual([["BSPPAR-ATH-001", "000", "000", "U", 72, 2, "BODY SPLASH PARIS 200ML"]]);
@@ -272,6 +277,9 @@ describe("filterPurchaseRows (PC-04 AC 7, 8)", () => {
   });
   it("Sem mínimo = mínimo vazio ou 0", () => {
     expect(codes("semMinimo")).toEqual(["B2"]);
+    const comZero = view([stock({ code: "Z0", total: 0 }), stock({ code: "N1", total: 0, position: 1 }), stock({ code: "M5", total: 0, position: 2 })], { Z0: 0, M5: 5 });
+    expect(filterPurchaseRows(comZero.rows, { busca: "", filtro: "semMinimo" }).map((r) => r.code)).toEqual(["Z0", "N1"]);
+    expect(comZero.contagens.semMinimo).toBe(2);
   });
   it("Novos = só com selo Novo", () => {
     expect(codes("novos")).toEqual(["B2"]);
