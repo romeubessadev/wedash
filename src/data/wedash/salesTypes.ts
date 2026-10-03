@@ -1,6 +1,8 @@
 /** Shared sales row / aggregate types (EN). Money = integer cents. */
 
-export type SalesBrand = "WEPINK" | "WPINK" | "ALL";
+import type { SalesBrand, SalesDayAgg } from "./engine/goalTypes.ts";
+
+export type { SalesBrand, SalesDayAgg, SalesSellerDayAgg } from "./engine/goalTypes.ts";
 
 /** One VENDAS.Lista line (or collapsed operation) after Millennium map. */
 export type SaleRow = {
@@ -19,24 +21,6 @@ export type SaleRow = {
   sellerName?: string | null;
   /** FUNCIONARIO_GERADOR_GERADOR do relatório de cupom (código estável da vendedora). */
   sellerGeradorId?: number | null;
-};
-
-/** Daily bucket — matches sales_day_agg natural key. */
-export type SalesDayAgg = {
-  tenantId: string;
-  storeId: string;
-  /** Local calendar day YYYY-MM-DD in store timezone. */
-  day: string;
-  brand: SalesBrand;
-  revenueCents: number;
-  /** Distinct COD_OPERACAO count. */
-  salesCount: number;
-  itemCount: number;
-  /**
-   * CMV em centavos (RELATORIOMARGEM Σ CUSTO_TOTAL). brand=ALL na v1.
-   * TODO(Configurações>Custos): × (1 + imposto_sobre_custo_pct).
-   */
-  cmvCents?: number;
 };
 
 /** Daily revenue by product tipo — sales_category_day_view (top produtos × product_catalog). */
@@ -83,27 +67,6 @@ export type SellerShiftRef = {
   /** HH:MM local da loja. */
   start: string;
   end: string;
-};
-
-/** Daily revenue by seller (VENDEDOR_MILLENNIUM) — sales_seller_day_agg. */
-export type SalesSellerDayAgg = {
-  tenantId: string;
-  storeId: string;
-  day: string;
-  /** Nome normalizado (chave estável sem acento). */
-  sellerKey: string;
-  /** Rótulo de UI (title-case). */
-  sellerName: string;
-  /** Código da funcionária no Millennium (FUNCIONARIO) — resolvido pelo nome na gravação; null = só nome. */
-  sellerEmployeeId?: number | null;
-  /** Gerador da vendedora no Millennium (relatório de cupom); null = só pelo nome. */
-  sellerGeradorId?: number | null;
-  brand: SalesBrand;
-  revenueCents: number;
-  /** Distinct COD_OPERACAO count. */
-  salesCount: number;
-  /** Σ QUANTIDADE (itens). 0 em linhas gravadas antes de 2026-09-26. */
-  itemCount?: number;
 };
 
 /** Daily cost by COD_PRODUTO (RELATORIOMARGEM) — sales_product_cost_day_agg. */

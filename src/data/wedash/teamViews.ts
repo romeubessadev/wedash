@@ -10,7 +10,7 @@
  * Quando o período ≠ competência, um aviso deixa o recorte explícito.
  */
 import { eligibleSeller, collaboratorsOfStore, collaboratorById, type Collaborator } from "./team";
-import { goalOfStore, goalsOfStore, type Tier, type GoalBrand, type GoalType } from "./goals";
+import { goalOfStore, goalsOfStore, type Tier, type GoalBrand } from "./goals";
 import {
   challengeManagerTarget,
   challengeIsIndex,
@@ -27,6 +27,9 @@ import { storeById, stores, grupos, type Store } from "./stores";
 import { brlK, revenueCurve, seriesAxisForPeriod, kpiDelta, previousPeriod, resolvePeriod, seriesAxisLabel, type Scope, type ResolvedPeriod, type BlockState } from "./dashboard";
 import { brl, dataCurta, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, rotuloDias, somarDias } from "@/lib/format";
 import type { TintKey } from "@/pages/dashboards/icons";
+import type { GoalCardView, NetworkGlobalGoal, SellerRow } from "./engine/goalTypes";
+
+export type { GoalCardView, NetworkGlobalGoal, SellerRow } from "./engine/goalTypes";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
 
@@ -192,51 +195,6 @@ export interface TeamKpiValue {
   serie?: number[];
 }
 
-export interface SellerRow {
-  colaboradorId: string;
-  nome: string;
-  /** Filial da vendedora — necessária na visão rede (coluna Shopping). */
-  filialId: string;
-  filialNome: string;
-  /** Nome do grupo (Grupo 1/Grupo 2) ou "Sem grupo". */
-  grupo: string;
-  faturamentoValor: number;
-  faturamento: string;
-  atendimentos: number;
-  ticketValor: number;
-  ticket: string;
-  paValor: number;
-  pa: string;
-  diasTrabalhados: number;
-  tendencia: "subindo" | "estavel" | "caindo";
-  // Meta individual (só com meta ativa; sem meta ficam zerados e semMeta=true)
-  metaIndividualValor: number;
-  metaProporcional: boolean;
-  diasElegiveis: number;
-  atingimentoPct: number;
-  barraPct: number;
-  /** Participação no faturamento vs. meta da loja (valorLoja). */
-  pctMetaGeral: number;
-  /** Marcos da escada p/ barra segmentada: { nome, pct, bonus, pctPremiacao }. */
-  marcosEscada: { nome: string; pct: number; pctPremiacao: number; bonus: number }[];
-  degrauAtual: string | null;
-  /** Índice 1-based do degrau atual (null = ainda sem nível). */
-  nivelAtual: number | null;
-  proximoDegrau: { nome: string; faltaValor: number; pctPremiacao: number; bonus: number; atingMinPct: number } | null;
-  /** Premiação acumulada da escada de metas (realizado × pct do degrau). */
-  premiacaoAcumulada: number;
-  /** % de premiação do degrau atual (0 se ainda não entrou na escada). */
-  comissaoPct: number;
-  /** Premiação projetada pelo ritmo: realizado escalado × pct do degrau projetado. */
-  premiacaoProjetadaIndividual: number | null;
-  /** Atingimento projetado pelo ritmo da competência (100 = fecha a meta). */
-  atingimentoProjetadoPct: number | null;
-  bonusAlcancado: number;
-  // Atenção — um ponto por vendedora, na ordem de prioridade do mockup.
-  atencao: { tipo: "pa" | "ritmo" | "preco"; texto: string; detalhe: string } | null;
-  semMeta: boolean;
-}
-
 export interface ChallengeParticipantView {
   colaboradorId: string;
   nome: string;
@@ -339,42 +297,6 @@ export interface TeamBlockStates {
   leitura: BlockState;
   vendedoras: BlockState;
   challenges: BlockState;
-}
-
-export interface NetworkGlobalGoal {
-  /** Nome da meta ou "Setembro 2026". */
-  competTexto: string;
-  /** Faturamento na competência (loja ou rede) — total da loja, igual à Visão Geral. */
-  realizado: number;
-  /** Parte do realizado fora da equipe (venda sem vendedora, gerência); 0 = tudo na equipe. */
-  foraDaEquipe?: number;
-  /** Meta da loja ou soma das metas da rede. */
-  total: number;
-  /** realizado / total × 100. */
-  pct: number;
-  /** Projeção pelo índice de desempenho acumulado (AD-021). */
-  projetadoPct: number;
-  /** Dias abertos da competência a partir de hoje (incluindo hoje). */
-  diasRestantes: number;
-  /** Início da competência (ISO). */
-  inicio: string;
-  /** Fim da competência (ISO). */
-  fim: string;
-}
-
-/** Card de uma meta ativa (Ao vivo / Equipe) — progresso + badges + escada. */
-export interface GoalCardView {
-  id: string;
-  nome: string;
-  tipo: GoalType;
-  lojaNome: string;
-  marcas: GoalBrand[];
-  qtdGrupos: number;
-  qtdVendedoras: number;
-  qtdNiveis: number;
-  degraus: Tier[];
-  faixa: NetworkGlobalGoal;
-  vendedoras: SellerRow[];
 }
 
 export interface TeamView {

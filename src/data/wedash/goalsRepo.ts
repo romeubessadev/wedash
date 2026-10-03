@@ -1,45 +1,9 @@
 import { collaboratorName, fimDoMes, shiftName } from "@/lib/format";
 import { goals as fixtureGoals, type Tier } from "./goals";
 import { SELLER_ROLE } from "./stores";
+import type { GoalGroup, GoalRecord, GoalTeamMember } from "./engine/goalTypes";
 
-/** Meta gravada (tabela `goal`): 1 por loja por período, valores em reais. */
-export interface GoalRecord {
-  id: string;
-  storeId: string;
-  name: string;
-  /** ISO YYYY-MM-DD (inclusive). */
-  startsOn: string;
-  endsOn: string;
-  /** Meta da loja no período (R$). */
-  target: number;
-  /** INDIVIDUAL = cada pessoa pela própria meta (meta ÷ pessoas); GROUP = a equipe sobe junta. */
-  tierMode: "INDIVIDUAL" | "GROUP";
-  tiers: Tier[];
-  /** % da meta de cada grupo da loja (soma 100); vazio = sem grupos de distribuição. */
-  groups: GoalGroup[];
-}
-
-export interface GoalGroup {
-  shiftId: string;
-  name: string;
-  pct: number;
-}
-
-/** Pessoa da equipe da loja (store_seller) para a meta. */
-export interface GoalTeamMember {
-  storeId: string;
-  employeeId: number;
-  /** Código de gerador no Millennium (liga os itens por pessoa dos desafios). */
-  geradorId?: number | null;
-  name: string;
-  /** Nomes normalizados já vistos (liga venda gravada só pelo nome). */
-  nameKeys: string[];
-  /** Ativo com cargo VENDEDOR = na equipe de vendas agora. */
-  salesPerson: boolean;
-  /** Grupo da pessoa (Gestão > Vendedores). */
-  shiftId: string | null;
-  shiftName: string | null;
-}
+export type { GoalGroup, GoalRecord, GoalTeamMember } from "./engine/goalTypes";
 
 type TierJson = {
   name?: string;

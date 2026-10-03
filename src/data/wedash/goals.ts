@@ -1,23 +1,8 @@
 /** Metas mensais por filial, com degraus configuráveis. Sempre em reais. */
 
-export interface Tier {
-  nome: string;
-  atingimentoMinPct: number;
-  /** % da premiação sobre o faturamento realizado neste degrau. */
-  comissaoPct: number;
-  /**
-   * Bônus acumulado ao atingir este degrau.
-   * Regra de produto: R$ 50 por nível (1→50, 2→100, 3→150, 4→200).
-   */
-  bonus: number;
-  /** Premiação da gerência (% sobre o faturamento total da loja) ao a loja chegar neste nível; ausente = sem premiação da gerência. */
-  gerenciaPct?: number;
-  /** Bônus da gerência (R$) ao a loja chegar neste nível; soma com os níveis anteriores. */
-  gerenciaBonus?: number;
-}
+import type { GoalBrand, GoalType, Tier } from "./engine/goalTypes";
 
-export type GoalType = "individual" | "grupo";
-export type GoalBrand = "WEPINK" | "WPINK";
+export type { GoalBrand, GoalType, Tier } from "./engine/goalTypes";
 
 export interface Goal {
   id: string;
