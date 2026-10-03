@@ -289,10 +289,12 @@ T8 → T9 → T10
 
 **Done when**:
 
-- [ ] Troca de loja recarrega e aplica a regra de 30 min à nova loja
-- [ ] Texto "Saldo buscado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…"; `stale` quando > 30 min
-- [ ] Mínimo inválido / falha ao gravar volta ao valor anterior com o toast da spec
-- [ ] Gate: `npm run build && npm run lint && npm test` passa
+- [x] Troca de loja recarrega e aplica a regra de 30 min à nova loja (trava de busca por loja; resposta de loja antiga é descartada)
+- [x] Texto "Saldo buscado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…"; `stale` quando > 30 min (reavaliado a cada minuto); falha da busca = `syncError` (alerta, mantém o saldo guardado); 1ª busca sem saldo guardado = skeleton até terminar
+- [x] Mínimo inválido / falha ao gravar volta ao valor anterior com o toast da spec
+- [x] Gate: build e lint passam; `npm test` = linha de base (só as 4 falhas antigas de `dashboard.test.ts`)
+
+**Status**: ✅ Complete
 
 **Tests**: none
 **Gate**: build
