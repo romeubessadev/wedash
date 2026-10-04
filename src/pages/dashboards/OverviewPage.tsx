@@ -421,7 +421,7 @@ export default function OverviewPage() {
   const monthFill = useMonthFill();
   const printing = usePrintMode();
   const exportar = useExportPdf("Visão geral");
-  const firstSteps = useFirstSteps();
+  const firstSteps = useFirstSteps(escopo.filialIds);
   const { abrir: abrirDetalhe, modal: detalheModal } = useProductDetail({ escopo, tenantId: session.tenantId });
   const niveisMeta = useMemo(
     () => new Map(view.topVendedoras.flatMap((v) => (v.key && v.meta ? [[v.key, v.meta] as const] : []))),

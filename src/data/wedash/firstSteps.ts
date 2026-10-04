@@ -25,6 +25,16 @@ export interface FirstStepsInput {
   storesWithChallenge: Set<string>;
 }
 
+/**
+ * "Todas as lojas" avalia a rede. Uma loja no StorePicker mostra só o que falta nela
+ * (o card só some de vez quando todas as lojas da sessão estão prontas).
+ */
+export function storesForFirstStepsView<T extends { id: string }>(stores: T[], filialIds: string[]): T[] {
+  if (filialIds.length !== 1) return stores;
+  const one = stores.filter((s) => s.id === filialIds[0]);
+  return one.length === 1 ? one : stores;
+}
+
 function lojasFaltando(faltam: number, total: number): string | undefined {
   if (faltam === 0 || total <= 1) return undefined;
   return `Falta em ${faltam} de ${total} lojas`;

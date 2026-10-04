@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFirstSteps, type FirstStepsInput, type FirstStepsStore } from "./firstSteps";
+import { buildFirstSteps, storesForFirstStepsView, type FirstStepsInput, type FirstStepsStore } from "./firstSteps";
 import { EMPTY_STORE_COSTS, SELLER_ROLE, type StoreCosts } from "./stores";
 import { defaultWeekHours } from "./storeHours";
 
@@ -94,6 +94,24 @@ describe("buildFirstSteps", () => {
       done: false,
       detail: "Falta em 1 de 2 lojas",
     });
+  });
+
+  it("uma loja no filtro conta só o que falta nela", () => {
+    const stores = [loja("a"), loja("b", { horas: defaultWeekHours() })];
+    const rede = input({ stores });
+    expect(passo(rede, "hours")).toMatchObject({ done: false, detail: "Falta em 1 de 2 lojas" });
+    expect(storesForFirstStepsView(stores, []).map((s) => s.id)).toEqual(["a", "b"]);
+    const soA = input({ stores: storesForFirstStepsView(stores, ["a"]) });
+    expect(passo(soA, "hours").done).toBe(true);
+    expect(passo(soA, "hours").detail).toBeUndefined();
+    const soB = input({
+      stores: storesForFirstStepsView(stores, ["b"]),
+      sellersByStore: new Map([["b", [vendedor("g1")]]]),
+      shiftIdsByStore: new Map([["b", ["g1"]]]),
+      storesWithGoal: new Set(["b"]),
+      storesWithChallenge: new Set(["b"]),
+    });
+    expect(buildFirstSteps(soB).filter((s) => !s.done).map((s) => s.id)).toEqual(["hours"]);
   });
 
   it("sem equipe em nenhuma loja: meta e desafio valem para todas as lojas", () => {

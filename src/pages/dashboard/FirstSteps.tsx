@@ -6,6 +6,7 @@ import {
   completeFirstSteps,
   fetchFirstStepsData,
   fetchFirstStepsDone,
+  storesForFirstStepsView,
   type FirstStep,
   type FirstStepsData,
 } from "@/data/wedash/firstSteps";
@@ -22,7 +23,7 @@ export type FirstStepsStatus = "loading" | "hidden" | "visible";
  * Primeiros passos da empresa (só Gestor). Os passos se marcam sozinhos pelos dados já salvos;
  * ao chegar a 100% grava no banco e o card não volta mais.
  */
-export function useFirstSteps() {
+export function useFirstSteps(filialIds: string[] = []) {
   const session = useActiveSession();
   const { show } = useToast();
   const gestor = isGestor(session.role);
@@ -69,9 +70,15 @@ export function useFirstSteps() {
     };
   }, [gestor, doneFlag, reload]);
 
-  const steps = useMemo(() => (data ? buildFirstSteps({ stores, ...data }) : []), [stores, data]);
+  const viewStores = useMemo(() => storesForFirstStepsView(stores, filialIds), [stores, filialIds]);
+  const steps = useMemo(() => (data ? buildFirstSteps({ stores: viewStores, ...data }) : []), [viewStores, data]);
   const doneCount = steps.filter((s) => s.done).length;
-  const allDone = steps.length > 0 && doneCount === steps.length;
+  const pendingCount = steps.length - doneCount;
+  // 100% definitivo é da rede inteira, mesmo com uma loja selecionada.
+  const allDone = useMemo(
+    () => data != null && stores.length > 0 && buildFirstSteps({ stores, ...data }).every((s) => s.done),
+    [stores, data],
+  );
 
   useEffect(() => {
     if (!allDone || doneFlag !== false || completing.current) return;
@@ -85,7 +92,7 @@ export function useFirstSteps() {
   }, [allDone, doneFlag, session.tenantId, show]);
 
   const status: FirstStepsStatus = !gestor || doneFlag === true || allDone ? "hidden" : data == null ? "loading" : "visible";
-  return { status, steps, doneCount, tenantId: session.tenantId };
+  return { status, steps, doneCount, pendingCount, tenantId: session.tenantId };
 }
 
 function stepAction(step: FirstStep): { label: string; to: string } | null {
