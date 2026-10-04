@@ -219,11 +219,11 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Tests 1:1 to Ranking AC 1, 2, 4, 5, 6 and edge "só ele na meta" (1º de 1, sem linha de falta)
-- [ ] Grupo mode uses individual % (meta do grupo ÷ pessoas do grupo)
-- [ ] Test asserts no numeric field besides `position` and `pct` (AC 3)
-- [ ] Gap to the person above in p.p. exposed as `gapPp` for the seller
-- [ ] Gate passes: `npm test`
+- [x] Tests 1:1 to Ranking AC 1, 2, 4, 5, 6 and edge "só ele na meta" (1º de 1, sem linha de falta)
+- [x] Grupo mode uses individual % (meta do grupo ÷ pessoas do grupo)
+- [x] Test asserts no numeric field besides `position` and `pct` (AC 3)
+- [x] Gap to the person above in p.p. exposed as `gapPp` for the seller
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
