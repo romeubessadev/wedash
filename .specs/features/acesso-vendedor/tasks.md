@@ -317,16 +317,16 @@ T29 → T30
 ### T11: Migration seller access
 
 **What**: Add `store_seller.membership_id` (+ unique index), `staff_tenant_ids()`, `invite_link_token(auth_user_id)` and `sync_seller_access(tenant, store)` (service role only).
-**Where**: `supabase/migrations/20261003120000_seller_access.sql`
+**Where**: `supabase/migrations/20261004130000_seller_access.sql` (20261003120000 and 20261004120000 were taken)
 **Depends on**: None
 **Reuses**: `link_seller_day_aggs` style
 **Requirement**: SACC-07
 
 **Done when**:
 
-- [ ] `sync_seller_access` follows Ciclo de vida AC 1-3 and the multi-store rule from the design
-- [ ] Execute revoked for `anon`/`authenticated` on the service-only functions
-- [ ] Gate passes: build
+- [x] `sync_seller_access` follows Ciclo de vida AC 1-3 and the multi-store rule from the design
+- [x] Execute revoked for `anon`/`authenticated` on the service-only functions
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -337,7 +337,7 @@ T29 → T30
 ### T12: Migration staff-only policies
 
 **What**: Recreate every tenant-wide policy of `public` tables to use `staff_tenant_ids()`; keep self-read policies (identity, membership, membership_store, tenant, announcement).
-**Where**: `supabase/migrations/20261003120100_staff_only_policies.sql`
+**Where**: `supabase/migrations/20261004130100_staff_only_policies.sql`
 **Depends on**: T11
 **Reuses**: current policy list (`select tablename, policyname, qual from pg_policies`)
 **Requirement**: SACC-06
