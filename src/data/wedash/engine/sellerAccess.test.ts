@@ -65,5 +65,7 @@ describe("invitable", () => {
     expect(invitable({ active: false, inErp: true, erpRole: "INDEFINIDO" })).toBe(false);
     expect(invitable({ active: true, inErp: true, erpRole: "GERENCIA" })).toBe(false);
     expect(invitable({ active: true, inErp: false, erpRole: "VENDEDOR" })).toBe(false);
+    expect(invitable({ active: true, inErp: true, erpRole: null })).toBe(true);
+    expect(invitable({ active: true, inErp: true, erpRole: "" })).toBe(false);
   });
 });

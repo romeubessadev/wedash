@@ -46,5 +46,5 @@ export function canTransition(from: AccessState, to: AccessState): boolean {
 
 /** Só quem está na equipe de vendas agora: ativo, ainda na lista do Millennium e com cargo VENDEDOR. */
 export function invitable(seller: { active: boolean; inErp: boolean; erpRole: string | null }): boolean {
-  return seller.active && seller.inErp && seller.erpRole === SELLER_ROLE;
+  return seller.active && seller.inErp && (seller.erpRole == null || seller.erpRole === SELLER_ROLE);
 }
