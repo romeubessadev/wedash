@@ -488,8 +488,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Error codes mapped to the spec texts (AC 8, 9, 10)
-- [ ] Gate passes: build
+- [x] Error codes mapped to the spec texts (AC 8, 9, 10)
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -507,8 +507,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Convite AC 2, 3, 4, 8 texts; "Enviando…" while sending; P2 toast "Acesso liberado também nesta loja."
-- [ ] Gate passes: build
+- [x] Convite AC 2, 3, 4, 8 texts; "Enviando…" while sending; P2 toast "Acesso liberado também nesta loja."
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -526,9 +526,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Convite AC 1, 5, 6, 7, 12; P2 AC 2
-- [ ] Skeleton while access loads
-- [ ] Gate passes: build
+- [x] Convite AC 1, 5, 6, 7, 12; P2 AC 2
+- [x] Skeleton while access loads
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -546,8 +546,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Aceitar AC 1, 2, 3
-- [ ] Gate passes: build
+- [x] Aceitar AC 1, 2, 3
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -565,8 +565,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Ciclo de vida AC 4; Gestor/Gerente behavior unchanged
-- [ ] Gate passes: build
+- [x] Ciclo de vida AC 4; Gestor/Gerente behavior unchanged
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
