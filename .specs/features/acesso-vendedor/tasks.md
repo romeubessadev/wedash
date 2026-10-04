@@ -261,10 +261,10 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Tests: active goal with seller in group; seller outside groups (`me = null`, ranking still shown); no active goal (`goal = null`); two stores → two entries; goal ended yesterday → `goal = null`
-- [ ] `me` values equal `sellerGoalLevels` for the same person (Premiação AC 6)
-- [ ] `myDays` contains only the seller's rows (Leitura AC 2)
-- [ ] Gate passes: `npm test`
+- [x] Tests: active goal with seller in group; seller outside groups (`me = null`, ranking still shown); no active goal (`goal = null`); two stores → two entries; goal ended yesterday → `goal = null`
+- [x] `me` values equal `sellerGoalLevels` for the same person (Premiação AC 6)
+- [x] `myDays` contains only the seller's rows (Leitura AC 2)
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
