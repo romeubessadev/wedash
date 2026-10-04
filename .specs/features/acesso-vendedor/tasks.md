@@ -301,10 +301,10 @@ T29 → T30
 
 **Done when**:
 
-- [ ] `package.json` script `sync:engine`
-- [ ] `src/data/wedash/engine/engineCopy.test.ts` compares every file byte by byte
-- [ ] Copies committed
-- [ ] Gate passes: `npm test`
+- [x] `package.json` script `sync:engine`
+- [x] `src/data/wedash/engine/engineCopy.test.ts` compares every file byte by byte
+- [x] Copies committed
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick

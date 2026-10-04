@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview",
+    "sync:engine": "node scripts/sync-engine.mjs",
     "worker:sync": "npm start --prefix workers/millennium-sync"
   },
   "dependencies": {
