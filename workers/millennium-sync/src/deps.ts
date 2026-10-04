@@ -738,6 +738,12 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       });
       if (linkErr) console.warn(`link_seller_day_aggs: ${linkErr.message}`);
 
+      const { error: accessErr } = await sb.rpc("sync_seller_access", {
+        p_tenant_id: args.tenantId,
+        p_store_id: args.storeId,
+      });
+      if (accessErr) console.warn(`sync_seller_access: ${accessErr.message}`);
+
       const { data: rows, error: rowsErr } = await sb
         .from("store_seller")
         .select("millennium_employee_id, millennium_gerador_id, name_keys, erp_role")
