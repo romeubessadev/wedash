@@ -175,9 +175,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] `goalView.test.ts` passes unchanged
-- [ ] No `@/` import in the engine
-- [ ] Gate passes: `npm test`
+- [x] `goalView.test.ts` passes unchanged
+- [x] No `@/` import in the engine
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
