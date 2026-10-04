@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, CardTitle, ProgressBar, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, ProgressBar, useToast } from "@/components/ui";
 import {
   buildFirstSteps,
   completeFirstSteps,
@@ -133,7 +133,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
   }
 
   return (
-    <div className="mt-4 print:hidden">
+    <Card className="mt-4 print:hidden">
       <button
         type="button"
         onClick={toggle}
@@ -176,7 +176,6 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
                 className={cn(
                   "flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-3 py-2 shadow-[var(--shadow-vela)] transition-colors hover:border-line-2",
                   proximo && "border-l-[3px] border-l-acc",
-                  step.done && "opacity-55",
                 )}
               >
                 <span
@@ -188,9 +187,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
                   {step.done && <CheckIcon />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-[13.5px] font-semibold", step.done ? "text-t2 line-through" : "text-t0")}>
-                    {step.title}
-                  </p>
+                  <p className="truncate text-[13.5px] font-semibold text-t0">{step.title}</p>
                   {proximo && (
                     <p className="mt-0.5 text-[11.5px] leading-snug text-t2">
                       {step.description}
@@ -220,6 +217,6 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
