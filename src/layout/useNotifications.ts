@@ -90,7 +90,7 @@ export function useNotifications(tenantId: string, role: string, canManageErp: b
     const [announcements, remote, erp] = await Promise.all([
       fetchAnnouncements(role),
       fetchNotificationState(tenantId, seed),
-      canManageErp ? fetchErpIntegrationStatus(tenantId).catch(() => null) : Promise.resolve(null),
+      canManageErp && role !== "SELLER" ? fetchErpIntegrationStatus(tenantId).catch(() => null) : Promise.resolve(null),
     ]);
     setItems(announcements);
     apply(remote);

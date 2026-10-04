@@ -3,7 +3,7 @@ import { Dropdown, Tooltip, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { fetchSyncWatermark } from "@/data/wedash/salesRepo";
-import { formatForceCooldownLabel } from "@/data/wedash/syncUi";
+import { canForceSyncRefresh, formatForceCooldownLabel } from "@/data/wedash/syncUi";
 import { AUTO_REFRESH_MIN, nextAutoRefreshAt, storePhase } from "@/data/wedash/autoRefresh";
 import { lastUpdatedLines } from "@/pages/dashboard/LastUpdated";
 import { fetchErpIntegrationStatus, fetchLastAutoRefreshAt, type ErpIntegrationStatus } from "@/data/wedash/erp";
@@ -24,6 +24,7 @@ const STALE_OPEN_MS = 2 * AUTO_REFRESH_MIN * 60_000;
 export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
   const session = useActiveSession();
   const { show } = useToast();
+  const pode = canForceSyncRefresh(session.role);
   const [erp, setErp] = useState<ErpIntegrationStatus | null>(null);
   const [lastAutoAt, setLastAutoAt] = useState<Date | null>(null);
   const [watermark, setWatermark] = useState<Date | null>(null);
@@ -33,6 +34,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
 
   const loadWatermark = useCallback(
     async (notifyIfNewer: boolean) => {
+      if (!pode) return;
       try {
         const [wm, st, lastAuto] = await Promise.all([
           fetchSyncWatermark(session.tenantId),
@@ -52,7 +54,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
         console.warn("TopbarRefresh watermark:", e);
       }
     },
-    [session.tenantId],
+    [session.tenantId, pode],
   );
 
   useEffect(() => {
@@ -103,7 +105,7 @@ export function TopbarRefresh({ storeIds }: { storeIds: string[] }) {
         lastAutoAt,
       })
     : null;
-  if (!canForce) return null;
+  if (!pode || !canForce) return null;
 
   const algumaAberta = lojas.some((s) => storePhase(s.horas, now, s.fuso) === "open");
   const atrasado =

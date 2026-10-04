@@ -107,7 +107,8 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
 
   // Loja é filtro global: Topbar nas telas do produto (não só Dashboard).
   const mostraStorePicker =
-    location.pathname === paths.dashboard ||
+    session.role !== "SELLER" &&
+    (location.pathname === paths.dashboard ||
     location.pathname.startsWith(paths.dashboard + "/") ||
     location.pathname === paths.live.root ||
     location.pathname.startsWith(paths.live.root + "/") ||
@@ -117,7 +118,7 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
     location.pathname.startsWith("/management/") ||
     location.pathname.startsWith("/operation/") ||
     location.pathname.startsWith(paths.settings.root) ||
-    location.pathname === paths.profile;
+    location.pathname === paths.profile);
 
   // Menu do avatar: Conta = Meu perfil · (Gestor) Integrações, Usuários, Logs · Sair.
   const conta: DropdownItem[] = isGestor(session.role)
