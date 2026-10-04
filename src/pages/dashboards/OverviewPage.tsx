@@ -41,6 +41,7 @@ import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotic
 import { InitialSyncNotice } from "@/pages/dashboard/InitialSyncNotice";
 import { StoreHoursNotice } from "@/pages/dashboard/StoreHoursNotice";
 import { ErpStatusNotice } from "@/pages/dashboard/ErpStatusNotice";
+import { FirstStepsCard, useFirstSteps } from "@/pages/dashboard/FirstSteps";
 import { ReportHeader, useExportPdf } from "@/pages/dashboard/ReportHeader";
 import { usePrintMode } from "@/lib/printMode";
 import { cn } from "@/lib/cn";
@@ -420,6 +421,7 @@ export default function OverviewPage() {
   const monthFill = useMonthFill();
   const printing = usePrintMode();
   const exportar = useExportPdf("Visão geral");
+  const firstSteps = useFirstSteps();
   const { abrir: abrirDetalhe, modal: detalheModal } = useProductDetail({ escopo, tenantId: session.tenantId });
   const niveisMeta = useMemo(
     () => new Map(view.topVendedoras.flatMap((v) => (v.key && v.meta ? [[v.key, v.meta] as const] : []))),
@@ -458,7 +460,11 @@ export default function OverviewPage() {
       <ErpStatusNotice />
       <InitialSyncNotice />
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
-      <StoreHoursNotice />
+      {/* O horário de funcionamento já é um dos primeiros passos. */}
+      {firstSteps.status === "hidden" && <StoreHoursNotice />}
+      {firstSteps.status === "visible" && (
+        <FirstStepsCard steps={firstSteps.steps} doneCount={firstSteps.doneCount} tenantId={firstSteps.tenantId} />
+      )}
 
       {showSkeleton ? (
         <OverviewSkeleton weekdays={periodoAtual.inicio !== periodoAtual.fim} />
