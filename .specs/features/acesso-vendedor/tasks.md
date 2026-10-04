@@ -282,8 +282,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Tests for Convite AC 8, 12; Leitura AC 5 (gerente fora da loja); Ciclo de vida AC 5 (all allowed/denied transitions); edge e-mail com maiúsculas/espaços
-- [ ] Gate passes: `npm test`
+- [x] Tests for Convite AC 8, 12; Leitura AC 5 (gerente fora da loja); Ciclo de vida AC 5 (all allowed/denied transitions); edge e-mail com maiúsculas/espaços
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
