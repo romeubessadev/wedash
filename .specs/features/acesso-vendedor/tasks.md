@@ -344,9 +344,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Every policy that used the membership subselect is recreated (list in a header comment)
-- [ ] Gestor/Gerente behavior unchanged (same predicate minus SELLER)
-- [ ] Gate passes: build
+- [x] Every policy that used the membership subselect is recreated (list in a header comment)
+- [x] Gestor/Gerente behavior unchanged (same predicate minus SELLER)
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
