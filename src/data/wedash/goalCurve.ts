@@ -9,6 +9,8 @@
 import { deIso, fimDoMes, inicioDoMes, intervaloDias, somarDias } from "@/lib/format";
 import { closeHourCeil, openHourFloor, type Dow, type StoreWeekHours } from "./storeHours";
 
+export { weekdayWeights } from "./engine/goalWeights";
+
 /** Semanas de histórico usadas para a curva. */
 export const GOAL_CURVE_WEEKS = 6;
 
@@ -22,28 +24,6 @@ export function goalHistorySameWeekdays(day: string): string[] {
   const out: string[] = [];
   for (let w = 1; w <= GOAL_CURVE_WEEKS; w++) out.push(somarDias(day, -7 * w));
   return out;
-}
-
-/**
- * Peso por dia da semana (índice = Dow). Média do faturamento dos dias com venda;
- * dia sem observação usa a média geral se a loja abre nesse dia, senão 0.
- */
-export function weekdayWeights(dayRevenue: Map<string, number>, week: StoreWeekHours): number[] {
-  const sum = [0, 0, 0, 0, 0, 0, 0];
-  const count = [0, 0, 0, 0, 0, 0, 0];
-  for (const [iso, v] of dayRevenue) {
-    if (v <= 0) continue;
-    const dow = deIso(iso).getDay();
-    sum[dow] += v;
-    count[dow] += 1;
-  }
-  const observed = count.reduce((s, c) => s + c, 0);
-  const overall = observed > 0 ? sum.reduce((s, v) => s + v, 0) / observed : 1;
-  const weights = sum.map((s, dow) => {
-    if (count[dow] > 0) return s / count[dow];
-    return week[dow as Dow] ? overall : 0;
-  });
-  return weights.some((w) => w > 0) ? weights : [1, 1, 1, 1, 1, 1, 1];
 }
 
 /** Meta de um dia a partir da meta do mês e dos pesos por dia da semana. */

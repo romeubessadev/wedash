@@ -135,9 +135,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] No imports in `goalTypes.ts`
-- [ ] `goalsRepo`, `teamViews`, `salesTypes`, `goals` re-export the moved types
-- [ ] Gate passes: `npm test` (existing count)
+- [x] No imports in `goalTypes.ts`
+- [x] `goalsRepo`, `teamViews`, `salesTypes`, `goals` re-export the moved types
+- [x] Gate passes: `npm test` (existing count)
 
 **Tests**: unit
 **Gate**: quick
@@ -155,9 +155,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] `goalCurve.test.ts` passes unchanged
-- [ ] Engine file imports only from `engine/`
-- [ ] Gate passes: `npm test`
+- [x] `goalCurve.test.ts` passes unchanged
+- [x] Engine file imports only from `engine/`
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick

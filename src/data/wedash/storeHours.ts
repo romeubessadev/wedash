@@ -1,12 +1,8 @@
 /** Horário de funcionamento e fusos — Configurações > Lojas. */
 
-/** 0 = domingo … 6 = sábado (Date#getDay). */
-export type Dow = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+import type { DayHours, Dow, StoreWeekHours } from "./engine/goalWeights.ts";
 
-/** null = fechado nesse dia. */
-export type DayHours = { open: string; close: string } | null;
-
-export type StoreWeekHours = Record<Dow, DayHours>;
+export type { DayHours, Dow, StoreWeekHours } from "./engine/goalWeights.ts";
 
 export const DOW_LABELS: Record<Dow, string> = {
   0: "Domingo",
