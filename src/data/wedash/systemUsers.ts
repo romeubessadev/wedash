@@ -176,8 +176,10 @@ export async function systemUserAction(action: MemberAction, membershipId: strin
 
 export interface InviteInfo {
   email: string;
-  role: SystemRole;
+  role: SystemRole | "SELLER";
   companyName: string;
+  /** Loja do convite de vendedor (fantasia). null para Gestor/Gerente. */
+  storeName: string | null;
 }
 
 export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } | { ok: false; code: string }> {
@@ -186,7 +188,16 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   const { data, error } = await sb.functions.invoke("team-members", { body: { action: "invite_info" } });
   const res = data as ({ ok?: boolean; error?: string } & InviteInfo) | null;
   if (error || !res?.ok) return { ok: false, code: res?.error ?? "not_found" };
-  return { ok: true, info: { email: res.email, role: res.role, companyName: companyNameCase(res.companyName) } };
+  const resAny = res as InviteInfo & { storeName?: string | null };
+  return {
+    ok: true,
+    info: {
+      email: res.email,
+      role: res.role,
+      companyName: companyNameCase(res.companyName),
+      storeName: resAny.storeName ? companyNameCase(resAny.storeName) : null,
+    },
+  };
 }
 
 /** Ativa o convite gravando o nome e o sobrenome informados no "Crie seu acesso". */

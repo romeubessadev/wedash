@@ -164,13 +164,27 @@ export function Invite() {
       </IconeCard>
       <h1 className={acessoTitulo}>Crie seu acesso</h1>
       <p className={acessoSubtitulo}>
-        Informe seu nome e crie uma senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
-        {info.companyName ? (
+        {info.role === "SELLER" ? (
           <>
-            {" "}
-            da <span className="font-bold text-t0">{info.companyName}</span>
+            Informe seu nome e crie uma senha para acessar a WeDash como parte da equipe de vendas
+            {info.storeName ? (
+              <>
+                {" "}
+                da loja <span className="font-bold text-t0">{info.storeName}</span>
+              </>
+            ) : null}
           </>
-        ) : null}
+        ) : (
+          <>
+            Informe seu nome e crie uma senha para acessar a WeDash como {roleLabel[info.role].toLowerCase()}
+            {info.companyName ? (
+              <>
+                {" "}
+                da <span className="font-bold text-t0">{info.companyName}</span>
+              </>
+            ) : null}
+          </>
+        )}
         .
       </p>
       <form onSubmit={criar} className="flex flex-col gap-4" noValidate>
