@@ -586,8 +586,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Tests 1:1 to Seus números AC 1-6 (P.A. "—" when a day lacks items; zero sales without badge; sum across stores)
-- [ ] Gate passes: `npm test`
+- [x] Tests 1:1 to Seus números AC 1-6 (P.A. "—" when a day lacks items; zero sales without badge; sum across stores)
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
@@ -605,8 +605,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Returns typed payload from the engine types
-- [ ] Gate passes: build
+- [x] Returns typed payload from the engine types
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -624,8 +624,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Premiação AC 2-5, 8, 9 texts
-- [ ] Gate passes: build
+- [x] Premiação AC 2-5, 8, 9 texts
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -643,8 +643,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Seus números AC 1-5 rendered
-- [ ] Gate passes: build
+- [x] Seus números AC 1-5 rendered
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -662,8 +662,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Ranking AC 2-5, 7 rendered
-- [ ] Gate passes: build
+- [x] Ranking AC 2-5, 7 rendered
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -681,8 +681,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Premiação AC 1, 7, 10; Leitura AC 3 (gestor routes redirect)
-- [ ] Gate passes: build
+- [x] Premiação AC 1, 7, 10; Leitura AC 3 (gestor routes redirect)
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -700,8 +700,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Premiação AC 11; no failed requests for SELLER in the console
-- [ ] Gate passes: build
+- [x] Premiação AC 11; no failed requests for SELLER in the console
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
