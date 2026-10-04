@@ -121,7 +121,7 @@ function stepAction(step: FirstStep): { label: string; to: string } | null {
 const collapsedKey = (tenantId: string) => `wedash.firstSteps.collapsed:${tenantId}`;
 
 const CheckIcon = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white">
     <path d="M20 6 9 17l-5-5" />
   </svg>
 );
@@ -181,7 +181,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
               <div
                 key={step.id}
                 className={cn(
-                  "flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-3 py-2 shadow-[var(--shadow-vela)] transition-colors hover:border-line-2",
+                  "flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-4 py-3.5 shadow-[var(--shadow-vela)] hover:border-line-2",
                   proximo && "border-l-[3px] border-l-acc",
                 )}
               >
@@ -195,15 +195,10 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-semibold text-t0">{step.title}</p>
-                  {proximo && (
-                    <p className="mt-0.5 text-[11.5px] leading-snug text-t2">
-                      {step.description}
-                      {step.detail ? <span className="font-semibold text-warn"> · {step.detail}</span> : null}
-                    </p>
-                  )}
-                  {!proximo && step.detail && (
-                    <p className="mt-0.5 text-[11.5px] font-semibold text-warn">{step.detail}</p>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-2.5">
+                    <span className="text-[11.5px] text-t2">{step.description}</span>
+                    {step.detail && <span className="text-[11px] font-bold text-warn">{step.detail}</span>}
+                  </div>
                 </div>
                 {proximo && action && (
                   <Button size="sm" className="shrink-0" onClick={() => navigate(action.to)}>
