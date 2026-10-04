@@ -529,7 +529,7 @@ export function destinationAfterAuth(s: Session, de?: string | null): string {
     /* ignore */
   }
   if (de && de !== "/" && !de.startsWith(paths.access.login)) return de;
-  if (s.role === "SELLER") return paths.seller.myGoal;
+  if (s.role === "SELLER") return paths.seller.home;
   return paths.overview;
 }
 

@@ -101,10 +101,8 @@ export function isGestor(role: Role): boolean {
 }
 
 const navVendedora: NavEntry[] = [
-  { label: "Minha meta", icon: ICONE.meta, to: paths.seller.myGoal },
-  { label: "Tarefas", icon: ICONE.tarefas, to: paths.seller.tasks },
-  { label: "Ranking", icon: ICONE.ranking, to: paths.seller.ranking },
-  { label: "Perfil", icon: ICONE.perfil, to: paths.profile },
+  { label: "Início", icon: ICONE.dashboard, to: paths.seller.home },
+  { label: "Meu perfil", icon: ICONE.perfil, to: paths.profile },
 ];
 
 export function navDoPapel(role: Role): NavEntry[] {

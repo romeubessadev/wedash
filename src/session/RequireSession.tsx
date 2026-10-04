@@ -55,6 +55,6 @@ export function RequireRole({ roles }: { roles: Role[] }) {
 }
 
 export function homeForRole(role: Role): string {
-  if (role === "SELLER") return paths.seller.myGoal;
+  if (role === "SELLER") return paths.seller.home;
   return paths.overview;
 }

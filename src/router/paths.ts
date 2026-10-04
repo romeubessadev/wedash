@@ -79,6 +79,7 @@ export const paths = {
   },
   analytics: "/analytics",
   seller: {
+    home: "/home",
     myGoal: "/my-goal",
     tasks: "/tasks",
     ranking: "/ranking",
