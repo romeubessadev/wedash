@@ -1,5 +1,6 @@
 import { defaultWeekHours, effectiveWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
 import { collaboratorName, shiftName } from "@/lib/format";
+import { SELLER_ROLE } from "./engine/goalRows";
 
 export type PointType = "SHOPPING" | "RUA";
 export type Division = "WEPINK" | "WPINK";
@@ -560,7 +561,7 @@ export interface StoreSeller {
   shiftId: string | null;
 }
 
-export const SELLER_ROLE = "VENDEDOR";
+export { SELLER_ROLE };
 
 /** Na equipe de vendas agora: ativo com cargo VENDEDOR (gerência / conta de freelancer fica fora). */
 export function isActiveSalesPerson(s: Pick<StoreSeller, "active" | "role">): boolean {

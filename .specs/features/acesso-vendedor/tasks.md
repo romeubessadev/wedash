@@ -38,6 +38,8 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 | Full | After the integration task (T13) | `npm test && node scripts/check-seller-isolation.mjs` |
 | Build | After phase completion or schema/Edge/UI-only tasks | `npm run build && npm run lint && npm test && npx tsc -p workers/millennium-sync --noEmit` |
 
+Baseline before this feature (do not count as gate failures, never add to them): `npm test` = 4 failing tests in `src/data/wedash/dashboard.test.ts` ("Overview from sales aggregates", fixtures in September with "esteMes"); worker `tsc` = 4 errors in `decrypt.ts` (1) and `runSyncJob.test.ts` (3).
+
 ---
 
 ## Execution Plan
@@ -195,9 +197,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Unit tests: goal row with tiers/groups/manager prize, team member row, seller-day row, exclusion by código, gerador and loja+nome
-- [ ] Existing `salesRepo.test.ts` passes
-- [ ] Gate passes: `npm test` (+N new tests)
+- [x] Unit tests: goal row with tiers/groups/manager prize, team member row, seller-day row, exclusion by código, gerador and loja+nome
+- [x] Existing `salesRepo.test.ts` passes
+- [x] Gate passes: `npm test` (+N new tests)
 
 **Tests**: unit
 **Gate**: quick

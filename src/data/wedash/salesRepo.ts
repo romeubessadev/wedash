@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
-import { collaboratorName, shiftName } from "@/lib/format";
+import { shiftName } from "@/lib/format";
+import {
+  excludeNonSalesPeople,
+  sellerDayFromRow,
+  type NonSalesPeople,
+  type SellerDayRow,
+} from "./engine/goalRows";
 import {
   applyFillToDayAggs,
   applyFillToProductCosts,
@@ -106,20 +112,6 @@ type PaymentDayRow = {
   sales_count: number;
 };
 
-type SellerDayRow = {
-  tenant_id: string;
-  store_id: string;
-  day: string;
-  seller_key: string;
-  seller_name: string;
-  seller_employee_id: number | null;
-  seller_gerador_id: number | null;
-  brand: SalesBrand;
-  revenue_cents: number;
-  sales_count: number;
-  item_count: number | null;
-};
-
 type ProductDayRow = {
   tenant_id: string;
   store_id: string;
@@ -174,22 +166,6 @@ function mapPaymentDay(r: PaymentDayRow): SalesPaymentDayAgg {
     brand: r.brand,
     revenueCents: Number(r.revenue_cents) || 0,
     salesCount: Number(r.sales_count) || 0,
-  };
-}
-
-function mapSellerDay(r: SellerDayRow): SalesSellerDayAgg {
-  return {
-    tenantId: r.tenant_id,
-    storeId: r.store_id,
-    day: r.day,
-    sellerKey: String(r.seller_key ?? ""),
-    sellerName: collaboratorName(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
-    sellerEmployeeId: r.seller_employee_id == null ? null : Number(r.seller_employee_id),
-    sellerGeradorId: r.seller_gerador_id == null ? null : Number(r.seller_gerador_id),
-    brand: r.brand,
-    revenueCents: Number(r.revenue_cents) || 0,
-    salesCount: Number(r.sales_count) || 0,
-    itemCount: Number(r.item_count) || 0,
   };
 }
 
@@ -454,23 +430,7 @@ export async function fetchSalesPaymentDayAggs(
   return (await fetchAllPages<PaymentDayRow>(ordered, "fetchSalesPaymentDayAggs")).map(mapPaymentDay);
 }
 
-/** Funcionários ativos com cargo ≠ VENDEDOR (gerência, conta de freelancer) — fora do ranking. */
-export type NonSalesPeople = {
-  employeeIds: Set<number>;
-  geradorIds: Set<number>;
-  /** `storeId|nome normalizado` — linhas sem código ligadas só pelo nome. */
-  storeNameKeys: Set<string>;
-};
-
-/** Tira do ranking as vendas de quem não é da equipe de vendas (a venda continua no total da loja, que vem de outra tabela). */
-export function excludeNonSalesPeople(rows: SalesSellerDayAgg[], people: NonSalesPeople): SalesSellerDayAgg[] {
-  if (people.employeeIds.size === 0 && people.geradorIds.size === 0 && people.storeNameKeys.size === 0) return rows;
-  return rows.filter((r) => {
-    if (r.sellerEmployeeId != null) return !people.employeeIds.has(r.sellerEmployeeId);
-    if (r.sellerGeradorId != null && people.geradorIds.has(r.sellerGeradorId)) return false;
-    return !people.storeNameKeys.has(`${r.storeId}|${r.sellerKey}`);
-  });
-}
+export { excludeNonSalesPeople, type NonSalesPeople } from "./engine/goalRows";
 
 export async function fetchNonSalesPeople(client: SalesQueryClient, tenantId: string): Promise<NonSalesPeople> {
   const out: NonSalesPeople = { employeeIds: new Set(), geradorIds: new Set(), storeNameKeys: new Set() };
@@ -564,7 +524,7 @@ export async function fetchSalesSellerDayAggs(
     fetchAllPages<SellerDayRow>(ordered, "fetchSalesSellerDayAggs"),
     fetchNonSalesPeople(client, query.tenantId),
   ]);
-  return excludeNonSalesPeople(rows.map(mapSellerDay), nonSales);
+  return excludeNonSalesPeople(rows.map(sellerDayFromRow), nonSales);
 }
 
 /** Receita diária por SKU ({E7A5C5C7} VENDAS DE PRODUTOS POR FILIAL). */

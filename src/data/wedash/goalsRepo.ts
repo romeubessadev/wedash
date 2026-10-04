@@ -1,67 +1,9 @@
-import { collaboratorName, fimDoMes, shiftName } from "@/lib/format";
-import { goals as fixtureGoals, type Tier } from "./goals";
-import { SELLER_ROLE } from "./stores";
-import type { GoalGroup, GoalRecord, GoalTeamMember } from "./engine/goalTypes";
+import { fimDoMes } from "@/lib/format";
+import { goals as fixtureGoals } from "./goals";
+import { goalFromRow, teamMemberFromRow, type GoalRow, type GoalTeamRow } from "./engine/goalRows";
+import type { GoalRecord, GoalTeamMember } from "./engine/goalTypes";
 
 export type { GoalGroup, GoalRecord, GoalTeamMember } from "./engine/goalTypes";
-
-type TierJson = {
-  name?: string;
-  minPct?: number;
-  commissionPct?: number;
-  bonusCents?: number;
-  managerCommissionPct?: number;
-  managerBonusCents?: number;
-};
-
-function parseTiers(raw: unknown): Tier[] {
-  if (!Array.isArray(raw)) return [];
-  return (raw as TierJson[])
-    .map((t): Tier => ({
-      nome: String(t.name ?? "").trim(),
-      atingimentoMinPct: Number(t.minPct ?? 0),
-      comissaoPct: Number(t.commissionPct ?? 0),
-      bonus: Number(t.bonusCents ?? 0) / 100,
-      ...(t.managerCommissionPct != null
-        ? { gerenciaPct: Number(t.managerCommissionPct), gerenciaBonus: Number(t.managerBonusCents ?? 0) / 100 }
-        : {}),
-    }))
-    .filter((t) => t.nome && Number.isFinite(t.atingimentoMinPct))
-    .sort((a, b) => a.atingimentoMinPct - b.atingimentoMinPct);
-}
-
-function parseGroups(raw: unknown): GoalGroup[] {
-  if (!Array.isArray(raw)) return [];
-  return (raw as { shiftId?: string; name?: string; pct?: number }[])
-    .map((g) => ({ shiftId: String(g.shiftId ?? ""), name: String(g.name ?? ""), pct: Number(g.pct ?? 0) }))
-    .filter((g) => g.shiftId && Number.isFinite(g.pct));
-}
-
-type GoalRow = {
-  id: string;
-  store_id: string;
-  name: string;
-  starts_on: string;
-  ends_on: string;
-  target_cents: number;
-  tier_mode: string;
-  tiers: unknown;
-  groups: unknown;
-};
-
-function fromRow(r: GoalRow): GoalRecord {
-  return {
-    id: r.id,
-    storeId: r.store_id,
-    name: r.name,
-    startsOn: r.starts_on,
-    endsOn: r.ends_on,
-    target: Number(r.target_cents) / 100,
-    tierMode: r.tier_mode === "GROUP" ? "GROUP" : "INDIVIDUAL",
-    tiers: parseTiers(r.tiers),
-    groups: parseGroups(r.groups),
-  };
-}
 
 /** Demo sem Supabase: metas fixture (lojas f1/f2), só a meta principal de cada mês. */
 function fixtureRecords(): GoalRecord[] {
@@ -153,7 +95,7 @@ export async function fetchGoals(q: { tenantId: string; storeIds: string[]; from
     console.warn("fetchGoals:", error.message);
     return [];
   }
-  return ((data ?? []) as GoalRow[]).map(fromRow);
+  return ((data ?? []) as GoalRow[]).map(goalFromRow);
 }
 
 export async function fetchGoal(tenantId: string, id: string): Promise<GoalRecord | null> {
@@ -165,7 +107,7 @@ export async function fetchGoal(tenantId: string, id: string): Promise<GoalRecor
     console.warn("fetchGoal:", error.message);
     return null;
   }
-  return data ? fromRow(data as GoalRow) : null;
+  return data ? goalFromRow(data as GoalRow) : null;
 }
 
 export async function deleteGoal(tenantId: string, id: string): Promise<{ ok: boolean }> {
@@ -198,28 +140,5 @@ export async function fetchGoalTeam(tenantId: string, storeIds: string[]): Promi
     console.warn("fetchGoalTeam:", error.message);
     return [];
   }
-  type Row = {
-    store_id: string;
-    millennium_employee_id: number;
-    millennium_gerador_id: number | null;
-    name: string;
-    name_keys: string[] | null;
-    active: boolean;
-    erp_role: string | null;
-    shift_id: string | null;
-    store_shift: { name: string } | { name: string }[] | null;
-  };
-  return ((data ?? []) as unknown as Row[]).map((r) => {
-    const shift = Array.isArray(r.store_shift) ? r.store_shift[0] : r.store_shift;
-    return {
-      storeId: r.store_id,
-      employeeId: r.millennium_employee_id,
-      geradorId: r.millennium_gerador_id == null ? null : Number(r.millennium_gerador_id),
-      name: collaboratorName(r.name),
-      nameKeys: r.name_keys ?? [],
-      salesPerson: r.active && (r.erp_role == null || r.erp_role === SELLER_ROLE),
-      shiftId: r.shift_id,
-      shiftName: shift?.name ? shiftName(shift.name) : null,
-    };
-  });
+  return ((data ?? []) as unknown as GoalTeamRow[]).map(teamMemberFromRow);
 }
