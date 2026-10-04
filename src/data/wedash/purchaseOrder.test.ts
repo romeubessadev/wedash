@@ -10,6 +10,7 @@ import {
   isNewProduct,
   parseMinInput,
   purchaseQuantity,
+  soldHistoryCovers,
   type PurchaseStockRow,
 } from "./purchaseOrder";
 
@@ -66,6 +67,24 @@ describe("isNewProduct (PC-02: cadastro entre hoje e 29 dias atrás)", () => {
     expect(isNewProduct("2026-09-03", TODAY)).toBe(false);
     expect(isNewProduct(null, TODAY)).toBe(false);
     expect(isNewProduct("2026-10-04", TODAY)).toBe(false);
+  });
+});
+
+describe("soldHistoryCovers (PC-02: 'nunca vendeu' só com 12 meses de histórico ou desde a inauguração)", () => {
+  it("cobre com histórico de 365 dias ou mais", () => {
+    expect(soldHistoryCovers("2025-10-03", null, TODAY)).toBe(true);
+    expect(soldHistoryCovers("2024-10-01", "2020-01-01", TODAY)).toBe(true);
+  });
+  it("não cobre com histórico de 364 dias e inauguração anterior", () => {
+    expect(soldHistoryCovers("2025-10-04", null, TODAY)).toBe(false);
+    expect(soldHistoryCovers("2025-10-04", "2025-10-03", TODAY)).toBe(false);
+  });
+  it("cobre quando o histórico começa na inauguração ou antes", () => {
+    expect(soldHistoryCovers("2026-05-01", "2026-05-01", TODAY)).toBe(true);
+    expect(soldHistoryCovers("2026-05-01", "2026-05-12", TODAY)).toBe(true);
+  });
+  it("sem histórico não cobre", () => {
+    expect(soldHistoryCovers(null, "2026-05-01", TODAY)).toBe(false);
   });
 });
 
@@ -151,6 +170,41 @@ describe("buildPurchaseOrderView", () => {
     const [velho, novo] = view([stock(), stock({ code: "N1", registeredAt: "2026-09-20", position: 1 })]).rows;
     expect(velho.novo).toBe(false);
     expect(novo.novo).toBe(true);
+  });
+
+  it("Novo também quando a loja nunca vendeu, com histórico que cobre (PC-02)", () => {
+    const rows = [stock(), stock({ code: "V1", position: 1 }), stock({ code: "N1", registeredAt: "2026-09-20", position: 2 })];
+    const v = buildPurchaseOrderView({
+      stock: rows,
+      mins: new Map(),
+      sold30: new Map(),
+      soldEver: new Set(["V1", "N1"]),
+      factor: 1,
+      todayIso: TODAY,
+    });
+    expect(v.rows.map((r) => [r.code, r.novo])).toEqual([
+      ["BSPPAR-ATH-001", true],
+      ["V1", false],
+      ["N1", true],
+    ]);
+    expect(v.contagens.novos).toBe(2);
+  });
+
+  it("sem histórico que cobre (soldEver null), Novo só pela data de cadastro (PC-02)", () => {
+    const v = buildPurchaseOrderView({ stock: [stock()], mins: new Map(), sold30: new Map(), soldEver: null, factor: 1, todayIso: TODAY });
+    expect(v.rows[0].novo).toBe(false);
+  });
+
+  it("bloqueado para compra nunca vira Novo, mesmo sem venda (PC-01, PC-02)", () => {
+    const v = buildPurchaseOrderView({
+      stock: [stock({ blocked: true })],
+      mins: new Map(),
+      sold30: new Map(),
+      soldEver: new Set(),
+      factor: 1,
+      todayIso: TODAY,
+    });
+    expect(v.rows).toHaveLength(0);
   });
 
   it("produto com mais de uma variante elegível: aviso, A pedir '—' e fora do pedido (PC-05 AC 9)", () => {

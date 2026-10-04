@@ -80,7 +80,7 @@ T8 → T9 → T10
 
 - [x] `filterPurchaseRows`: busca por nome ou código sem diferenciar maiúsculas e acentos; filtros "Vai para o pedido", "Sem mínimo", "Novos"
 - [x] Elegível = código sem `WP` (qualquer caixa), não bloqueado, múltipla > 0
-- [x] Novo = 0 ≤ dias desde o cadastro < 30 (data nula = não novo)
+- [x] Novo = 0 ≤ dias desde o cadastro < 30 (data nula = não novo) **ou** código fora de `soldEver` (só quando `soldHistoryCovers`: histórico ≥ 365 dias ou desde a inauguração)
 - [x] `purchaseQuantity`: alvo = mín × fator; Total negativo = 0; Total ≥ alvo ou mín 0/nulo = 0; senão (alvo − Total) arredondado para cima ao múltiplo (múltipla 1 = diferença exata)
 - [x] `parseMinInput`: vazio = null; inteiro 0..99999 = número; resto = inválido
 - [x] Produto com > 1 variante elegível: `variasVariantes`, A pedir null, não entra no resumo nem em `noPedido`

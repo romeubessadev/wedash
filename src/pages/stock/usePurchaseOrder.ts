@@ -3,7 +3,7 @@ import { useToast } from "@/components/ui";
 import { addDays } from "@/data/wedash/autoRefresh";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { buildPurchaseOrderView, parseMinInput, type PurchaseStockRow } from "@/data/wedash/purchaseOrder";
-import { fetchPurchaseMins, fetchPurchaseStock, fetchSold30, savePurchaseMin, syncPurchaseStockNow } from "@/data/wedash/purchaseRepo";
+import { fetchPurchaseMins, fetchPurchaseStock, fetchSold30, fetchSoldEver, savePurchaseMin, syncPurchaseStockNow } from "@/data/wedash/purchaseRepo";
 import type { StockCatalogItem } from "@/data/wedash/stockProducts";
 import { fetchStockCatalog } from "@/data/wedash/stockRepo";
 import { FORCE_REFRESH_CLICK_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -18,6 +18,7 @@ type Loaded = {
   syncedAt: string | null;
   mins: Map<string, number>;
   sold30: Map<string, number>;
+  soldEver: Set<string> | null;
   catalog: Map<string, StockCatalogItem>;
 };
 
@@ -38,7 +39,7 @@ function diaHora(iso: string): string {
 const isStale = (syncedAt: string | null, now: number) => !syncedAt || now - Date.parse(syncedAt) > PURCHASE_MAX_AGE_MS;
 
 /**
- * Pedido de compra de uma loja: saldo guardado + mínimos + vendidos em 30 dias (D-30 a D-1).
+ * Pedido de compra de uma loja: saldo guardado + mínimos + vendidos em 30 dias (D-30 a D-1) + códigos já vendidos (Novo).
  * Ao abrir (e ao trocar de loja), busca o saldo no Millennium se a última busca tem mais de 30 min;
  * o Atualizar do topo força a busca.
  */
@@ -58,13 +59,14 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
   const load = useCallback(
     async (id: string): Promise<Loaded> => {
       const hoje = calendarTodayIso();
-      const [stock, mins, sold30, catalog] = await Promise.all([
+      const [stock, mins, sold30, soldEver, catalog] = await Promise.all([
         fetchPurchaseStock(tenantId, id),
         fetchPurchaseMins(tenantId, id),
         fetchSold30(tenantId, id, addDays(hoje, -30), addDays(hoje, -1)),
+        fetchSoldEver(tenantId, id, hoje),
         fetchStockCatalog(),
       ]);
-      return { storeId: id, rows: stock.rows, syncedAt: stock.syncedAt, mins, sold30, catalog };
+      return { storeId: id, rows: stock.rows, syncedAt: stock.syncedAt, mins, sold30, soldEver, catalog };
     },
     [tenantId],
   );
@@ -152,6 +154,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
             stock: current.rows,
             mins: current.mins,
             sold30: current.sold30,
+            soldEver: current.soldEver,
             factor,
             todayIso: calendarTodayIso(),
           })

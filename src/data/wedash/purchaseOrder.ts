@@ -3,6 +3,7 @@
  * Fonte = Saldo Atual e Futuro do Millennium (ESTOQUEEMCOMPRA): Total = saldo + pedidos em aberto.
  * Elegível = código sem "WP", não bloqueado para compra e múltipla > 0.
  * A pedir = (mínimo × multiplicador − Total) arredondado para cima até a múltipla; Total negativo conta como 0.
+ * Novo = cadastrado há menos de 30 dias ou nunca vendido pela loja (só quando o histórico cobre 12 meses ou a inauguração).
  */
 
 export type PurchaseStockRow = {
@@ -68,6 +69,15 @@ export function isNewProduct(registeredAt: string | null, todayIso: string): boo
   return dias >= 0 && dias < NEW_PRODUCT_DAYS;
 }
 
+export const SOLD_HISTORY_DAYS = 365;
+
+/** "A loja nunca vendeu" só vale com histórico de 12 meses ou desde a inauguração (`firstDay` = 1º dia gravado da loja). */
+export function soldHistoryCovers(firstDay: string | null, openedAt: string | null, todayIso: string): boolean {
+  if (!firstDay) return false;
+  if (dayNumber(todayIso) - dayNumber(firstDay) >= SOLD_HISTORY_DAYS) return true;
+  return openedAt != null && dayNumber(firstDay) <= dayNumber(openedAt);
+}
+
 export function purchaseQuantity(total: number, min: number | null, multiple: number, factor: number): number {
   if (!min || min <= 0 || multiple <= 0) return 0;
   const alvo = min * factor;
@@ -88,9 +98,12 @@ export function buildPurchaseOrderView(input: {
   stock: PurchaseStockRow[];
   mins: Map<string, number>;
   sold30: Map<string, number>;
+  /** Códigos que a loja já vendeu; `null` = histórico ainda não cobre (Novo só pela data de cadastro). */
+  soldEver?: Set<string> | null;
   factor: number;
   todayIso: string;
 }): PurchaseOrderView {
+  const soldEver = input.soldEver ?? null;
   const porCodigo = new Map<string, PurchaseStockRow[]>();
   for (const r of [...input.stock].sort((a, b) => a.position - b.position)) {
     if (!isEligible(r)) continue;
@@ -118,7 +131,9 @@ export function buildPurchaseOrderView(input: {
       vendidos30: input.sold30.get(code) ?? 0,
       multipla,
       minimo,
-      novo: isNewProduct(variantes.find((v) => v.registeredAt)?.registeredAt ?? null, input.todayIso),
+      novo:
+        isNewProduct(variantes.find((v) => v.registeredAt)?.registeredAt ?? null, input.todayIso) ||
+        (soldEver != null && !soldEver.has(code)),
       variasVariantes,
       aPedir,
       noPedido: (aPedir ?? 0) > 0,

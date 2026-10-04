@@ -3,7 +3,7 @@
  * (`store_purchase_min`), vendidos em 30 dias e busca do saldo no Millennium (Edge `erp-stock-sync`).
  */
 import { getSupabase } from "@/lib/supabase";
-import type { PurchaseStockRow } from "./purchaseOrder";
+import { soldHistoryCovers, type PurchaseStockRow } from "./purchaseOrder";
 import { fetchAllPages, fetchSalesProductDayAggs } from "./salesRepo";
 import type { SalesProductDayAgg } from "./salesTypes";
 
@@ -119,6 +119,33 @@ export async function savePurchaseMin(tenantId: string, storeId: string, code: s
 
 export async function fetchSold30(tenantId: string, storeId: string, fromIso: string, toIso: string): Promise<Map<string, number>> {
   return sold30FromAggs(await fetchSalesProductDayAggs({ tenantId, storeIds: [storeId], from: fromIso, to: toIso }));
+}
+
+/**
+ * Códigos que a loja já vendeu, ou `null` quando o histórico gravado ainda não cobre 12 meses nem a inauguração
+ * (ou a leitura falhou) — aí "Novo" fica só pela data de cadastro.
+ */
+export async function fetchSoldEver(tenantId: string, storeId: string, todayIso: string): Promise<Set<string> | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const [first, store] = await Promise.all([
+      from("sales_day_agg").select("day").eq("tenant_id", tenantId).eq("store_id", storeId).eq("brand", "ALL").order("day").limit(1),
+      from("store").select("opened_at").eq("id", storeId).maybeSingle(),
+    ]);
+    const firstDay = (first?.data?.[0]?.day as string | undefined)?.slice(0, 10) ?? null;
+    const openedAt = (store?.data?.opened_at as string | null | undefined)?.slice(0, 10) ?? null;
+    if (!soldHistoryCovers(firstDay, openedAt, todayIso)) return null;
+    const { data, error } = await sb.rpc("store_sold_product_codes", { p_tenant_id: tenantId, p_store_id: storeId });
+    if (error || !Array.isArray(data)) {
+      if (error) console.warn("fetchSoldEver:", error.message);
+      return null;
+    }
+    return new Set((data as string[]).map((c) => String(c).trim()).filter(Boolean));
+  } catch (e) {
+    console.warn("fetchSoldEver:", e);
+    return null;
+  }
 }
 
 export const PURCHASE_SYNC_ERROR = "Não foi possível buscar o saldo no Millennium. Tente novamente.";

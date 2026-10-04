@@ -187,7 +187,10 @@ export function PurchaseOrderPage() {
       ) : (
         <Card className="flex flex-col">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <CardTitle>Produtos</CardTitle>
+            <span className="inline-flex items-center gap-1.5">
+              <CardTitle>Produtos</CardTitle>
+              <TipHelp label='Novo: produto cadastrado no Millennium há menos de 30 dias, ou que a loja nunca vendeu. O "nunca vendeu" vale quando o histórico de vendas da loja cobre 12 meses ou começa na inauguração. Produtos bloqueados para compra não aparecem.' />
+            </span>
             {view && view.rows.length > 0 && (
               <span className="text-[12.5px] font-semibold text-t1">
                 {num(resumo.produtos)} produto{resumo.produtos === 1 ? "" : "s"} · {num(resumo.itens)} ite{resumo.itens === 1 ? "m" : "ns"} no pedido
