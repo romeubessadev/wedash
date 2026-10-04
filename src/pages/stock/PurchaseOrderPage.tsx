@@ -12,6 +12,7 @@ import {
   type PurchaseFilter,
   type PurchaseOrderRow,
 } from "@/data/wedash/purchaseOrder";
+import { PURCHASE_SYNC_BUSY, PURCHASE_SYNC_ERROR, PURCHASE_SYNC_OFFLINE, PURCHASE_SYNC_TITLE } from "@/data/wedash/purchaseRepo";
 import { cn } from "@/lib/cn";
 import { num } from "@/lib/format";
 import { useMinSkeleton } from "@/lib/useMinSkeleton";
@@ -32,7 +33,7 @@ const NUM_COLS: Array<{ key: "saldo" | "pedidosAbertos" | "total" | "vendidos30"
   { key: "pedidosAbertos", label: "Pedidos em aberto" },
   { key: "total", label: "Total em estoque" },
   { key: "vendidos30", label: "Vendidos em 30 dias" },
-  { key: "multipla", label: "Múltipla" },
+  { key: "multipla", label: "Múltiplo de compra" },
 ];
 
 function sortValue(r: PurchaseOrderRow, k: Exclude<SortKey, "nome">): number {
@@ -113,7 +114,7 @@ export function PurchaseOrderPage() {
     if (!view) return;
     const rows = purchaseOrderFileRows(view);
     if (rows.length === 0) {
-      show("Nenhum produto abaixo do mínimo.", "warning");
+      show("Nenhum produto precisa ser incluído no pedido.", "warning");
       return;
     }
     downloadFile(buildXlsx([[...PURCHASE_FILE_HEADER], ...rows], { textColumns: PURCHASE_FILE_TEXT_COLUMNS }), purchaseOrderFileName(new Date()));
@@ -149,17 +150,21 @@ export function PurchaseOrderPage() {
                 label="Loja"
                 value={loja?.id ?? ""}
                 onChange={setLojaSel}
-                options={lojas.map((s) => ({ value: s.id, label: `${s.codFilial} ${s.fantasia}` }))}
+                options={lojas.map((s) => ({ value: s.id, label: `${s.codFilial} · ${s.fantasia}` }))}
               />
             )}
             <HeaderSearch value={busca} onChange={setBusca} placeholder="Buscar por produto ou código…" width={240} />
             <HeaderFilter label="Filtro" value={filtro} onChange={setFiltro} options={filtroOpcoes} />
-            <HeaderFilter
-              label="Multiplicador"
-              value={String(po.factor)}
-              onChange={(v) => po.setFactor(Number(v))}
-              options={PURCHASE_FACTORS.map((f) => ({ value: String(f), label: `${f}x` }))}
-            />
+            <span className="inline-flex items-center gap-1.5">
+              <HeaderFilter
+                label="Multiplicador do pedido"
+                lead="Multiplicador do pedido"
+                value={String(po.factor)}
+                onChange={(v) => po.setFactor(Number(v))}
+                options={PURCHASE_FACTORS.map((f) => ({ value: String(f), label: `${f}x` }))}
+              />
+              <TipHelp label="Multiplica o mínimo de cada produto. A quantidade a pedir desconta o total em estoque e arredonda para o múltiplo de compra." />
+            </span>
             <Button variant="primary" size="md" onClick={gerarPedido} disabled={!view || po.syncing}>
               Gerar pedido
             </Button>
@@ -168,11 +173,21 @@ export function PurchaseOrderPage() {
         notices={
           <>
             <ErpStatusNotice dado="estoque" className="" />
-            {po.syncError && (
-              <Alert variant="danger" title={po.syncError}>
-                O pedido usa o último saldo buscado.
-              </Alert>
-            )}
+            {po.syncError &&
+              (po.syncError === PURCHASE_SYNC_OFFLINE ? (
+                <Alert variant="danger" title={po.syncError} />
+              ) : (
+                <Alert variant="danger" title={PURCHASE_SYNC_TITLE}>
+                  {po.syncError === PURCHASE_SYNC_BUSY ? (
+                    <>
+                      {PURCHASE_SYNC_BUSY}
+                      <span className="mt-0.5 block">{PURCHASE_SYNC_ERROR}</span>
+                    </>
+                  ) : (
+                    po.syncError
+                  )}
+                </Alert>
+              ))}
             {!po.syncError && po.stale && po.staleTexto && <Alert variant="warning" title={po.staleTexto} />}
           </>
         }
@@ -182,14 +197,14 @@ export function PurchaseOrderPage() {
         <StockProductsSkeleton />
       ) : !loja ? (
         <Card className="flex flex-col">
-          <EmptyBlock icon="🏬" title="Nenhuma loja disponível" description="Nenhuma loja vinculada ao seu acesso." />
+          <EmptyBlock icon="🏬" title="Nenhuma loja disponível" description="Não há lojas disponíveis para este acesso." />
         </Card>
       ) : (
         <Card className="flex flex-col">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <span className="inline-flex items-center gap-1.5">
               <CardTitle>Produtos</CardTitle>
-              <TipHelp label='Novo: produto cadastrado no Millennium há menos de 30 dias, ou que a loja nunca vendeu. O "nunca vendeu" vale quando o histórico de vendas da loja cobre 12 meses ou começa na inauguração. Produtos bloqueados para compra não aparecem.' />
+              <TipHelp label="Novo: produto cadastrado no Millennium há menos de 30 dias ou que a loja ainda não vendeu. A segunda regra só é usada quando há histórico suficiente desde a inauguração ou dos últimos 12 meses. Produtos bloqueados para compra não aparecem." />
             </span>
             {view && view.rows.length > 0 && (
               <span className="text-[12.5px] font-semibold text-t1">
@@ -203,16 +218,16 @@ export function PurchaseOrderPage() {
                 po.syncing ? (
                   <EmptyBlock icon="📦" title="Buscando saldo" description="Buscando o saldo no Millennium…" />
                 ) : (
-                  <EmptyBlock icon="📦" title="Nenhum produto para pedido" description="O Millennium não retornou produtos liberados para compra nesta loja." />
+                  <EmptyBlock icon="📦" title="Nenhum produto disponível para pedido" description="O Millennium não retornou produtos liberados para compra nesta loja." />
                 )
               ) : (
                 <EmptyBlock
                   icon="🔍"
                   title="Nenhum produto encontrado"
-                  description="Tente buscar por outro nome ou código ou altere o filtro."
+                  description="Tente buscar por outro nome ou código ou altere os filtros."
                   action={
                     <Button variant="outline" size="sm" onClick={limparBusca}>
-                      Limpar busca
+                      Limpar filtros
                     </Button>
                   }
                 />
@@ -248,7 +263,7 @@ export function PurchaseOrderPage() {
                             sub={
                               <div className="min-w-0">
                                 <p className="truncate text-[11px] uppercase text-t2">{[r.code, categoria].filter(Boolean).join(" · ")}</p>
-                                {r.variasVariantes && <p className="mt-0.5 text-[11px] font-semibold text-warn">Mais de uma cor ou tamanho: peça direto no Millennium</p>}
+                                {r.variasVariantes && <p className="mt-0.5 text-[11px] font-semibold text-warn">Este produto tem mais de uma cor ou tamanho. Faça o pedido diretamente no Millennium.</p>}
                               </div>
                             }
                           />

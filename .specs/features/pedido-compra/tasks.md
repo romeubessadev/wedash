@@ -262,7 +262,7 @@ T8 → T9 → T10
 - [x] Linha do banco → `PurchaseStockRow` (numéricos de texto viram número)
 - [x] Vendidos 30 dias = Σ `item_count` por `product_code` (`sales_product_day_agg` = 1 linha por loja × dia × produto; somar marcas não duplica)
 - [x] `savePurchaseMin(null)` apaga; número faz upsert
-- [x] Erros da Edge → "Não foi possível buscar o saldo no Millennium. Tente novamente." (sessão em outro local com o texto do Estoque)
+- [x] Erros da Edge → título "Não foi possível atualizar o saldo" + "O pedido usará o último saldo disponível." (sessão em outro local com o texto do Estoque + o mesmo apoio)
 - [x] Gate: `npx vitest run src/data/wedash/purchaseRepo.test.ts` passa (6 testes); `tsc` sem erro nos arquivos da feature (o único erro do build é `teamViews.ts`, alteração não commitada de outra sessão)
 
 **Status**: ✅ Complete
@@ -290,7 +290,7 @@ T8 → T9 → T10
 **Done when**:
 
 - [x] Troca de loja recarrega e aplica a regra de 30 min à nova loja (trava de busca por loja; resposta de loja antiga é descartada)
-- [x] Texto "Saldo buscado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…"; `stale` quando > 30 min (reavaliado a cada minuto); falha da busca = `syncError` (alerta, mantém o saldo guardado); 1ª busca sem saldo guardado = skeleton até terminar
+- [x] Texto "Saldo atualizado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…" / "Saldo ainda não atualizado"; `stale` quando > 30 min (reavaliado a cada minuto); falha da busca = `syncError` (alerta, mantém o saldo guardado); 1ª busca sem saldo guardado = skeleton até terminar
 - [x] Mínimo inválido / falha ao gravar volta ao valor anterior com o toast da spec
 - [x] Gate: build e lint passam; `npm test` = linha de base (só as 4 falhas antigas de `dashboard.test.ts`)
 
@@ -319,7 +319,7 @@ T8 → T9 → T10
 **Done when**:
 
 - [x] Busca sem diferenciar maiúsculas e acentos; vazios da spec ("Nenhum produto para pedido", busca com "Limpar busca")
-- [x] Gerar pedido: toast "Nenhum produto abaixo do mínimo." ou baixa o arquivo + "Pedido gerado com N produtos."; desabilitado durante a busca
+- [x] Gerar pedido: toast "Nenhum produto precisa ser incluído no pedido." ou baixa o arquivo + "Pedido gerado com N produtos."; desabilitado durante a busca
 - [x] Alerta amarelo de saldo com mais de 30 min; alerta de falha da busca
 - [ ] Testado no navegador com uma loja real (lista, mínimo gravado após recarregar, arquivo aberto no Excel) — UAT pendente: depende do `supabase db push` da migration e do deploy da Edge `erp-stock-sync` (só com OK do dono)
 - [x] Gate: build e lint passam (lint só com avisos antigos); `npm test` = 592 passando + as 4 falhas antigas de `dashboard.test.ts`

@@ -148,11 +148,14 @@ export async function fetchSoldEver(tenantId: string, storeId: string, todayIso:
   }
 }
 
-export const PURCHASE_SYNC_ERROR = "Não foi possível buscar o saldo no Millennium. Tente novamente.";
+export const PURCHASE_SYNC_TITLE = "Não foi possível atualizar o saldo";
+export const PURCHASE_SYNC_ERROR = "O pedido usará o último saldo disponível.";
+export const PURCHASE_SYNC_BUSY = "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.";
+export const PURCHASE_SYNC_OFFLINE = "Não foi possível conectar à WeDash. Verifique sua conexão e tente novamente.";
 
 /** Código de erro da Edge → texto da tela. */
 export function purchaseSyncMessage(error: string | undefined): string {
-  if (error === "erp_busy") return "Este usuário do Millennium está conectado em outro local. Encerre a outra sessão e tente novamente.";
+  if (error === "erp_busy") return PURCHASE_SYNC_BUSY;
   return PURCHASE_SYNC_ERROR;
 }
 
@@ -161,7 +164,7 @@ export async function syncPurchaseStockNow(
   storeIds: string[],
 ): Promise<{ ok: true; failedStores: string[] } | { ok: false; message: string }> {
   const sb = getSupabase();
-  if (!sb) return { ok: false, message: "Não foi possível conectar à WeDash. Verifique sua conexão e tente novamente." };
+  if (!sb) return { ok: false, message: PURCHASE_SYNC_OFFLINE };
   const { data, error } = await sb.functions.invoke("erp-stock-sync", { body: { purchaseStoreIds: storeIds } });
   let body = data as { ok?: boolean; error?: string; purchaseFailedStores?: string[] } | null;
   if ((!body || typeof body !== "object") && error && typeof error === "object") {

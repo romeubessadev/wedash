@@ -3,7 +3,7 @@ import { useToast } from "@/components/ui";
 import { addDays } from "@/data/wedash/autoRefresh";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { buildPurchaseOrderView, parseMinInput, type PurchaseStockRow } from "@/data/wedash/purchaseOrder";
-import { fetchPurchaseMins, fetchPurchaseStock, fetchSold30, fetchSoldEver, savePurchaseMin, syncPurchaseStockNow } from "@/data/wedash/purchaseRepo";
+import { PURCHASE_SYNC_ERROR, fetchPurchaseMins, fetchPurchaseStock, fetchSold30, fetchSoldEver, savePurchaseMin, syncPurchaseStockNow } from "@/data/wedash/purchaseRepo";
 import type { StockCatalogItem } from "@/data/wedash/stockProducts";
 import { fetchStockCatalog } from "@/data/wedash/stockRepo";
 import { FORCE_REFRESH_CLICK_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -27,13 +27,6 @@ function hora(iso: string): string {
   const h = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   if (d.toDateString() === new Date().toDateString()) return `às ${h}`;
   return `em ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${h}`;
-}
-
-/** "DD/MM às HH:MM" — alerta de saldo velho. */
-function diaHora(iso: string): string {
-  const d = new Date(iso);
-  const h = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${h}`;
 }
 
 const isStale = (syncedAt: string | null, now: number) => !syncedAt || now - Date.parse(syncedAt) > PURCHASE_MAX_AGE_MS;
@@ -84,7 +77,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
         const r = await syncPurchaseStockNow([id]);
         if (storeRef.current !== id) return true;
         if (!r.ok || r.failedStores.includes(id)) {
-          setSyncError(r.ok ? "Não foi possível buscar o saldo no Millennium. Tente novamente." : r.message);
+          setSyncError(r.ok ? PURCHASE_SYNC_ERROR : r.message);
           return true;
         }
         setSyncError(null);
@@ -169,7 +162,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
       if (!id || !current) return false;
       const parsed = parseMinInput(raw);
       if (!parsed.ok) {
-        show("Use um número inteiro entre 0 e 99999.", "danger");
+        show("Use um número inteiro entre 0 e 99.999.", "danger");
         return false;
       }
       const before = current.mins.has(code) ? current.mins.get(code)! : null;
@@ -194,7 +187,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
   );
 
   const syncedAt = current?.syncedAt ?? null;
-  const atualizadoTexto = syncing ? "Buscando saldo…" : syncedAt ? `Saldo buscado ${hora(syncedAt)}` : "Saldo ainda não buscado";
+  const atualizadoTexto = syncing ? "Buscando saldo…" : syncedAt ? `Saldo atualizado ${hora(syncedAt)}` : "Saldo ainda não atualizado";
 
   return {
     view,
@@ -205,7 +198,7 @@ export function usePurchaseOrder(tenantId: string, storeId: string | null) {
     syncError,
     syncedAt,
     stale: !syncing && syncedAt != null && isStale(syncedAt, now),
-    staleTexto: syncedAt ? `O saldo é de ${diaHora(syncedAt)}. O pedido pode sair com quantidades desatualizadas.` : null,
+    staleTexto: syncedAt ? `O saldo foi atualizado ${hora(syncedAt)}. O pedido pode usar quantidades desatualizadas.` : null,
     atualizadoTexto,
     factor,
     setFactor,

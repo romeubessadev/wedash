@@ -65,14 +65,14 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 **Acceptance Criteria**:
 
 1. WHEN o usuário abre Estoque > Pedido de compra com uma loja escolhida THEN a tela SHALL listar os produtos elegíveis da loja (código sem `WP`, não bloqueado para compra, múltipla > 0) do último saldo buscado.
-2. The tela SHALL mostrar em cada linha: produto (nome + código), Mínimo, Saldo, Pedidos em aberto, Total em estoque, Vendidos em 30 dias, Múltipla e A pedir.
+2. The tela SHALL mostrar em cada linha: produto (nome + código), Mínimo, Saldo, Pedidos em aberto, Total em estoque, Vendidos em 30 dias, Múltiplo de compra e A pedir.
 3. WHEN a data de cadastro do produto está entre hoje e 29 dias atrás, OR o histórico de vendas da loja na WeDash cobre 12 meses (ou começa na inauguração) e a loja nunca vendeu o produto, THEN a coluna "Novo" da linha SHALL mostrar "Sim"; senão SHALL mostrar "Não". Com histórico mais curto (ou leitura falhou) SHALL valer só a data de cadastro. O filtro "Novos (N)" SHALL aparecer sempre, mesmo com N = 0.
 4. WHEN Total em estoque (negativo conta como 0) é menor que mínimo × multiplicador e o mínimo é maior que 0 THEN a linha SHALL ficar destacada e a coluna A pedir SHALL mostrar a quantidade da regra PC-09.
 5. IF o mínimo está vazio ou é 0 THEN a coluna A pedir SHALL mostrar "—" e a linha SHALL não ficar destacada.
 6. WHILE o seletor do topo está em "Todas as lojas" e o usuário tem mais de 1 loja, a tela SHALL mostrar o filtro Loja, com a 1ª loja da lista escolhida por padrão.
 7. WHEN o usuário digita na busca THEN a lista SHALL mostrar só os produtos cujo nome ou código contém o texto (sem diferenciar maiúsculas e acentos).
 8. WHEN o usuário escolhe o filtro "Vai para o pedido" THEN a lista SHALL mostrar só as linhas destacadas; "Sem mínimo" SHALL mostrar só as de mínimo vazio ou 0; "Novos" SHALL mostrar só as com selo Novo.
-9. IF um produto tem mais de uma variante (cor/estampa/tamanho) elegível THEN a linha SHALL mostrar o aviso "Mais de uma cor ou tamanho: peça direto no Millennium" e A pedir SHALL mostrar "—".
+9. IF um produto tem mais de uma variante (cor/estampa/tamanho) elegível THEN a linha SHALL mostrar o aviso "Este produto tem mais de uma cor ou tamanho. Faça o pedido diretamente no Millennium." e A pedir SHALL mostrar "—".
 10. IF a loja ainda não tem nenhum saldo buscado THEN a tela SHALL mostrar o carregamento (skeleton) enquanto a 1ª busca roda.
 
 **Independent Test**: Com saldo gravado de uma loja, abrir a tela e ver os produtos elegíveis; um produto com Total 2, mínimo 72 e múltipla 24 aparece destacado com A pedir 72.
@@ -110,14 +110,14 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 
 1. WHEN a tela abre e a última busca da loja tem mais de 30 minutos (ou não existe) THEN o sistema SHALL buscar o Saldo Atual e Futuro da loja no Millennium (1 chamada, sem período) e atualizar a lista.
 2. WHEN o usuário clica em Atualizar no topo com a tela aberta THEN o sistema SHALL buscar o saldo da loja escolhida, qualquer que seja a idade da última busca.
-3. The tela SHALL mostrar abaixo dos filtros "Saldo buscado às HH:MM" (hoje) ou "Saldo buscado em DD/MM às HH:MM" (outro dia); durante a busca, "Buscando saldo…".
+3. The tela SHALL mostrar abaixo dos filtros "Saldo atualizado às HH:MM" (hoje) ou "Saldo atualizado em DD/MM às HH:MM" (outro dia); durante a busca, "Buscando saldo…"; sem busca anterior, "Saldo ainda não atualizado".
 4. WHEN a busca termina THEN o sistema SHALL substituir o saldo guardado da loja pelo retornado e gravar o horário da busca.
-5. IF a busca falha THEN a tela SHALL manter o último saldo guardado e mostrar o alerta "Não foi possível buscar o saldo no Millennium. Tente novamente.".
+5. IF a busca falha THEN a tela SHALL manter o último saldo guardado e mostrar o alerta "Não foi possível atualizar o saldo" com o texto "O pedido usará o último saldo disponível.". Usuário do Millennium em outro local usa o texto próprio e o mesmo apoio. Sem conexão com a WeDash, o alerta é "Não foi possível conectar à WeDash. Verifique sua conexão e tente novamente.".
 6. IF a integração está desconectada ou com senha inválida THEN o sistema SHALL não iniciar a busca e a tela SHALL mostrar o aviso padrão de Millennium desconectado.
 7. WHILE o saldo mostrado tem mais de 30 minutos, a tela SHALL mostrar o alerta amarelo "O saldo é de DD/MM às HH:MM. O pedido pode sair com quantidades desatualizadas.".
 8. IF o usuário é Gerente THEN o sistema SHALL buscar o saldo só das lojas vinculadas a ele.
 
-**Independent Test**: Abrir a tela de uma loja com busca de mais de 30 min, ver "Buscando saldo…" e depois "Saldo buscado às HH:MM" com os números novos.
+**Independent Test**: Abrir a tela de uma loja com busca de mais de 30 min, ver "Buscando saldo…" e depois "Saldo atualizado às HH:MM" com os números novos.
 
 ---
 
@@ -136,7 +136,7 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 5. The colunas `Cod_Cor`, `Cod_Estampa` e `Tamanho` SHALL ser gravadas como texto (ex.: `000`, `U`); `Quantidade` e `Total em Estoque` como número; `COD_PRODUTO` como número quando só tem dígitos e não começa com 0, senão como texto.
 6. The coluna `Total em Estoque` SHALL trazer o Total em estoque do produto com negativo como 0, e `Descricao` a descrição do relatório.
 7. The linhas do arquivo SHALL seguir a ordem em que o relatório devolveu os produtos.
-8. IF nenhum produto tem quantidade > 0 THEN o sistema SHALL não baixar arquivo e SHALL mostrar o toast "Nenhum produto abaixo do mínimo.".
+8. IF nenhum produto tem quantidade > 0 THEN o sistema SHALL não baixar arquivo e SHALL mostrar o toast "Nenhum produto precisa ser incluído no pedido.".
 9. WHEN o arquivo é baixado THEN o sistema SHALL mostrar o toast "Pedido gerado com N produtos." (N = linhas de produto do arquivo).
 10. The arquivo SHALL excluir produtos com mais de uma variante elegível (ver "Ver o pedido da loja", AC 9).
 11. WHILE a busca de saldo está em andamento, o botão "Gerar pedido" SHALL ficar desabilitado.

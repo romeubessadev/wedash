@@ -39,7 +39,7 @@ Legend: ✅ test asserts the exact spec outcome · 🔎 UI/Edge only, verified b
 | AC | Spec-defined outcome | Evidence (`file:line` + assertion) | Result |
 | --- | --- | --- | --- |
 | 1 Elegíveis | sem `WP`, não bloqueado, múltipla > 0 | `src/data/wedash/purchaseOrder.test.ts:44` `expect(isEligible(stock())).toBe(true)`; `:47-48` WP014 / wp-ultra → `false`; `:51` blocked → `false`; `:54-55` multiple null/0 → `false`; `:117` `expect(v.rows).toHaveLength(1)` (WP and blocked dropped). Impl `purchaseOrder.ts:56-58, 95-96` | ✅ |
-| 2 Colunas | nome + código, Mínimo, Saldo, Pedidos em aberto, Total, Vendidos 30 dias, Múltipla, A pedir | `purchaseOrder.test.ts:118-126` `toMatchObject({code, nome, saldo:1, pedidosAbertos:1, total:2, vendidos30:15, multipla:24, minimo:72})`; columns 🔎 `src/pages/stock/PurchaseOrderPage.tsx:30-36, 222-228, 239-263` | ✅ / 🔎 |
+| 2 Colunas | nome + código, Mínimo, Saldo, Pedidos em aberto, Total, Vendidos 30 dias, Múltiplo de compra, A pedir | `purchaseOrder.test.ts:118-126` `toMatchObject({code, nome, saldo:1, pedidosAbertos:1, total:2, vendidos30:15, multipla:24, minimo:72})`; columns 🔎 `src/pages/stock/PurchaseOrderPage.tsx:30-36, 222-228, 239-263` | ✅ / 🔎 |
 | 3 Selo Novo | cadastro entre hoje e 29 dias atrás | `purchaseOrder.test.ts:61-62` today / 29 days → `true`; `:65-67` 30 days / null / future → `false`; `:151-152` view `novo`; badge 🔎 `PurchaseOrderPage.tsx:247` | ✅ |
 | 4 Destaque + A pedir | Total (neg = 0) < mín × mult e mín > 0 → highlight + PC-09 quantity | `purchaseOrder.test.ts:131-132` `noPedido` `true`, `aPedir` `72`; `:145-146` enough stock → `0` / `false`; highlight 🔎 `PurchaseOrderPage.tsx:236-237` (`bg-warn-soft` + left border) | ✅ (see S1) |
 | 5 Sem mínimo | A pedir "—", sem destaque | `purchaseOrder.test.ts:137-140` `aPedir` `toBeNull()`, `noPedido` `false` (empty and 0); "—" 🔎 `PurchaseOrderPage.tsx:263` | ✅ |
@@ -68,9 +68,9 @@ Legend: ✅ test asserts the exact spec outcome · 🔎 UI/Edge only, verified b
 | --- | --- | --- | --- |
 | 7.1 > 30 min ou nunca → busca 1 chamada sem período | | 🔎 `usePurchaseOrder.ts:13, 38, 115-121`; call `millenniumProducts.ts:275-294` (body `{FILIAL, DESC:null, TIPO:null, DATAI:null, DATAF:null}`, 1 per store) | 🔎 ⏳ |
 | 7.2 Atualizar do topo força | | 🔎 `usePurchaseOrder.ts:133-139` (`FORCE_REFRESH_CLICK_EVENT` → `sync` with no age check) | 🔎 ⏳ |
-| 7.3 Textos | "Saldo buscado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…" | 🔎 `usePurchaseOrder.ts:24-29, 193-194`; shown below the filters `PurchaseOrderPage.tsx:137-143` | 🔎 |
+| 7.3 Textos | "Saldo atualizado às HH:MM" / "em DD/MM às HH:MM" / "Buscando saldo…" | 🔎 `usePurchaseOrder.ts:24-29, 193-194`; shown below the filters `PurchaseOrderPage.tsx:137-143` | 🔎 |
 | 7.4 Substitui e grava horário | | 🔎 `erp-stock-sync/index.ts:152-172` (`replaceRows` = upsert + delete older rows of the store), `:174` `purchase_synced_at` | 🔎 ⏳ |
-| 8.5 Falha → mantém + alerta "Não foi possível buscar o saldo no Millennium. Tente novamente." | | `src/data/wedash/purchaseRepo.test.ts:79-80` `toBe(PURCHASE_SYNC_ERROR)` / exact text; keeps stored balance: Edge `index.ts:151` (empty = failure), `:179-181`; hook `usePurchaseOrder.ts:84-87`; alert `PurchaseOrderPage.tsx:170-174` | ✅ / 🔎 (see S3) |
+| 8.5 Falha → mantém + alerta "Não foi possível atualizar o saldo" · "O pedido usará o último saldo disponível." | | `src/data/wedash/purchaseRepo.test.ts:79-80` `toBe(PURCHASE_SYNC_ERROR)` / exact text; keeps stored balance: Edge `index.ts:151` (empty = failure), `:179-181`; hook `usePurchaseOrder.ts:84-87`; alert `PurchaseOrderPage.tsx:170-174` | ✅ / 🔎 (see S3) |
 | 8.6 Desconectado → não busca + aviso padrão | | 🔎 `usePurchaseOrder.ts:79-80` (returns before `syncPurchaseStockNow`); notice `PurchaseOrderPage.tsx:169` | 🔎 |
 | 8.7 Saldo velho → alerta amarelo com texto exato | | 🔎 `usePurchaseOrder.ts:204-205` (exact text), 1-min re-evaluation `:141-144`; `PurchaseOrderPage.tsx:175` | 🔎 (see S2) |
 | 8.8 Gerente só busca as lojas dele | | 🔎 `erp-stock-sync/index.ts:272-279` | 🔎 ⏳ |
@@ -87,7 +87,7 @@ Legend: ✅ test asserts the exact spec outcome · 🔎 UI/Edge only, verified b
 | 10.6 Total ≥ 0 + Descricao | | `[5]` → `0`; description in the full-row assertion | ✅ |
 | 10.7 Ordem do relatório | | → `["Z","A","M"]`; position from the parser `purchaseStock.test.ts:77-80` | ✅ |
 | 10.10 Exclui variantes | | → `[]` | ✅ |
-| 11.8 Nada → toast "Nenhum produto abaixo do mínimo." | | file rows → `[]`; toast 🔎 `PurchaseOrderPage.tsx:114-117` (exact text) | ✅ / 🔎 |
+| 11.8 Nada → toast "Nenhum produto precisa ser incluído no pedido." | | file rows → `[]`; toast 🔎 `PurchaseOrderPage.tsx:114-117` (exact text) | ✅ / 🔎 |
 | 11.9 Toast "Pedido gerado com N produtos." | | 🔎 `PurchaseOrderPage.tsx:118-119` (N = `rows.length`; singular for 1) | 🔎 |
 | 11.11 Desabilitado durante a busca | | 🔎 `PurchaseOrderPage.tsx:162` `disabled={!view \|\| po.syncing}` | 🔎 |
 

@@ -77,6 +77,6 @@ describe("purchaseSyncMessage (PC-08)", () => {
   it("usuário do Millennium em outro lugar tem texto próprio; o resto é a falha padrão", () => {
     expect(purchaseSyncMessage("erp_busy")).toMatch(/conectado em outro local/);
     expect(purchaseSyncMessage("erp_request_failed")).toBe(PURCHASE_SYNC_ERROR);
-    expect(purchaseSyncMessage(undefined)).toBe("Não foi possível buscar o saldo no Millennium. Tente novamente.");
+    expect(purchaseSyncMessage(undefined)).toBe("O pedido usará o último saldo disponível.");
   });
 });
