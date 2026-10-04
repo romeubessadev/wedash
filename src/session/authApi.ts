@@ -142,9 +142,12 @@ export async function loginWithEmail(email: string, senha: string): Promise<Auth
   if (error || !data.user) return { ok: false, error: MENSAGEM_LOGIN };
 
   const session = await hydrateSessionFromAuth(data.user.id, e);
-  if (!session) {
+  if (!session || session === SELLER_SUSPENDED) {
     await sb.auth.signOut();
-    return { ok: false, error: MENSAGEM_LOGIN };
+    return {
+      ok: false,
+      error: session === SELLER_SUSPENDED ? "Seu acesso está suspenso. Fale com a gerência da loja." : MENSAGEM_LOGIN,
+    };
   }
   return { ok: true, session };
 }
@@ -276,10 +279,18 @@ export async function sessionFromPersistedAuth(): Promise<Session | null> {
   const { data } = await sb.auth.getSession();
   const user = data.session?.user;
   if (!user?.email) return null;
-  return hydrateSessionFromAuth(user.id, user.email);
+  const session = await hydrateSessionFromAuth(user.id, user.email);
+  if (session === SELLER_SUSPENDED) {
+    await sb.auth.signOut();
+    return null;
+  }
+  return session;
 }
 
-async function hydrateSessionFromAuth(authUserId: string, email: string): Promise<Session | null> {
+/** Acesso suspenso: a sessão do Auth é encerrada e o login mostra o aviso. */
+export const SELLER_SUSPENDED = "seller_suspended";
+
+async function hydrateSessionFromAuth(authUserId: string, email: string): Promise<Session | typeof SELLER_SUSPENDED | null> {
   const sb = getSupabase();
   if (!sb) return null;
 
@@ -299,6 +310,15 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
     .maybeSingle();
 
   if (!memb) {
+    const { data: suspended } = await sb
+      .from("membership")
+      .select("role")
+      .eq("identity_id", ident.id)
+      .eq("status", "SUSPENDED")
+      .eq("role", "SELLER")
+      .limit(1)
+      .maybeSingle();
+    if (suspended) return SELLER_SUSPENDED;
     const u = userByEmail(email);
     return u ? sessionFromUser(u) : null;
   }
