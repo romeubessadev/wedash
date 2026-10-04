@@ -241,9 +241,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Tests for Premiação AC 3 (gain = premiação no próximo nível − agora + bônus do nível), AC 4 (null before half; value after), AC 5 (último nível → null gain)
-- [ ] Edge: no sales → gain from first level; Grupo mode share
-- [ ] Gate passes: `npm test`
+- [x] Tests for Premiação AC 3 (gain = premiação no próximo nível − agora + bônus do nível), AC 4 (null before half; value after), AC 5 (último nível → null gain)
+- [x] Edge: no sales → gain from first level; Grupo mode share
+- [x] Gate passes: `npm test`
 
 **Tests**: unit
 **Gate**: quick
