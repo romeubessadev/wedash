@@ -559,6 +559,8 @@ export interface StoreSeller {
   syncedAt: string;
   /** Turno (store_shift.id) definido na WeDash; null = sem turno. */
   shiftId: string | null;
+  /** E-mail do cadastro do Millennium (pré-preenche o convite de acesso). */
+  email: string | null;
 }
 
 export { SELLER_ROLE };
@@ -589,7 +591,7 @@ export async function fetchStoreSellers(tenantId: string, storeIds: string[]): P
       .order("active", { ascending: false })
       .order("name")
       .limit(2000);
-  const base = "id, store_id, name, code, active, erp_role, synced_at";
+  const base = "id, store_id, name, code, active, erp_role, synced_at, email";
   let { data, error } = await query(`${base}, shift_id`);
   // Migration de turnos ainda não aplicada → lista sem turno.
   if (error?.code === "42703") ({ data, error } = await query(base));
@@ -606,6 +608,7 @@ export async function fetchStoreSellers(tenantId: string, storeIds: string[]): P
     erp_role: string | null;
     synced_at: string;
     shift_id?: string | null;
+    email?: string | null;
   };
   for (const r of (data ?? []) as unknown as Row[]) {
     const list = out.get(r.store_id) ?? [];
@@ -617,6 +620,7 @@ export async function fetchStoreSellers(tenantId: string, storeIds: string[]): P
       role: r.erp_role ?? null,
       syncedAt: r.synced_at,
       shiftId: r.shift_id ?? null,
+      email: r.email ?? null,
     });
     out.set(r.store_id, list);
   }

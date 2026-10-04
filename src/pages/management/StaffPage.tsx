@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Avatar, Badge, Button, Card, DataTable, EmptyState, Segmented, Select, Skeleton, useToast, type DataTableColumn } from "@/components/ui";
+import { Avatar, Badge, Button, Card, DataTable, Dropdown, EmptyState, Segmented, Select, Skeleton, useToast, type DataTableColumn, type DropdownItem } from "@/components/ui";
 import { SegmentedSkeleton, StoreCardsSkeleton, TeamTableSkeleton } from "@/components/wedash/LoadingSkeletons";
 import {
   fetchStoreSellers,
@@ -12,7 +12,19 @@ import {
   type StoreShift,
 } from "@/data/wedash/stores";
 import { shiftName } from "@/lib/format";
+import { InviteSellerModal } from "@/pages/management/InviteSellerModal";
 import { RefreshIcon, StoreCardHeader, StoreCardsPage, useScopedStores } from "@/pages/operation/shared";
+import { Icon, icons } from "@/pages/users/Icons";
+import {
+  copySellerInviteLink,
+  fetchSellerAccess,
+  reactivateSeller,
+  resendSellerInvite,
+  revokeSellerInvite,
+  suspendSeller,
+  type SellerAccessRow,
+} from "@/data/wedash/sellerAccess";
+import { ACCESS_LABEL, type AccessState } from "@/data/wedash/engine/sellerAccess";
 
 /** Gestão > Vendedores — equipe de vendas de cada loja (Millennium) e o grupo de cada pessoa. */
 export function StaffPage() {
@@ -42,6 +54,8 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
   const [shiftOf, setShiftOf] = useState<Record<string, string | null>>({});
   const [tab, setTab] = useState<"ativos" | "desligados">("ativos");
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [access, setAccess] = useState<Map<string, AccessState> | null>(null);
+  const [inviting, setInviting] = useState<StoreSeller | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +73,18 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
       cancelled = true;
     };
   }, [tenantId, loja.id, tick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAccess(null);
+    void fetchSellerAccess(loja.id).then((rows: SellerAccessRow[] | null) => {
+      if (cancelled || !rows) return;
+      setAccess(new Map(rows.map((r) => [r.storeSellerId, r.state])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loja.id, tick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,9 +129,32 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
     show("Não foi possível alterar o grupo. Tente novamente.", "danger");
   }
 
+  async function runAccess(sellerId: string, fn: (id: string) => Promise<{ ok: boolean; message?: string }>, okMsg: string) {
+    const r = await fn(sellerId);
+    if (!r.ok) return show(r.message ?? "Não foi possível alterar o acesso. Tente novamente.", "danger");
+    show(okMsg, "success");
+    setTick((n) => n + 1);
+  }
+
+  async function copyLink(sellerId: string) {
+    const r = await copySellerInviteLink(sellerId);
+    if (!r.ok || !r.token) return show(r.ok ? "O link do convite não está mais disponível. Reenvie o convite." : r.message, "danger");
+    try {
+      await navigator.clipboard.writeText(r.token);
+      show("Link copiado.", "success");
+    } catch {
+      show("Não foi possível copiar o link. Tente novamente.", "danger");
+    }
+  }
+
   const columns = useMemo<DataTableColumn<StoreSeller>[]>(
     () => [
       ...SELLER_COLUMNS,
+      {
+        key: "access",
+        header: "Acesso",
+        render: (v) => <AccessCell state={access?.get(v.id) ?? null} />,
+      },
       {
         key: "shift",
         header: "Grupo",
@@ -129,9 +178,25 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           );
         },
       },
+      {
+        key: "actions",
+        header: "",
+        align: "right",
+        render: (v) => (
+          <AccessMenu
+            state={access?.get(v.id) ?? "NONE"}
+            onInvite={() => setInviting(v)}
+            onCopy={() => void copyLink(v.id)}
+            onResend={() => void runAccess(v.id, resendSellerInvite, "Convite reenviado.")}
+            onRevoke={() => void runAccess(v.id, revokeSellerInvite, "Convite cancelado.")}
+            onSuspend={() => void runAccess(v.id, suspendSeller, "Acesso suspenso.")}
+            onReactivate={() => void runAccess(v.id, reactivateSeller, "Acesso reativado.")}
+          />
+        ),
+      },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shifts, shiftOf, savingIds],
+    [shifts, shiftOf, savingIds, access],
   );
 
   const semEquipe = loaded && equipe.length === 0;
@@ -204,7 +269,68 @@ function StaffCard({ tenantId, loja }: { tenantId: string; loja: Store }) {
           paginate="vendedores"
         />
       )}
+      <InviteSellerModal
+        seller={inviting ? { id: inviting.id, name: inviting.name, email: inviting.email } : null}
+        onClose={() => setInviting(null)}
+        onDone={() => {
+          setInviting(null);
+          setTick((n) => n + 1);
+        }}
+      />
     </Card>
+  );
+}
+
+const ACCESS_BADGE: Record<AccessState, { variant: "neutral" | "warning" | "success" | "danger"; label: string }> = {
+  NONE: { variant: "neutral", label: ACCESS_LABEL.NONE },
+  PENDING: { variant: "warning", label: ACCESS_LABEL.PENDING },
+  ACTIVE: { variant: "success", label: ACCESS_LABEL.ACTIVE },
+  SUSPENDED: { variant: "danger", label: ACCESS_LABEL.SUSPENDED },
+};
+
+function AccessCell({ state }: { state: AccessState | null }) {
+  if (!state) return <Skeleton className="h-5 w-24 rounded-full" />;
+  const b = ACCESS_BADGE[state];
+  return <Badge variant={b.variant}>{b.label}</Badge>;
+}
+
+function AccessMenu({
+  state,
+  onInvite,
+  onCopy,
+  onResend,
+  onRevoke,
+  onSuspend,
+  onReactivate,
+}: {
+  state: AccessState;
+  onInvite: () => void;
+  onCopy: () => void;
+  onResend: () => void;
+  onRevoke: () => void;
+  onSuspend: () => void;
+  onReactivate: () => void;
+}) {
+  const items: DropdownItem[] =
+    state === "NONE" ? [{ label: "Convidar", onClick: onInvite }]
+    : state === "PENDING" ? [
+        { label: "Copiar link", onClick: onCopy },
+        { label: "Reenviar", onClick: onResend },
+        { label: "Cancelar convite", onClick: onRevoke, danger: true },
+      ]
+    : state === "ACTIVE" ? [{ label: "Suspender", onClick: onSuspend, danger: true }]
+    : [{ label: "Reativar", onClick: onReactivate }];
+  return (
+    <Dropdown
+      align="right"
+      portal
+      items={items}
+      trigger={
+        <button type="button" aria-label="Ações do acesso" className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-t1 hover:bg-bg-3">
+          <Icon d={icons.dots} size={16} />
+        </button>
+      }
+    />
   );
 }
 
