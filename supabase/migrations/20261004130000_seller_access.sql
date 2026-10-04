@@ -82,7 +82,7 @@ begin
       update public.store_seller set membership_id = null where id = r.seller_id;
       delete from public.membership_store
       where membership_id = r.membership_id
-        and store_id = r.store_id::text;
+        and store_id = r.store_id;
     elsif r.status = 'ACTIVE' then
       update public.membership set status = 'SUSPENDED' where id = r.membership_id;
     elsif r.status = 'PENDING' then
