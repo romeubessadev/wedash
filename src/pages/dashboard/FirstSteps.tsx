@@ -150,7 +150,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
         <CardTitle>Primeiros passos</CardTitle>
         <span className="flex shrink-0 items-center gap-2.5">
           <span className="text-[12px] font-semibold text-t1">
-            {doneCount} de {steps.length} · {pct}%
+            {doneCount} de {steps.length} concluídos
           </span>
           <svg
             width="15"

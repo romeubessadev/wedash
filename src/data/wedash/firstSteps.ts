@@ -88,13 +88,13 @@ export function buildFirstSteps(input: FirstStepsInput): FirstStep[] {
     {
       id: "erp",
       title: "Conectar o Millennium",
-      description: "Vendas, custos e lojas sincronizados com o Millennium.",
+      description: "Sincroniza vendas, custos, lojas e vendedores com a WeDash.",
       done: true,
     },
     {
       id: "sellers",
       title: "Sincronizar os vendedores",
-      description: "A equipe de vendas de cada loja vem do Millennium.",
+      description: "Busca no Millennium a equipe de vendas de cada loja.",
       done: true,
     },
     {
@@ -106,7 +106,7 @@ export function buildFirstSteps(input: FirstStepsInput): FirstStep[] {
     {
       id: "groups",
       title: "Criar os grupos e vincular os vendedores",
-      description: "Organize a equipe de cada loja em grupos e coloque cada vendedor no grupo dele.",
+      description: "Organize os vendedores de cada loja em grupos para acompanhar o desempenho e distribuir metas.",
       done: semGrupo === 0,
       detail: semGrupo === 0 ? undefined : semGrupo === 1 ? "1 vendedor sem grupo" : `${semGrupo} vendedores sem grupo`,
       needsGroups: lojaSemGrupos,
@@ -114,13 +114,13 @@ export function buildFirstSteps(input: FirstStepsInput): FirstStep[] {
     {
       id: "franchise",
       title: "Informar as taxas da franquia",
-      description: "Royalties e taxa de marketing entram no resultado operacional do Financeiro.",
+      description: "Royalties e taxa de marketing entram nos custos da operação e afetam o resultado operacional.",
       ...porLoja(franchiseOk),
     },
     {
       id: "rent",
       title: "Informar o aluguel",
-      description: "O aluguel entra nos custos da operação do Financeiro.",
+      description: "O aluguel entra nos custos da operação e afeta o resultado operacional.",
       ...porLoja(rentOk),
     },
     {
@@ -131,14 +131,14 @@ export function buildFirstSteps(input: FirstStepsInput): FirstStep[] {
     },
     {
       id: "goal",
-      title: "Criar a meta",
+      title: "Criar uma meta",
       description: "Acompanhe o atingimento, a projeção e a premiação da equipe.",
       ...criados(input.storesWithGoal),
     },
     {
       id: "challenge",
       title: "Criar um desafio",
-      description: "Engaje a equipe com desafios curtos e prêmios.",
+      description: "Engaje a equipe com desafios de curto prazo e prêmios.",
       ...criados(input.storesWithChallenge),
     },
   ];
