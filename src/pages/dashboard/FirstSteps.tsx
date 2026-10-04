@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, CardTitle, ProgressBar, useToast } from "@/components/ui";
+import { Button, CardTitle, ProgressBar, useToast } from "@/components/ui";
 import {
   buildFirstSteps,
   completeFirstSteps,
@@ -133,7 +133,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
   }
 
   return (
-    <Card className="mt-4 print:hidden">
+    <div className="mt-4 print:hidden">
       <button
         type="button"
         onClick={toggle}
@@ -166,7 +166,7 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
       </div>
 
       {!collapsed && (
-        <div className="mt-3 flex flex-col gap-1.5 animate-vela-fade">
+        <div className="mt-3 flex flex-col gap-2 animate-vela-fade">
           {steps.map((step) => {
             const action = step.done ? null : stepAction(step);
             const proximo = step.id === nextId;
@@ -174,7 +174,8 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
               <div
                 key={step.id}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl border border-line bg-bg-inset px-3 py-2",
+                  "flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-3 py-2 shadow-[var(--shadow-vela)] transition-colors hover:border-line-2",
+                  proximo && "border-l-[3px] border-l-acc",
                   step.done && "opacity-55",
                 )}
               >
@@ -219,6 +220,6 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
           })}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
