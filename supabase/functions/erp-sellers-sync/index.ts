@@ -82,6 +82,8 @@ async function saveSellers(
   if (goneErr) throw goneErr;
   const { error: linkErr } = await admin.rpc("link_seller_day_aggs", { p_tenant_id: tenantId, p_store_id: storeId });
   if (linkErr) console.warn("link_seller_day_aggs", linkErr.message);
+  const { error: accessErr } = await admin.rpc("sync_seller_access", { p_tenant_id: tenantId, p_store_id: storeId });
+  if (accessErr) console.warn("sync_seller_access", accessErr.message);
 }
 
 Deno.serve(async (req) => {
