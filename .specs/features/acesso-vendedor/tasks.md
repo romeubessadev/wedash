@@ -426,9 +426,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Convite AC 3, 9, 10, 11 and P2 AC 1 handled (`linked: true`)
-- [ ] Orphan PENDING identity treated as free
-- [ ] Gate passes: build
+- [x] Convite AC 3, 9, 10, 11 and P2 AC 1 handled (`linked: true`)
+- [x] Orphan PENDING identity treated as free
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -446,9 +446,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Convite AC 5, 6, 7; Aceitar AC 1
-- [ ] `seller_link` returns the same link as the e-mail; fallback `generateLink` documented if the token read fails
-- [ ] Gate passes: build
+- [x] Convite AC 5, 6, 7; Aceitar AC 1
+- [x] `seller_link` returns the same link as the e-mail; fallback `generateLink` documented if the token read fails
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -466,9 +466,9 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Only ACTIVE SELLER memberships; `not_linked` without `store_seller`
-- [ ] Queries paginate past 1000 rows and filter brand ALL like `salesRepo`
-- [ ] Gate passes: build
+- [x] Only ACTIVE SELLER memberships; `not_linked` without `store_seller`
+- [x] Queries paginate past 1000 rows and filter brand ALL like `salesRepo`
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build

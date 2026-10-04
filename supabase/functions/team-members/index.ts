@@ -10,6 +10,16 @@
  */
 import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  sellerCaller,
+  sellerInvite,
+  sellerInviteStoreName,
+  sellerLink,
+  sellerList,
+  sellerResend,
+  sellerRevoke,
+  sellerSetStatus,
+} from "../_shared/sellerInvite.ts";
 import { titleName } from "../_shared/text.ts";
 
 type Role = "OWNER" | "MANAGER";
@@ -52,6 +62,40 @@ function latest(a: string | null, b: string | null): string | null {
 async function inviteData(admin: SupabaseClient, tenantId: string, role: Role) {
   const { data: ten } = await admin.from("tenant").select("name").eq("id", tenantId).maybeSingle();
   return { company: ten?.name ?? "", role: ROLE_LABEL[role] };
+}
+
+/** Conta nova de vendedor (convite por e-mail). Devolve o id do usuário ou o código do erro. */
+async function inviteSellerAccount(
+  admin: SupabaseClient,
+  tenantId: string,
+  email: string,
+  origin: unknown,
+): Promise<{ userId: string } | { error: string }> {
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { company: await companyName(admin, tenantId), role: "Equipe de vendas" },
+    redirectTo: inviteRedirect(origin),
+  });
+  if (error || !data.user) return { error: authErrorCode(error) };
+  return { userId: data.user.id };
+}
+
+/** Reenvia o convite do vendedor. null = enviado. */
+async function resendSellerInvite(
+  admin: SupabaseClient,
+  tenantId: string,
+  email: string,
+  origin: unknown,
+): Promise<string | null> {
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { company: await companyName(admin, tenantId), role: "Equipe de vendas" },
+    redirectTo: inviteRedirect(origin),
+  });
+  return error ? authErrorCode(error) : null;
+}
+
+async function companyName(admin: SupabaseClient, tenantId: string): Promise<string> {
+  const { data } = await admin.from("tenant").select("name").eq("id", tenantId).maybeSingle();
+  return data?.name ?? "";
 }
 
 function authErrorCode(e: { message?: string; status?: number; code?: string } | null): string {
@@ -143,11 +187,13 @@ Deno.serve(async (req) => {
         .select("name")
         .eq("id", pending.tenant_id)
         .maybeSingle();
+      const storeName = pending.role === "SELLER" ? await sellerInviteStoreName(admin, pending.id) : null;
       return json({
         ok: true,
         email: me.identity.email,
         role: pending.role,
         companyName: ten?.name ?? "",
+        storeName,
       });
     }
     const firstName = titleName(typeof body.firstName === "string" ? body.firstName : "");
@@ -182,14 +228,37 @@ Deno.serve(async (req) => {
   if (!callerIdentity) return json({ error: "identity_not_found" }, 403);
   const { data: caller } = await admin
     .from("membership")
-    .select("id, tenant_id")
+    .select("id, tenant_id, role")
     .eq("identity_id", callerIdentity.id)
     .eq("status", "ACTIVE")
-    .in("role", ["OWNER", "ADMIN_GLOBAL"])
+    .in("role", ["OWNER", "ADMIN_GLOBAL", "MANAGER"])
     .limit(1)
     .maybeSingle();
   if (!caller) return json({ error: "forbidden" }, 403);
   const tenantId = caller.tenant_id as string;
+
+  /* ---------- Vendedor (Gestor em qualquer loja; Gerente só nas lojas dele) ---------- */
+  if (action.startsWith("seller_")) {
+    const who = await sellerCaller(admin, userData.user.id, tenantId);
+    if (!who) return json({ error: "forbidden" }, 403);
+    const storeSellerId = typeof body.storeSellerId === "string" ? body.storeSellerId : "";
+    const storeId = typeof body.storeId === "string" ? body.storeId : "";
+    const invite = (email: string) => inviteSellerAccount(admin, tenantId, email, body.origin);
+    const resend = (email: string) => resendSellerInvite(admin, tenantId, email, body.origin);
+    const result =
+      action === "seller_list" ? await sellerList(admin, who, tenantId, storeId)
+      : action === "seller_invite" ? await sellerInvite(admin, who, { tenantId, storeSellerId, email: String(body.email ?? ""), origin: body.origin, invite })
+      : action === "seller_link" ? await sellerLink(admin, who, tenantId, storeSellerId)
+      : action === "seller_resend" ? await sellerResend(admin, who, tenantId, storeSellerId, resend)
+      : action === "seller_revoke" ? await sellerRevoke(admin, who, tenantId, storeSellerId)
+      : action === "seller_suspend" ? await sellerSetStatus(admin, who, tenantId, storeSellerId, "SUSPENDED")
+      : action === "seller_reactivate" ? await sellerSetStatus(admin, who, tenantId, storeSellerId, "ACTIVE")
+      : null;
+    if (!result) return fail("invalid_action");
+    return result.ok ? json(result) : fail(String(result.error));
+  }
+
+  if (caller.role === "MANAGER") return json({ error: "forbidden" }, 403);
 
   if (action === "list") {
     const [{ data: rows, error }, { data: storeRows }] = await Promise.all([
