@@ -138,17 +138,12 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
         type="button"
         onClick={toggle}
         aria-expanded={!collapsed}
-        className="flex w-full items-start justify-between gap-3 text-left"
+        className="flex w-full items-center justify-between gap-3 text-left"
       >
-        <div className="min-w-0">
-          <CardTitle>Primeiros passos</CardTitle>
-          <p className="mt-0.5 text-[12px] text-t2">
-            Configure a WeDash para ver custos, margens, metas e premiação corretos.
-          </p>
-        </div>
+        <CardTitle>Primeiros passos</CardTitle>
         <span className="flex shrink-0 items-center gap-2.5">
           <span className="text-[12px] font-semibold text-t1">
-            {doneCount} de {steps.length} concluídos
+            {doneCount} de {steps.length} · {pct}%
           </span>
           <svg
             width="15"
@@ -166,53 +161,49 @@ export function FirstStepsCard({ steps, doneCount, tenantId }: { steps: FirstSte
         </span>
       </button>
 
-      <div className="mt-3 flex items-center gap-3">
-        <div className="flex-1">
-          <ProgressBar value={pct} color="var(--acc)" height={6} />
-        </div>
-        <span className="font-mono text-[13px] font-extrabold text-t0">{pct}%</span>
+      <div className="mt-2.5">
+        <ProgressBar value={pct} color="var(--acc)" height={4} />
       </div>
 
       {!collapsed && (
-        <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2 animate-vela-fade">
+        <div className="mt-1 animate-vela-fade">
           {steps.map((step, idx) => {
             const action = step.done ? null : stepAction(step);
             const proximo = step.id === nextId;
             return (
-              <div
-                key={step.id}
-                className={cn(
-                  "flex flex-col gap-3 rounded-xl border border-line px-4 py-3 sm:flex-row sm:items-center",
-                  proximo && "border-l-[3px] border-l-acc",
-                  step.done && "opacity-60",
-                )}
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold",
-                      step.done ? "border-ok bg-ok text-white" : proximo ? "border-acc text-acc" : "border-line-2 text-t2",
-                    )}
-                  >
-                    {step.done ? <CheckIcon /> : idx + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className={cn("text-[13.5px] font-semibold", step.done ? "text-t2 line-through" : "text-t0")}>
-                      {step.title}
+              <div key={step.id} className={cn("flex items-center gap-2.5 py-1.5", step.done && "opacity-55")}>
+                <span
+                  className={cn(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 text-[9px] font-bold",
+                    step.done ? "border-ok bg-ok text-white" : proximo ? "border-acc text-acc" : "border-line-2 text-t2",
+                  )}
+                >
+                  {step.done ? <CheckIcon /> : idx + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={cn("truncate text-[13px] font-semibold", step.done ? "text-t2 line-through" : "text-t0")}>
+                    {step.title}
+                  </p>
+                  {proximo && (
+                    <p className="text-[12px] leading-snug text-t2">
+                      {step.description}
+                      {step.detail ? <span className="font-semibold text-warn"> · {step.detail}</span> : null}
                     </p>
-                    <p className="mt-0.5 text-[12px] leading-snug text-t2">{step.description}</p>
-                    {step.detail && <p className="mt-1 text-[11.5px] font-semibold text-warn">{step.detail}</p>}
-                  </div>
+                  )}
                 </div>
-                {action && (
-                  <Button
-                    size="sm"
-                    variant={proximo ? "primary" : "secondary"}
-                    className="shrink-0 self-start sm:self-center"
-                    onClick={() => navigate(action.to)}
-                  >
+                {proximo && action && (
+                  <Button size="sm" className="shrink-0" onClick={() => navigate(action.to)}>
                     {action.label}
                   </Button>
+                )}
+                {!proximo && action && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(action.to)}
+                    className="shrink-0 text-[12px] font-semibold text-t2 hover:text-acc"
+                  >
+                    {action.label}
+                  </button>
                 )}
               </div>
             );
