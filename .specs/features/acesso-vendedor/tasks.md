@@ -364,9 +364,11 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Fails listing every table that returns rows
+- [x] Fails listing every table that returns rows
 - [ ] Runs green after an approved `db push` + Edge deploy (blocked until then; ask before pushing)
 - [ ] Gate passes: full
+
+**Status**: ⏳ pending integration gate (needs approved db push + deploy)
 
 **Tests**: integration
 **Gate**: full
@@ -384,8 +386,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Failure only logs a warning (team sync continues)
-- [ ] Gate passes: build
+- [x] Failure only logs a warning (team sync continues)
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
@@ -403,8 +405,8 @@ T29 → T30
 
 **Done when**:
 
-- [ ] Failure only logs a warning
-- [ ] Gate passes: build
+- [x] Failure only logs a warning
+- [x] Gate passes: build
 
 **Tests**: none
 **Gate**: build
