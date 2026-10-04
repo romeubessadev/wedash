@@ -130,6 +130,16 @@
   #root {
     height: 100%;
   }
+  /* No celular, 100% segue a viewport clássica e deixa uma faixa no rodapé.
+     100dvh ocupa a tela visível. No app instalado, o iOS ainda precisa de
+     -webkit-fill-available para chegar até a borda. */
+  @supports (height: 100dvh) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+    }
+  }
 
   /* Nenhuma tela rola na horizontal: conteúdo largo rola dentro do próprio bloco. */
   html,
@@ -165,15 +175,27 @@
     }
   }
 
-  /* Altura de tela cheia com reserva: 100vh vale em qualquer navegador e
-     100dvh assume onde existir, descontando as barras do sistema. Usar as
-     duas em classes separadas dependeria da ordem do arquivo gerado. */
+  /* Altura da tela visível. No PWA, 100vh deixa uma faixa no rodapé
+     (a viewport clássica conta a barra que o app instalado não tem). */
   .tela-cheia {
     min-height: 100vh;
+    height: 100%;
   }
-  @supports (min-height: 100dvh) {
+  @supports (height: 100dvh) {
     .tela-cheia {
+      height: 100dvh;
       min-height: 100dvh;
+    }
+  }
+  @media (display-mode: standalone) {
+    @supports (height: -webkit-fill-available) {
+      html,
+      body,
+      #root,
+      .tela-cheia {
+        height: -webkit-fill-available;
+        min-height: -webkit-fill-available;
+      }
     }
   }
 
@@ -480,6 +502,7 @@ input[type="range"]::-moz-range-thumb {
     print-color-adjust: exact;
   }
   .tela-cheia {
+    height: auto !important;
     min-height: 0 !important;
   }
   .vela-page-enter,

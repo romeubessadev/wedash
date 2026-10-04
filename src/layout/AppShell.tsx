@@ -84,13 +84,13 @@ export function AppShell() {
         <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col print:block">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col print:block">
         <div className="contents print:hidden">
-          <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} onOpenPalette={() => setPaletteOpen(true)} />
+          <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} />
         </div>
-        <main ref={mainRef} className="pad-base flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-5 sm:px-6 sm:pt-6 print:overflow-visible print:p-0" style={padBase("6rem")}>
+        <main ref={mainRef} className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-3.5 pt-5 sm:px-6 sm:pt-6 print:overflow-visible print:p-0">
           <Suspense fallback={<PageLoader />}>
-            <div key={location.pathname} className="vela-page-enter">
+            <div key={location.pathname} className="pad-base vela-page-enter print:pb-0" style={padBase("0px")}>
               <Outlet />
             </div>
           </Suspense>

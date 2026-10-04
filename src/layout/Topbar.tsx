@@ -43,7 +43,7 @@ function quando(d: Date): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; collapsed: boolean; onToggleCollapse: () => void; onOpenPalette: () => void }) {
+export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse }: { onOpenMobileNav: () => void; collapsed: boolean; onToggleCollapse: () => void }) {
   const session = useActiveSession();
   const { signOut } = useSession();
   const navigate = useNavigate();
@@ -147,19 +147,10 @@ export function Topbar({ onOpenMobileNav, collapsed, onToggleCollapse, onOpenPal
         </svg>
       </button>
 
-      {mostraStorePicker ? (
+      {mostraStorePicker && (
         <div className="min-w-0 flex-1 sm:max-w-sm">
           <StorePicker escopo={escopo} onChange={mudar} minhas={listaLojas} />
         </div>
-      ) : (
-        <button onClick={onOpenPalette} className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[11px] border border-line bg-bg-inset px-3 text-t1 sm:max-w-xs">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <span className="hidden truncate text-[12.5px] sm:inline">Buscar na WeDash…</span>
-          <span className="ml-auto hidden shrink-0 rounded-md border border-line-2 px-1.5 py-0.5 text-[10px] font-bold text-t2 sm:inline">Ctrl K</span>
-        </button>
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">

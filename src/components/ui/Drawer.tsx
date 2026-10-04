@@ -18,7 +18,7 @@ export function Drawer({ open, onClose, children, side = "left", width = "280px"
       <div className="absolute inset-0 bg-black/60 animate-vela-fade" onClick={onClose} />
       <div
         className={cn(
-          "absolute top-0 h-full bg-bg-1 shadow-[var(--shadow-vela)] animate-vela-pop",
+          "absolute inset-y-0 bg-bg-1 shadow-[var(--shadow-vela)] animate-vela-pop",
           side === "left" ? "left-0" : "right-0",
         )}
         style={{ width, maxWidth: "85vw" }}
