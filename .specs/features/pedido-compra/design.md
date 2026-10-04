@@ -123,7 +123,7 @@ Fluxo ao abrir: lê o saldo guardado + mínimos + vendidos 30 dias → mostra �
 ### `PurchaseOrderPage`
 
 - **Location**: `src/pages/stock/PurchaseOrderPage.tsx` (substitui o cabeçalho em branco).
-- **Layout**: `SectionHeader` (Estoque › Pedido de compra) · filtros: Loja (só com > 1 loja no escopo), Busca, Filtro (Todos os produtos · Vai para o pedido (N) · Sem mínimo (N) · Novos (N)), Multiplicador (1x–5x), botão primário **Gerar pedido** · linha "Saldo buscado às HH:MM" · avisos (`ErpStatusNotice dado="estoque"`, alerta de saldo velho) · Card **Produtos** com resumo "N produtos · N itens no pedido" · tabela: # · Produto (`ProductNameCell` + selo Novo / aviso de variantes) · Mínimo (input) · Saldo · Pedidos em aberto · Total · Vendidos 30 dias · Múltipla · A pedir · linha Total do filtro · paginação.
+- **Layout**: `SectionHeader` (Estoque › Pedido de compra) · filtros: Loja (só com > 1 loja no escopo), Busca, Filtro (Todos os produtos · Vai para o pedido (N) · Sem mínimo (N) · Novos (N)), Multiplicador (1x–5x), botão primário **Gerar pedido** · linha "Saldo buscado às HH:MM" · avisos (`ErpStatusNotice dado="estoque"`, alerta de saldo velho) · Card **Produtos** com resumo "N produtos · N itens no pedido" · tabela: # · Produto (`ProductNameCell` + aviso de variantes) · Mínimo (input) · Saldo · Pedidos em aberto · Total · Vendidos 30 dias · Múltipla · Novo (Sim/Não) · A pedir · linha Total do filtro · paginação.
 - **Mínimo**: `Input` numérico 80px; grava no blur/Enter; Enter pula para o mínimo da linha de baixo.
 - **Destaque**: linha com fundo `bg-warn-soft` (token de alerta do Vela) + borda esquerda amarela, igual à marca de linha do Estoque.
 

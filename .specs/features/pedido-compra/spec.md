@@ -41,7 +41,7 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 | Destaque da linha | Linha destacada = produto que vai entrar no pedido com o multiplicador atual (Total < mínimo × multiplicador) | Tela e arquivo sempre concordam | n |
 | Produtos listados | Só os elegíveis: código sem `WP`, não bloqueado para compra, múltipla > 0 | Mesmo filtro da planilha (`linhaElegivel`) | n |
 | Produto com mais de uma variante elegível (cor/estampa/tamanho) | Aparece na lista, mas fica fora do arquivo, com aviso para pedir direto no Millennium | Hoje só 2 produtos têm variantes e os dois estão bloqueados; a planilha repetia a quantidade inteira em cada variante | n |
-| Novo | Selo "Novo" quando a data de cadastro do Millennium está entre hoje e 29 dias atrás; não muda a quantidade | Mesma regra da planilha (`NOVO_DIAS = 30`); a data já vem no relatório | n |
+| Novo | Coluna "Novo" (Sim/Não) — Sim quando a data de cadastro do Millennium está entre hoje e 29 dias atrás; não muda a quantidade | Mesma regra da planilha (`NOVO_DIAS = 30`); a data já vem no relatório | n |
 | Ordem das linhas no arquivo | Ordem em que o relatório devolve os produtos | Igual à planilha | n |
 | Código numérico no arquivo | `COD_PRODUTO` só com dígitos e sem zero à esquerda vai como número; o resto como texto; `Cod_Cor`/`Cod_Estampa`/`Tamanho` sempre texto | Igual ao exemplo (linha 192: `526` numérico; cor `000` em texto) | n |
 | Data/hora do nome do arquivo | Horário do aparelho de quem gera | Planilha usava o horário de Brasília; diferença só no nome | n |
@@ -66,7 +66,7 @@ O franqueado monta o pedido de compra de cada loja numa planilha Google com Apps
 
 1. WHEN o usuário abre Estoque > Pedido de compra com uma loja escolhida THEN a tela SHALL listar os produtos elegíveis da loja (código sem `WP`, não bloqueado para compra, múltipla > 0) do último saldo buscado.
 2. The tela SHALL mostrar em cada linha: produto (nome + código), Mínimo, Saldo, Pedidos em aberto, Total em estoque, Vendidos em 30 dias, Múltipla e A pedir.
-3. WHEN a data de cadastro do produto está entre hoje e 29 dias atrás THEN a linha SHALL mostrar o selo "Novo".
+3. WHEN a data de cadastro do produto está entre hoje e 29 dias atrás THEN a coluna "Novo" da linha SHALL mostrar "Sim"; senão SHALL mostrar "Não". O filtro "Novos (N)" SHALL aparecer sempre, mesmo com N = 0.
 4. WHEN Total em estoque (negativo conta como 0) é menor que mínimo × multiplicador e o mínimo é maior que 0 THEN a linha SHALL ficar destacada e a coluna A pedir SHALL mostrar a quantidade da regra PC-09.
 5. IF o mínimo está vazio ou é 0 THEN a coluna A pedir SHALL mostrar "—" e a linha SHALL não ficar destacada.
 6. WHILE o seletor do topo está em "Todas as lojas" e o usuário tem mais de 1 loja, a tela SHALL mostrar o filtro Loja, com a 1ª loja da lista escolhida por padrão.

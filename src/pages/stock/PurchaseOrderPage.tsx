@@ -25,7 +25,7 @@ import { usePurchaseOrder } from "./usePurchaseOrder";
 
 const PAGE_SIZE = 50;
 
-type SortKey = "nome" | "minimo" | "saldo" | "pedidosAbertos" | "total" | "vendidos30" | "multipla" | "aPedir";
+type SortKey = "nome" | "minimo" | "saldo" | "pedidosAbertos" | "total" | "vendidos30" | "multipla" | "novo" | "aPedir";
 
 const NUM_COLS: Array<{ key: "saldo" | "pedidosAbertos" | "total" | "vendidos30" | "multipla"; label: string }> = [
   { key: "saldo", label: "Saldo" },
@@ -38,6 +38,7 @@ const NUM_COLS: Array<{ key: "saldo" | "pedidosAbertos" | "total" | "vendidos30"
 function sortValue(r: PurchaseOrderRow, k: Exclude<SortKey, "nome">): number {
   if (k === "minimo") return r.minimo ?? -1;
   if (k === "aPedir") return r.aPedir ?? -1;
+  if (k === "novo") return r.novo ? 1 : 0;
   return r[k];
 }
 
@@ -72,9 +73,9 @@ export function PurchaseOrderPage() {
     { value: "todos", label: "Todos os produtos" },
     { value: "pedido", label: `Vai para o pedido (${contagens.noPedido})` },
     { value: "semMinimo", label: `Sem mínimo (${contagens.semMinimo})` },
-    ...(contagens.novos > 0 ? [{ value: "novos" as const, label: `Novos (${contagens.novos})` }] : []),
+    { value: "novos", label: `Novos (${contagens.novos})` },
   ];
-  const filtro = filtroOpcoes.some((o) => o.value === filtroSel) ? filtroSel : "todos";
+  const filtro = filtroSel;
 
   const linhas = useMemo(() => {
     const out = filterPurchaseRows(view?.rows ?? [], { busca, filtro });
@@ -216,7 +217,7 @@ export function PurchaseOrderPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1080px] border-collapse text-sm">
+              <table className="w-full min-w-[1160px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                     <th className="px-1 pb-3 text-left font-bold">#</th>
@@ -225,6 +226,7 @@ export function PurchaseOrderPage() {
                     {NUM_COLS.map((c) => (
                       <ThSort key={c.key} label={c.label} active={sortKey === c.key} dir={sortDir} onClick={() => toggleSort(c.key)} className="px-1 pb-3" />
                     ))}
+                    <ThSort label="Novo" active={sortKey === "novo"} dir={sortDir} onClick={() => toggleSort("novo")} align="center" className="px-1 pb-3" />
                     <ThSort label="A pedir" active={sortKey === "aPedir"} dir={sortDir} onClick={() => toggleSort("aPedir")} className="px-1 pb-3" />
                   </tr>
                 </thead>
@@ -242,10 +244,7 @@ export function PurchaseOrderPage() {
                             upper
                             sub={
                               <div className="min-w-0">
-                                <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-t2">
-                                  <span className="truncate uppercase">{[r.code, categoria].filter(Boolean).join(" · ")}</span>
-                                  {r.novo && <Badge variant="accent">Novo</Badge>}
-                                </p>
+                                <p className="truncate text-[11px] uppercase text-t2">{[r.code, categoria].filter(Boolean).join(" · ")}</p>
                                 {r.variasVariantes && <p className="mt-0.5 text-[11px] font-semibold text-warn">Mais de uma cor ou tamanho: peça direto no Millennium</p>}
                               </div>
                             }
@@ -259,6 +258,9 @@ export function PurchaseOrderPage() {
                             <Qty v={r[c.key]} />
                           </td>
                         ))}
+                        <td className="px-1 py-3 text-center">
+                          {r.novo ? <Badge variant="accent">Sim</Badge> : <span className="text-[13px] font-semibold text-t2">Não</span>}
+                        </td>
                         <td className="px-1 py-3 text-right">
                           {r.aPedir == null ? <span className="font-mono text-[13px] font-bold text-t2">—</span> : <Qty v={r.aPedir} strong={r.aPedir > 0} />}
                         </td>
@@ -289,6 +291,7 @@ export function PurchaseOrderPage() {
                     <td className="px-1 py-3 text-right">
                       <Qty v={totais.vendidos30} total />
                     </td>
+                    <td />
                     <td />
                     <td className="px-1 py-3 text-right">
                       <Qty v={totais.aPedir} total />
